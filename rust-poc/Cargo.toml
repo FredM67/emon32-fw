@@ -1,0 +1,56 @@
+[package]
+name = "emon32-rust-poc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Core embedded dependencies
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+embedded-hal = "1.0"
+nb = "1.0"
+
+# RTIC for real-time concurrency
+rtic = { version = "2.1", features = ["thumbv6-backend"] }
+
+# SAMD21 specific dependencies  
+atsamd-hal = { version = "0.16", features = ["samd21j", "unproven"] }
+atsamd21j = { version = "0.12", features = ["rt"] }
+
+# Math and data structures for no_std
+micromath = "2.0"
+heapless = "0.8"
+
+# Atomic operations support for Cortex-M0+
+portable-atomic = { version = "1.0", features = ["unsafe-assume-single-core"] }
+
+# Optional: for panic handling
+panic-halt = "0.2"
+
+# Optional: for RTT debugging (alternative to UART)
+rtt-target = { version = "0.4", optional = true }
+
+[features]
+default = []
+rtt = ["rtt-target"]
+
+[[bin]]
+name = "emon32-poc"
+path = "src/main.rs"
+
+[[bin]]
+name = "emon32-rtic"
+path = "src/main_rtic_simple.rs"
+
+[lib]
+name = "emon32_rust_poc"
+path = "src/lib.rs"
+
+[profile.dev]
+debug = true
+lto = false
+
+[profile.release]
+debug = true
+lto = true
+opt-level = "s"  # Optimize for size
