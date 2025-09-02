@@ -74,7 +74,7 @@ pub extern "C" fn main() -> ! {
     
     // Show accumulated energy (validation only)
     let energy_totals = calc.get_energy_totals();
-    for (ct, &energy) in energy_totals.iter().enumerate() {
+    for (_ct, &energy) in energy_totals.iter().enumerate() {
         if energy > 0.0 {
             // Energy should be positive and reasonable
             assert!(energy >= 0.0);

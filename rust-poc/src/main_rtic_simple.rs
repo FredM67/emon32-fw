@@ -4,13 +4,14 @@
 #![no_std]
 #![no_main]
 
+#[cfg(target_arch = "arm")]
 use panic_halt as _;
 
 // Use the PAC directly instead of HAL for RTIC
 #[rtic::app(device = atsamd21j, dispatchers = [EVSYS, RTC, WDT])]
 mod app {
     use atsamd_hal::{
-        clock::GenericClockController,
+        // clock::GenericClockController, // Not used in simple example
         gpio::{Pins, Pin, PushPullOutput, PA27},
         prelude::*,
     };
@@ -37,16 +38,10 @@ mod app {
 
     #[init]
     fn init(ctx: init::Context) -> (Shared, Local) {
-        let mut peripherals = ctx.device;
-        let pins = Pins::new(peripherals.PORT);
+        let peripherals = ctx.device;
+        let pins = Pins::new(peripherals.port);
 
-        // Basic clock configuration
-        let mut clocks = GenericClockController::with_external_32kosc(
-            peripherals.GCLK,
-            &mut peripherals.PM,
-            &mut peripherals.SYSCTRL,
-            &mut peripherals.NVMCTRL,
-        );
+                // Basic clock configuration\n        let _clocks = GenericClockController::with_external_32kosc(\n            peripherals.gclk,\n            &mut peripherals.pm,\n            &mut peripherals.sysctrl,\n            &mut peripherals.nvmctrl,\n        );
 
         // LED for status indication
         let led: LedPin = pins.pa27.into_push_pull_output();
@@ -156,7 +151,7 @@ mod app {
         ctx.local.led.toggle().ok();
 
         // Check system health
-        let count = ctx.shared.sample_count.lock(|c| *c);
+        let _count = ctx.shared.sample_count.lock(|c| *c);
         
         // Simple delay for heartbeat
         for _ in 0..1000000 {

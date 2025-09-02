@@ -1,6 +1,7 @@
 pub mod pins;
 
-pub use pins::*;
+// Note: pins::* not used in current POC implementation
+// pub use pins::*;
 
 // Board configuration constants matching the C version
 pub const F_CORE: u32 = 48_000_000;

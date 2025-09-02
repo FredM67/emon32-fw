@@ -5,30 +5,32 @@ edition = "2021"
 
 [dependencies]
 # Core embedded dependencies
-cortex-m = "0.7"
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7"
 embedded-hal = "1.0"
 nb = "1.0"
 
 # RTIC for real-time concurrency
-rtic = { version = "2.1", features = ["thumbv6-backend"] }
+rtic = { version = "2.2", features = ["thumbv6-backend"] }
 
 # SAMD21 specific dependencies  
-atsamd-hal = { version = "0.16", features = ["samd21j", "unproven"] }
-atsamd21j = { version = "0.12", features = ["rt"] }
+atsamd-hal = { version = "0.22", features = ["samd21j"] }
+atsamd21j = { version = "0.14", features = ["rt"] }
 
 # Math and data structures for no_std
-micromath = "2.0"
-heapless = "0.8"
+micromath = "2.1"
+heapless = "0.9"
 
-# Atomic operations support for Cortex-M0+
+# Optional: for panic handling on embedded targets only
+[target.'cfg(target_arch = "arm")'.dependencies]
 portable-atomic = { version = "1.0", features = ["unsafe-assume-single-core"] }
+panic-halt = "1.0"
 
-# Optional: for panic handling
-panic-halt = "0.2"
+[target.'cfg(not(target_arch = "arm"))'.dependencies]  
+portable-atomic = "1.0"
 
 # Optional: for RTT debugging (alternative to UART)
-rtt-target = { version = "0.4", optional = true }
+rtt-target = { version = "0.6", optional = true }
 
 [features]
 default = []

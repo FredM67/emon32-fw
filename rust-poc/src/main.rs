@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+#[cfg(target_arch = "arm")]
 use panic_halt as _; // Panic handler
 
 // Import required crates
@@ -35,7 +36,7 @@ fn main() -> ! {
         
         // Process samples with energy calculator
         let timestamp_ms = sample_counter * 100; // Simulate 100ms intervals
-        if let Some(power_data) = energy_calc.process_samples(&samples, timestamp_ms) {
+        if let Some(_power_data) = energy_calc.process_samples(&samples, timestamp_ms) {
             // In a real implementation, this would be sent via UART
             // For POC, we just continue processing
         }

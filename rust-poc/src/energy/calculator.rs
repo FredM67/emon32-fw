@@ -1,5 +1,5 @@
 use micromath::F32Ext;
-use crate::board::{NUM_V, NUM_CT, ADC_VREF, ADC_RES_BITS, CAL_V, CAL_CT, SAMPLE_RATE};
+use crate::board::{NUM_V, NUM_CT, ADC_VREF, ADC_RES_BITS, CAL_V, CAL_CT};
 use super::{PowerData, SampleBuffer};
 
 /// Energy calculation engine

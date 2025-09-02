@@ -2,6 +2,7 @@
 #![no_std]
 #![no_main]
 
+#[cfg(target_arch = "arm")]
 use panic_halt as _; // Panic handler
 
 // Import required crates
@@ -66,14 +67,14 @@ impl DebugPins {
 fn main() -> ! {
     // Initialize hardware
     let mut peripherals = Peripherals::take().unwrap();
-    let pins = Pins::new(peripherals.PORT);
+    let pins = Pins::new(peripherals.port);
     
     // Initialize clocks (basic setup)
     let _clocks = GenericClockController::with_external_32kosc(
-        peripherals.GCLK,
-        &mut peripherals.PM,
-        &mut peripherals.SYSCTRL,
-        &mut peripherals.NVMCTRL,
+        peripherals.gclk,
+        &mut peripherals.pm,
+        &mut peripherals.sysctrl,
+        &mut peripherals.nvmctrl,
     );
     
     // Setup debug pins for oscilloscope

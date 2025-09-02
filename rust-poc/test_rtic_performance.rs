@@ -475,12 +475,12 @@ fn main() {
     
     let mut all_passed = true;
     
-    let tests = [
-        ("Task Priority Enforcement", test_task_priorities),
-        ("Resource Sharing & Deadlock Prevention", test_resource_sharing),
-        ("Interrupt Response Simulation", test_interrupt_response),
-        ("CPU and Memory Efficiency", test_efficiency),
-        ("Stress Testing Under Load", test_stress_conditions),
+    let tests: [(&str, fn() -> Result<(), String>); 5] = [
+        ("Task Priority Enforcement", test_task_priorities as fn() -> Result<(), String>),
+        ("Resource Sharing & Deadlock Prevention", test_resource_sharing as fn() -> Result<(), String>),
+        ("Interrupt Response Simulation", test_interrupt_response as fn() -> Result<(), String>),
+        ("CPU and Memory Efficiency", test_efficiency as fn() -> Result<(), String>),
+        ("Stress Testing Under Load", test_stress_conditions as fn() -> Result<(), String>),
     ];
     
     for (test_name, test_fn) in tests.iter() {

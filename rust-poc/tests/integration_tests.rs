@@ -1,5 +1,6 @@
 // Integration tests for energy calculations
-// These tests can run on the host machine
+// These tests can only run on the host machine with std
+#![cfg(not(target_arch = "arm"))]
 
 #[cfg(test)]
 mod tests {

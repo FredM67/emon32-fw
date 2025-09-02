@@ -2,6 +2,7 @@
 #![no_std]
 #![no_main]
 
+#[cfg(target_arch = "arm")]
 use panic_halt as _;
 
 #[rtic::app(device = atsamd21j, dispatchers = [EVSYS, RTC, WDT])]
@@ -41,14 +42,14 @@ mod app {
     #[init]
     fn init(ctx: init::Context) -> (Shared, Local) {
         let mut peripherals = ctx.device;
-        let pins = Pins::new(peripherals.PORT);
+        let pins = Pins::new(peripherals.port);
 
         // Basic clock configuration
-        let mut clocks = GenericClockController::with_external_32kosc(
-            peripherals.GCLK,
-            &mut peripherals.PM,
-            &mut peripherals.SYSCTRL,
-            &mut peripherals.NVMCTRL,
+        let _clocks = GenericClockController::with_external_32kosc(
+            peripherals.gclk,
+            &mut peripherals.pm,
+            &mut peripherals.sysctrl,
+            &mut peripherals.nvmctrl,
         );
 
         // LED for status indication (Arduino Zero onboard LED)
