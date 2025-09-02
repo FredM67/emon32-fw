@@ -42,6 +42,15 @@ path = "src/main.rs"
 name = "emon32-rtic"
 path = "src/main_rtic_simple.rs"
 
+# Debug versions with oscilloscope support
+[[bin]]
+name = "emon32-debug"
+path = "src/main_debug.rs"
+
+[[bin]]
+name = "emon32-rtic-debug"
+path = "src/main_rtic_debug.rs"
+
 [lib]
 name = "emon32_rust_poc"
 path = "src/lib.rs"
