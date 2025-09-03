@@ -5,6 +5,7 @@ edition = "2021"
 
 [build-dependencies]
 cc = "1.0"
+which = "4.4"
 
 [dependencies]
 # Core embedded dependencies
@@ -62,6 +63,12 @@ path = "src/main_rtic_debug.rs"
 name = "emon32-performance"
 path = "src/main_performance_test_simple.rs"
 required-features = ["rtt"]
+
+# qfplib performance comparison binary (ARM only)
+[[bin]]
+name = "emon32-qfplib-performance"
+path = "src/main_qfplib_performance.rs"
+required-features = ["rtt", "qfplib"]
 
 [lib]
 name = "emon32_rust_poc"
