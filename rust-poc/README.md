@@ -2,6 +2,8 @@
 
 This is a proof-of-concept implementation of the emon32 energy monitoring firmware in Rust.
 
+> **🎯 Project Status**: See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for complete overview and current status.
+
 ## Features
 
 - Real-time ADC sampling with timer interrupts
@@ -37,11 +39,48 @@ cargo objcopy --release -- -O binary target/thumbv6m-none-eabi/release/emon32-po
 
 ## Flashing
 
-The binary can be flashed using the UF2 bootloader (same as the C version):
+For detailed upload instructions, see [**📦 FIRMWARE_UPLOAD_GUIDE.md**](FIRMWARE_UPLOAD_GUIDE.md)
 
-1. Double-press the RESET button to enter bootloader mode
-2. Copy the .bin file to the EMONBOOT drive
-3. The device will reset and run the Rust firmware
+### Quick Start (Arduino Zero)
+
+> ⚠️ **Arduino Zero Users**: Standard Arduino Zero boards do NOT have UF2 bootloader!
+> If double-pressing RESET doesn't show `EMONBOOT` drive, see Method 2 in the upload guide.
+
+```bash
+# Build firmware
+./build_debug.sh
+
+# Option A: UF2 (if UF2 bootloader installed)
+# Double-press RESET, drag target/emon32-debug.uf2 to EMONBOOT drive
+
+# Option B: Standard Arduino (most Arduino Zero boards)
+# See FIRMWARE_UPLOAD_GUIDE.md Method 2 for Arduino IDE upload
+```
+
+### UF2 Bootloader Method (emonPi3 Hardware)
+
+> ⚠️ **Arduino Zero Users**: This method only works if you have UF2 bootloader installed!
+> Standard Arduino Zero boards ship with different bootloader - see upload guide Method 2.
+
+The firmware uses the same UF2 bootloader system as the original emonPi3 C firmware:
+
+1. **Enter bootloader**: Double-press the RESET button quickly
+2. **Upload firmware**: Copy/drag the `.uf2` file to the `EMONBOOT` drive  
+3. **Auto-reset**: Device automatically resets and runs the new firmware
+
+The build scripts automatically generate both `.bin` and `.uf2` files for convenience.
+
+### Standard Arduino Zero Upload
+
+For standard Arduino Zero boards (most common), use Arduino IDE or avrdude:
+
+```bash
+# Convert to .hex format
+arm-none-eabi-objcopy -I binary -O ihex --change-addresses 0x2000 \
+  target/emon32-debug.bin target/emon32-debug.hex
+
+# Upload via Arduino IDE or avrdude (see upload guide for details)
+```
 
 ## Serial Output
 

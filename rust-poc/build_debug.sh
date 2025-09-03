@@ -22,8 +22,15 @@ echo "📦 Generating debug firmware binaries..."
 cargo objcopy --release --bin emon32-debug -- -O binary target/emon32-debug.bin
 cargo objcopy --release --bin emon32-rtic-debug -- -O binary target/emon32-rtic-debug.bin
 
+# Generate UF2 files for easy drag-and-drop uploading
+echo "🔄 Converting to UF2 format for Arduino Zero..."
+python3 ../scripts/bin_to_uf2.py target/emon32-debug.bin target/emon32-debug.uf2 --base 0x2000 --family SAMD21 --linker ../linker/samd21j17.ld
+python3 ../scripts/bin_to_uf2.py target/emon32-rtic-debug.bin target/emon32-rtic-debug.uf2 --base 0x2000 --family SAMD21 --linker ../linker/samd21j17.ld
+
 echo "📊 Binary sizes:"
 ls -lh target/emon32-debug.bin target/emon32-rtic-debug.bin
+echo "📊 UF2 file sizes:"  
+ls -lh target/emon32-debug.uf2 target/emon32-rtic-debug.uf2
 
 echo ""
 echo "✅ DEBUG FIRMWARE READY FOR ARDUINO ZERO OSCILLOSCOPE VALIDATION!"

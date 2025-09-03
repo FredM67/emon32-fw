@@ -1,5 +1,7 @@
 # Oscilloscope Validation Guide - Siglent SDS1202X-E
 
+> **Prerequisites**: This guide assumes you have already uploaded the debug firmware to your Arduino Zero. See [FIRMWARE_UPLOAD_GUIDE.md](./FIRMWARE_UPLOAD_GUIDE.md) for detailed upload instructions.
+
 ## 🔬 **Hardware Setup for Validation**
 
 ### **Test Points on emon32 Board**

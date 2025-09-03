@@ -1,5 +1,7 @@
 # 🔬 Complete Oscilloscope Validation with Siglent SDS1202X-E
 
+> **Prerequisites**: This guide assumes you have already uploaded the debug firmware to your Arduino Zero. See [FIRMWARE_UPLOAD_GUIDE.md](./FIRMWARE_UPLOAD_GUIDE.md) for detailed upload instructions.
+
 ## ✅ **Ready for Hardware Validation!**
 
 I've created **complete oscilloscope validation firmware** specifically designed for your **Siglent SDS1202X-E** (200MHz, 2-channel scope).

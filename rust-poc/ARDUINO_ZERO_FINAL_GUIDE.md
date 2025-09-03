@@ -1,5 +1,7 @@
 # 🔬 **ARDUINO ZERO OSCILLOSCOPE VALIDATION - FINAL GUIDE**
 
+> **Prerequisites**: This guide assumes you have already uploaded the debug firmware to your Arduino Zero. See [FIRMWARE_UPLOAD_GUIDE.md](./FIRMWARE_UPLOAD_GUIDE.md) for detailed upload instructions.
+
 ## ✅ **Perfect! Your Siglent SDS1202X-E Setup is Ready for Arduino Zero!**
 
 I've **updated the firmware** specifically for your **Arduino Zero (ABX00003)** board limitations and created **complete oscilloscope validation** with your **Siglent SDS1202X-E**.
