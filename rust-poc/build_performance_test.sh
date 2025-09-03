@@ -21,8 +21,8 @@ echo "Building standard Rust math version..."
 cargo build --bin emon32-performance --features rtt --release
 
 if [ $? -eq 0 ]; then
-    cp target/thumbv6m-none-eabi/release/emon32-performance emon32-performance-standard.elf
-    arm-none-eabi-objcopy -O binary emon32-performance-standard.elf emon32-performance-standard.bin
+    cp target/thumbv6m-none-eabi/release/emon32-performance bin/emon32-performance-standard.elf
+    arm-none-eabi-objcopy -O binary bin/emon32-performance-standard.elf bin/emon32-performance-standard.bin
     echo "✓ Standard version built successfully"
 else
     echo "✗ Standard version build failed"
@@ -38,20 +38,20 @@ set +e  # Allow this to fail
 cargo build --bin emon32-performance --features "rtt,qfplib" --release
 
 if [ $? -eq 0 ]; then
-    cp target/thumbv6m-none-eabi/release/emon32-performance emon32-performance-qfplib.elf
-    arm-none-eabi-objcopy -O binary emon32-performance-qfplib.elf emon32-performance-qfplib.bin
+    cp target/thumbv6m-none-eabi/release/emon32-performance bin/emon32-performance-qfplib.elf
+    arm-none-eabi-objcopy -O binary bin/emon32-performance-qfplib.elf bin/emon32-performance-qfplib.bin
     echo "✓ qfplib version built successfully"
     
     # Generate UF2 files for easy upload
     echo "Converting to UF2 format..."
-    python3 ../scripts/bin_to_uf2.py emon32-performance-standard.bin emon32-performance-standard.uf2 --linker ../linker/samd21j17.ld
-    python3 ../scripts/bin_to_uf2.py emon32-performance-qfplib.bin emon32-performance-qfplib.uf2 --linker ../linker/samd21j17.ld
+    python3 ../scripts/bin_to_uf2.py bin/emon32-performance-standard.bin bin/emon32-performance-standard.uf2 --linker ../linker/samd21j17.ld
+    python3 ../scripts/bin_to_uf2.py bin/emon32-performance-qfplib.bin bin/emon32-performance-qfplib.uf2 --linker ../linker/samd21j17.ld
     
     # Show file sizes
     echo ""
     echo "Build Results:"
     echo "=============="
-    ls -la emon32-performance-*.bin emon32-performance-*.uf2 2>/dev/null || true
+    ls -la bin/emon32-performance-*.bin bin/emon32-performance-*.uf2 2>/dev/null || true
     
     echo ""
     echo "✓ Both firmware versions ready for ARM performance testing!"
@@ -77,11 +77,11 @@ else
     
     # Generate UF2 for standard version only
     echo "Converting standard version to UF2 format..."
-    python3 ../scripts/bin_to_uf2.py emon32-performance-standard.bin emon32-performance-standard.uf2 --linker ../linker/samd21j17.ld
+    python3 ../scripts/bin_to_uf2.py bin/emon32-performance-standard.bin bin/emon32-performance-standard.uf2 --linker ../linker/samd21j17.ld
     
     echo ""
     echo "Standard version ready for testing:"
-    ls -la emon32-performance-standard.* 2>/dev/null || true
+    ls -la bin/emon32-performance-standard.* 2>/dev/null || true
     echo ""
     echo "To complete qfplib integration:"
     echo "1. Ensure qfplib assembly files are in third_party/qfplib/"

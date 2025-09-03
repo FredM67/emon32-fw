@@ -65,40 +65,40 @@ echo -e "${BLUE}Converting to binary format...${NC}"
 
 # Main POC binary
 if [ -f "$TARGET_DIR/emon32-poc" ]; then
-    arm-none-eabi-objcopy -O binary "$TARGET_DIR/emon32-poc" "emon32-poc-qfplib.bin"
-    echo -e "${GREEN}Created: emon32-poc-qfplib.bin${NC}"
+    arm-none-eabi-objcopy -O binary "$TARGET_DIR/emon32-poc" "bin/emon32-poc-qfplib.bin"
+    echo -e "${GREEN}Created: bin/emon32-poc-qfplib.bin${NC}"
     
     # Create UF2 file
-    python3 ../scripts/bin_to_uf2.py --linker ../linker/samd21j17.ld "emon32-poc-qfplib.bin" "emon32-poc-qfplib.uf2"
-    echo -e "${GREEN}Created: emon32-poc-qfplib.uf2${NC}"
+    python3 ../scripts/bin_to_uf2.py --linker ../linker/samd21j17.ld "bin/emon32-poc-qfplib.bin" "bin/emon32-poc-qfplib.uf2"
+    echo -e "${GREEN}Created: bin/emon32-poc-qfplib.uf2${NC}"
 fi
 
 # qfplib performance test binary
 if [ -f "$TARGET_DIR/emon32-qfplib-performance" ]; then
-    arm-none-eabi-objcopy -O binary "$TARGET_DIR/emon32-qfplib-performance" "emon32-qfplib-performance.bin"
-    echo -e "${GREEN}Created: emon32-qfplib-performance.bin${NC}"
+    arm-none-eabi-objcopy -O binary "$TARGET_DIR/emon32-qfplib-performance" "bin/emon32-qfplib-performance.bin"
+    echo -e "${GREEN}Created: bin/emon32-qfplib-performance.bin${NC}"
     
     # Create UF2 file
-    python3 ../scripts/bin_to_uf2.py --linker ../linker/samd21j17.ld "emon32-qfplib-performance.bin" "emon32-qfplib-performance.uf2"
-    echo -e "${GREEN}Created: emon32-qfplib-performance.uf2${NC}"
+    python3 ../scripts/bin_to_uf2.py --linker ../linker/samd21j17.ld "bin/emon32-qfplib-performance.bin" "bin/emon32-qfplib-performance.uf2"
+    echo -e "${GREEN}Created: bin/emon32-qfplib-performance.uf2${NC}"
 fi
 
 # RTIC binary (if it built successfully)
 if [ -f "$TARGET_DIR/emon32-rtic" ]; then
-    arm-none-eabi-objcopy -O binary "$TARGET_DIR/emon32-rtic" "emon32-rtic-qfplib.bin"
-    echo -e "${GREEN}Created: emon32-rtic-qfplib.bin${NC}"
+    arm-none-eabi-objcopy -O binary "$TARGET_DIR/emon32-rtic" "bin/emon32-rtic-qfplib.bin"
+    echo -e "${GREEN}Created: bin/emon32-rtic-qfplib.bin${NC}"
     
     # Create UF2 file
-    python3 ../scripts/bin_to_uf2.py --linker ../linker/samd21j17.ld "emon32-rtic-qfplib.bin" "emon32-rtic-qfplib.uf2"
-    echo -e "${GREEN}Created: emon32-rtic-qfplib.uf2${NC}"
+    python3 ../scripts/bin_to_uf2.py --linker ../linker/samd21j17.ld "bin/emon32-rtic-qfplib.bin" "bin/emon32-rtic-qfplib.uf2"
+    echo -e "${GREEN}Created: bin/emon32-rtic-qfplib.uf2${NC}"
 fi
 
 echo ""
 echo -e "${GREEN}qfplib build complete!${NC}"
 echo ""
 echo "Built firmware files:"
-echo "  • emon32-poc-qfplib.uf2 - Main POC with qfplib optimization"
-echo "  • emon32-qfplib-performance.uf2 - Performance comparison test"
+echo "  • bin/emon32-poc-qfplib.uf2 - Main POC with qfplib optimization"
+echo "  • bin/emon32-qfplib-performance.uf2 - Performance comparison test"
 echo ""
 echo "Flash these to your Arduino Zero to test qfplib performance!"
 echo ""

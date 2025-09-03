@@ -59,30 +59,30 @@ echo -e "${BLUE}Converting to binary format...${NC}"
 
 # Simple UART demo
 if [ -f "$TARGET_DIR/emon32-uart" ]; then
-    arm-none-eabi-objcopy -O binary "$TARGET_DIR/emon32-uart" "emon32-uart-demo.bin"
-    echo -e "${GREEN}Created: emon32-uart-demo.bin${NC}"
+    arm-none-eabi-objcopy -O binary "$TARGET_DIR/emon32-uart" "bin/emon32-uart-demo.bin"
+    echo -e "${GREEN}Created: bin/emon32-uart-demo.bin${NC}"
     
     # Create UF2 file
-    python3 ../scripts/bin_to_uf2.py --linker ../linker/samd21j17.ld "emon32-uart-demo.bin" "emon32-uart-demo.uf2"
-    echo -e "${GREEN}Created: emon32-uart-demo.uf2${NC}"
+    python3 ../scripts/bin_to_uf2.py --linker ../linker/samd21j17.ld "bin/emon32-uart-demo.bin" "bin/emon32-uart-demo.uf2"
+    echo -e "${GREEN}Created: bin/emon32-uart-demo.uf2${NC}"
 fi
 
 # RTIC UART demo
 if [ -f "$TARGET_DIR/emon32-rtic-uart" ]; then
-    arm-none-eabi-objcopy -O binary "$TARGET_DIR/emon32-rtic-uart" "emon32-rtic-uart-demo.bin"
-    echo -e "${GREEN}Created: emon32-rtic-uart-demo.bin${NC}"
+    arm-none-eabi-objcopy -O binary "$TARGET_DIR/emon32-rtic-uart" "bin/emon32-rtic-uart-demo.bin"
+    echo -e "${GREEN}Created: bin/emon32-rtic-uart-demo.bin${NC}"
     
     # Create UF2 file
-    python3 ../scripts/bin_to_uf2.py --linker ../linker/samd21j17.ld "emon32-rtic-uart-demo.bin" "emon32-rtic-uart-demo.uf2"
-    echo -e "${GREEN}Created: emon32-rtic-uart-demo.uf2${NC}"
+    python3 ../scripts/bin_to_uf2.py --linker ../linker/samd21j17.ld "bin/emon32-rtic-uart-demo.bin" "bin/emon32-rtic-uart-demo.uf2"
+    echo -e "${GREEN}Created: bin/emon32-rtic-uart-demo.uf2${NC}"
 fi
 
 echo ""
 echo -e "${GREEN}UART Serial Output Demo Build Complete!${NC}"
 echo ""
 echo "Built firmware files:"
-echo "  • emon32-uart-demo.uf2 - Simple UART serial output demo"
-echo "  • emon32-rtic-uart-demo.uf2 - RTIC-based UART demo"
+echo "  • bin/emon32-uart-demo.uf2 - Simple UART serial output demo"
+echo "  • bin/emon32-rtic-uart-demo.uf2 - RTIC-based UART demo"
 echo ""
 echo "These demonstrate the energy monitoring output format:"
 echo "  \"1000 ms: V1=230.5V P1=150.2W P2=75.1W P3=0.0W\""

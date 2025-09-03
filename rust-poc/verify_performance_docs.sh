@@ -78,8 +78,8 @@ check_file "QFPLIB_INTEGRATION_COMPLETE.md"
 
 echo ""
 echo -e "${BLUE}Checking Performance Test Binaries:${NC}"
-check_file "emon32-performance-standard.uf2"
-check_file "emon32-qfplib-performance.uf2"
+check_file "bin/emon32-performance-standard.uf2"
+check_file "bin/emon32-qfplib-performance.uf2"
 check_file "build_qfplib_performance.sh"
 
 echo ""

@@ -43,7 +43,46 @@ cargo objcopy --release -- -O binary target/thumbv6m-none-eabi/release/emon32-po
 
 For detailed upload instructions, see [**📦 FIRMWARE_UPLOAD_GUIDE.md**](FIRMWARE_UPLOAD_GUIDE.md)
 
-### Quick Start (Arduino Zero)
+### � Available Firmware
+
+All compiled firmware files are organized in the `bin/` directory:
+
+**Core Proof-of-Concept:**
+- `bin/emon32-poc.bin/.uf2` - Basic energy monitoring demo
+- `bin/emon32-rtic.bin/.uf2` - RTIC-based concurrent version
+
+**Performance Testing:**
+- `bin/emon32-performance-standard.uf2` (micromath baseline)
+- `bin/emon32-qfplib-performance.uf2` (qfplib optimized)
+
+**UART Output Demos:**
+- `bin/emon32-uart-hardware.uf2` (Simple hardware demo)  
+- `bin/emon32-rtic-uart-hardware.uf2` (RTIC hardware demo)
+
+**Debug/Validation:**
+- `bin/emon32-debug.uf2` - Oscilloscope validation firmware
+
+### 🔧 Build System
+
+```
+rust-poc/
+├── src/               # Rust source code
+│   ├── energy/        # Energy calculation algorithms
+│   ├── math/          # FastMath trait and qfplib integration
+│   ├── adc/           # ADC simulation
+│   └── uart.rs        # UART output formatting
+├── bin/               # Compiled firmware binaries (.bin, .elf, .uf2)
+│   ├── emon32-*.uf2   # UF2 files ready for Arduino Zero upload
+│   └── emon32-*.bin   # Raw binary files
+├── examples/          # Example implementations
+├── tests/             # Unit and integration tests
+├── docs/              # Additional documentation
+├── target/            # Cargo build artifacts
+├── performance_data/  # Performance test results (created by setup script)
+└── build_*.sh         # Build scripts for different configurations
+```
+
+## 🚀 Quick Start (Arduino Zero)
 
 > ⚠️ **Arduino Zero Users**: Standard Arduino Zero boards do NOT have UF2 bootloader!
 > If double-pressing RESET doesn't show `EMONBOOT` drive, see Method 2 in the upload guide.
@@ -115,8 +154,8 @@ Ready...
 ./build_uart_hardware.sh
 
 # Generates:
-# - emon32-uart-hardware.uf2 (Simple hardware demo)  
-# - emon32-rtic-uart-hardware.uf2 (RTIC hardware demo)
+# - bin/emon32-uart-hardware.uf2 (Simple hardware demo)  
+# - bin/emon32-rtic-uart-hardware.uf2 (RTIC hardware demo)
 
 # Deploy to Arduino Zero:
 # 1. Double-press reset → EMONBOOT drive appears
@@ -171,8 +210,8 @@ Compare standard floating-point math vs qfplib optimized ARM assembly:
 ./build_qfplib_performance.sh
 
 # This generates:
-# - emon32-performance-standard.uf2 (micromath baseline)
-# - emon32-qfplib-performance.uf2 (qfplib optimized)
+# - bin/emon32-performance-standard.uf2 (micromath baseline)
+# - bin/emon32-qfplib-performance.uf2 (qfplib optimized)
 
 # Deploy to Arduino Zero and use RTT to collect performance data
 # Install RTT tool: cargo install probe-run

@@ -19,25 +19,25 @@ cargo build --release --bin emon32-rtic-debug
 echo "📦 Generating debug firmware binaries..."
 
 # Generate binary files for flashing
-cargo objcopy --release --bin emon32-debug -- -O binary target/emon32-debug.bin
-cargo objcopy --release --bin emon32-rtic-debug -- -O binary target/emon32-rtic-debug.bin
+cargo objcopy --release --bin emon32-debug -- -O binary bin/emon32-debug.bin
+cargo objcopy --release --bin emon32-rtic-debug -- -O binary bin/emon32-rtic-debug.bin
 
 # Generate UF2 files for easy drag-and-drop uploading
 echo "🔄 Converting to UF2 format for Arduino Zero..."
-python3 ../scripts/bin_to_uf2.py target/emon32-debug.bin target/emon32-debug.uf2 --base 0x2000 --family SAMD21 --linker ../linker/samd21j17.ld
-python3 ../scripts/bin_to_uf2.py target/emon32-rtic-debug.bin target/emon32-rtic-debug.uf2 --base 0x2000 --family SAMD21 --linker ../linker/samd21j17.ld
+python3 ../scripts/bin_to_uf2.py bin/emon32-debug.bin bin/emon32-debug.uf2 --base 0x2000 --family SAMD21 --linker ../linker/samd21j17.ld
+python3 ../scripts/bin_to_uf2.py bin/emon32-rtic-debug.bin bin/emon32-rtic-debug.uf2 --base 0x2000 --family SAMD21 --linker ../linker/samd21j17.ld
 
 echo "📊 Binary sizes:"
-ls -lh target/emon32-debug.bin target/emon32-rtic-debug.bin
+ls -lh bin/emon32-debug.bin bin/emon32-rtic-debug.bin
 echo "📊 UF2 file sizes:"
-ls -lh target/emon32-debug.uf2 target/emon32-rtic-debug.uf2
+ls -lh bin/emon32-debug.uf2 bin/emon32-rtic-debug.uf2
 
 echo ""
 echo "✅ DEBUG FIRMWARE READY FOR ARDUINO ZERO OSCILLOSCOPE VALIDATION!"
 echo ""
 echo "📋 Flash commands:"
-echo "   Simple version: flash target/emon32-debug.bin"
-echo "   RTIC version:   flash target/emon32-rtic-debug.bin"
+echo "   Simple version: flash bin/emon32-debug.bin"
+echo "   RTIC version:   flash bin/emon32-rtic-debug.bin"
 echo ""
 echo "🔌 Arduino Zero connections (Siglent SDS1202X-E):"
 echo "   CH1 → Pin 2  (PA14 - ADC timing signals)"

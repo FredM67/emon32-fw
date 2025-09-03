@@ -29,14 +29,14 @@ if [ $? -eq 0 ]; then
     
     # Generate binary file
     echo "Generating binary file..."
-    cargo objcopy --release --bin emon32-poc -- -O binary target/thumbv6m-none-eabi/release/emon32-poc.bin
+    cargo objcopy --release --bin emon32-poc -- -O binary bin/emon32-poc.bin
     
     # Show size information
     echo "Binary size information:"
     cargo size --release
     
     echo ""
-    echo "Binary file: target/thumbv6m-none-eabi/release/emon32-poc.bin"
+    echo "Binary file: bin/emon32-poc.bin"
     echo "Ready for flashing to emonPi3 hardware!"
     
 else

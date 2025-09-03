@@ -86,8 +86,8 @@ Automated build process for hardware demos:
 ```
 
 Generates:
-- `emon32-uart-hardware.uf2` - Simple hardware demo
-- `emon32-rtic-uart-hardware.uf2` - RTIC hardware demo
+- `bin/emon32-uart-hardware.uf2` - Simple hardware demo
+- `bin/emon32-rtic-uart-hardware.uf2` - RTIC hardware demo
 
 ### Cargo Configuration
 

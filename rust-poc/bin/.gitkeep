@@ -1,0 +1,2 @@
+# This file ensures the bin/ directory is tracked by git
+# Actual binary files (.bin, .elf, .uf2) are ignored but the directory structure is preserved

@@ -2,7 +2,12 @@
 
 ## Current Status
 
-✅ **Completed:**
+6. **Upload qfplib Firmware:**
+   ```bash
+   # Copy bin/emon32-qfplib-performance.uf2 to Arduino Zero
+   # Double-press reset → ARDUINO drive appears  
+   # Copy bin/emon32-qfplib-performance.uf2 to ARDUINO drive
+   ```Completed:**
 - qfplib integration into Rust project
 - FastMath trait abstraction for conditional compilation
 - Build system generates qfplib-enabled ARM binaries
@@ -44,7 +49,7 @@
 2. **Deploy Standard Math Firmware:**
    ```bash
    cd /home/fredm67/git/emon32-fw/rust-poc
-   cp emon32-performance-standard.uf2 /media/*/ARDUINO/
+   cp bin/emon32-performance-standard.uf2 /media/*/ARDUINO/
    ```
 
 3. **Connect RTT Viewer:**
@@ -69,7 +74,7 @@
 
 2. **Deploy qfplib Firmware:**
    ```bash
-   cp emon32-qfplib-performance.uf2 /media/*/ARDUINO/
+   cp bin/emon32-qfplib-performance.uf2 /media/*/ARDUINO/
    ```
 
 3. **Connect RTT and Record Results:**

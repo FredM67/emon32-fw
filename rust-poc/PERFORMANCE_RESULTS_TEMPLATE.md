@@ -125,8 +125,8 @@ cd /home/fredm67/git/emon32-fw/rust-poc
 ```
 
 ### Firmware Files
-- `emon32-performance-standard.uf2` - [FILE SIZE] bytes
-- `emon32-qfplib-performance.uf2` - [FILE SIZE] bytes
+- `bin/emon32-performance-standard.uf2` - [FILE SIZE] bytes
+- `bin/emon32-qfplib-performance.uf2` - [FILE SIZE] bytes
 
 ### RTT Connection
 ```bash
