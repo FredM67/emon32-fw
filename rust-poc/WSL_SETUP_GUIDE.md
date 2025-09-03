@@ -164,6 +164,31 @@ sudo minicom -D /dev/ttyACM0 -b 115200
 # - Windows Terminal with serial connection
 ```
 
+### FTDI Serial Adapter (Recommended for WSL) 🌟
+
+**Simplest approach for reliable serial monitoring:**
+
+```bash
+# Connect FTDI adapter to Arduino Zero:
+# FTDI RX → Arduino Pin 2 (TX)
+# FTDI TX → Arduino Pin 5 (RX)  
+# FTDI GND → Arduino GND
+
+# Monitor in WSL (no USB sharing needed):
+sudo minicom -D /dev/ttyUSB0 -b 115200
+
+# Expected output:
+# 1000 ms: V1=230.5V P1=150.2W P2=75.1W P3=0.0W
+```
+
+**Advantages:**
+- No USB device sharing required
+- Works directly in WSL
+- Independent of Arduino USB connection
+- Reliable for performance testing
+
+📖 **Detailed FTDI setup**: See `FTDI_CONNECTION_GUIDE.md`
+
 ## 🚨 Troubleshooting
 
 ### Arduino Zero Not Detected

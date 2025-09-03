@@ -110,6 +110,9 @@ path = "src/main_rtic_uart_hardware.rs"
 2. **Firmware Upload**: Copy `.uf2` file to EMONBOOT drive
 3. **Serial Connection**: Connect serial terminal at 115200 baud
 4. **Pin Connections**: Access TX/RX on pins 2 and 5
+   - Arduino Zero Pin 2 → PA14 (UART TX)
+   - Arduino Zero Pin 5 → PA15 (UART RX) 
+   - **FTDI Adapter Option**: Connect FTDI RX→Pin2, FTDI TX→Pin5, GND→GND
 
 ### Expected Output
 

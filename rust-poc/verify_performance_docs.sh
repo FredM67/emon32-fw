@@ -76,6 +76,7 @@ check_file "PERFORMANCE_RESULTS_TEMPLATE.md"
 check_file "PERFORMANCE_DOCUMENTATION_GUIDE.md"
 check_file "QFPLIB_INTEGRATION_COMPLETE.md"
 check_file "WSL_SETUP_GUIDE.md"
+check_file "FTDI_CONNECTION_GUIDE.md"
 
 echo ""
 echo -e "${BLUE}Checking Performance Test Binaries:${NC}"

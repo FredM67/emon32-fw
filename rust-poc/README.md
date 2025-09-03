@@ -161,6 +161,8 @@ Ready...
 # 1. Double-press reset → EMONBOOT drive appears
 # 2. Copy .uf2 file to EMONBOOT drive  
 # 3. Connect serial terminal at 115200 baud to pins 2(TX)/5(RX)
+#    Option A: Direct USB-serial (if available on board)
+#    Option B: FTDI adapter → Arduino GND+Pin2(TX)+Pin5(RX)
 
 # RTT demo versions also available:
 ./build_uart_demo.sh  # For development without serial connections
