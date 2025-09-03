@@ -13,7 +13,7 @@ cargo clean
 echo "🔧 Building simple debug version..."
 cargo build --release --bin emon32-debug
 
-echo "⚡ Building RTIC debug version..."  
+echo "⚡ Building RTIC debug version..."
 cargo build --release --bin emon32-rtic-debug
 
 echo "📦 Generating debug firmware binaries..."
@@ -29,7 +29,7 @@ python3 ../scripts/bin_to_uf2.py target/emon32-rtic-debug.bin target/emon32-rtic
 
 echo "📊 Binary sizes:"
 ls -lh target/emon32-debug.bin target/emon32-rtic-debug.bin
-echo "📊 UF2 file sizes:"  
+echo "📊 UF2 file sizes:"
 ls -lh target/emon32-debug.uf2 target/emon32-rtic-debug.uf2
 
 echo ""

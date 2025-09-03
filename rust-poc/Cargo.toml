@@ -3,6 +3,9 @@ name = "emon32-rust-poc"
 version = "0.1.0"
 edition = "2021"
 
+[build-dependencies]
+cc = "1.0"
+
 [dependencies]
 # Core embedded dependencies
 cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
@@ -18,8 +21,11 @@ atsamd-hal = { version = "0.22", features = ["samd21j"] }
 atsamd21j = { version = "0.14", features = ["rt"] }
 
 # Math and data structures for no_std
-micromath = "2.1"
+micromath = { version = "2.1", default-features = false }
 heapless = "0.9"
+
+# Optional: for RTT debugging (alternative to UART)
+rtt-target = { version = "0.6", optional = true }
 
 # Optional: for panic handling on embedded targets only
 [target.'cfg(target_arch = "arm")'.dependencies]
@@ -29,11 +35,9 @@ panic-halt = "1.0"
 [target.'cfg(not(target_arch = "arm"))'.dependencies]  
 portable-atomic = "1.0"
 
-# Optional: for RTT debugging (alternative to UART)
-rtt-target = { version = "0.6", optional = true }
-
 [features]
 default = []
+qfplib = []  # Enable qfplib integration for ARM targets  
 rtt = ["rtt-target"]
 
 [[bin]]
@@ -42,7 +46,7 @@ path = "src/main.rs"
 
 [[bin]]
 name = "emon32-rtic"
-path = "src/main_rtic_simple.rs"
+path = "src/main_rtic.rs"
 
 # Debug versions with oscilloscope support
 [[bin]]
@@ -52,6 +56,12 @@ path = "src/main_debug.rs"
 [[bin]]
 name = "emon32-rtic-debug"
 path = "src/main_rtic_debug.rs"
+
+# Performance testing binary for ARM hardware
+[[bin]]
+name = "emon32-performance"
+path = "src/main_performance_test_simple.rs"
+required-features = ["rtt"]
 
 [lib]
 name = "emon32_rust_poc"

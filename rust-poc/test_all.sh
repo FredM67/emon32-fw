@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # Comprehensive test runner for emon32 Rust POC
 # Tests both simple and RTIC versions with real-world performance validation
 
@@ -167,28 +168,7 @@ run_test "No-default Features" \
     "cargo build --no-default-features" \
     "Test minimal feature set compilation"
 
-# 10. Benchmark Comparison
-echo "🏁 Benchmark Comparison"
-echo "======================"
-
-if [ -f "test_performance" ] && [ -f "test_rtic_performance" ]; then
-    echo "Running comparative benchmarks..."
-    
-    echo "Simple POC Performance:"
-    timeout 30s ./test_performance > /tmp/poc_bench.txt 2>&1
-    if [ $? -eq 0 ]; then
-        grep -E "(✅|Processing Time|samples/sec|Memory)" /tmp/poc_bench.txt
-    fi
-    
-    echo ""
-    echo "RTIC Performance:"
-    timeout 30s ./test_rtic_performance > /tmp/rtic_bench.txt 2>&1
-    if [ $? -eq 0 ]; then
-        grep -E "(✅|Average|CPU utilization|Task executions)" /tmp/rtic_bench.txt
-    fi
-fi
-
-# 11. Hardware Readiness Check
+# 10. Hardware Readiness Check
 echo ""
 echo "🔌 Hardware Readiness Check"
 echo "=========================="

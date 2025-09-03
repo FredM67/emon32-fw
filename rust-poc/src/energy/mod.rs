@@ -2,8 +2,8 @@ pub mod calculator;
 
 pub use calculator::*;
 
+use crate::board::{NUM_CT, NUM_V};
 use heapless::Vec;
-use crate::board::{NUM_V, NUM_CT};
 
 // Power measurement data structure
 #[derive(Debug, Clone, Copy)]
@@ -25,14 +25,14 @@ impl Default for PowerData {
             real_power: [0.0; NUM_CT],
             apparent_power: [0.0; NUM_CT],
             power_factor: [0.0; NUM_CT],
-            frequency: 50.0,  // Default to 50Hz
+            frequency: 50.0, // Default to 50Hz
             energy_wh: [0.0; NUM_CT],
         }
     }
 }
 
 // Raw ADC sample buffer
-pub type SampleBuffer = Vec<u16, 128>;  // Adjust size as needed
+pub type SampleBuffer = Vec<u16, 128>; // Adjust size as needed
 
 // Events for the energy monitoring system
 #[derive(Debug, Clone, Copy)]

@@ -29,7 +29,7 @@ if [ $? -eq 0 ]; then
     
     # Generate binary file
     echo "Generating binary file..."
-    cargo objcopy --release -- -O binary target/thumbv6m-none-eabi/release/emon32-poc.bin
+    cargo objcopy --release --bin emon32-poc -- -O binary target/thumbv6m-none-eabi/release/emon32-poc.bin
     
     # Show size information
     echo "Binary size information:"

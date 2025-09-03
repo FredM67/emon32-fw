@@ -5,5 +5,7 @@
 
 pub mod board;
 pub mod energy;
+pub mod math; // Fast math optimizations
 
 pub use energy::{EnergyCalculator, PowerData};
+pub use math::FastMath;

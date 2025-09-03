@@ -31,7 +31,7 @@ mod app {
 
     #[local]
     struct Local {
-        sample_timer: TimerCounter<atsamd21j::TC3>,
+        sample_timer: TimerCounter<atsamd21j::Tc3>,
         current_samples: Vec<u16, VCT_TOTAL>,
         channel_index: usize,
     }
@@ -39,14 +39,14 @@ mod app {
     #[init]
     fn init(ctx: init::Context) -> (Shared, Local) {
         let mut peripherals = ctx.device;
-        let pins = Pins::new(peripherals.PORT);
+        let pins = Pins::new(peripherals.port);
 
         // Clock configuration
         let mut clocks = GenericClockController::with_external_32kosc(
-            peripherals.GCLK,
-            &mut peripherals.PM,
-            &mut peripherals.SYSCTRL,
-            &mut peripherals.NVMCTRL,
+            peripherals.gclk,
+            &mut peripherals.pm,
+            &mut peripherals.sysctrl,
+            &mut peripherals.nvmctrl,
         );
 
         // LED for status indication
@@ -55,11 +55,11 @@ mod app {
         // Timer for ADC sampling - using proper duration
         let gclk0 = clocks.gclk0();
         let timer_clock = clocks.tcc2_tc3(&gclk0).unwrap();
-        let mut sample_timer = TimerCounter::tc3_(&timer_clock, peripherals.TC3, &mut peripherals.PM);
+        let mut sample_timer = TimerCounter::tc3_(&timer_clock, peripherals.tc3, &mut peripherals.pm);
         
         // Start timer for periodic ADC sampling (using duration instead of rate)
-        use atsamd_hal::time::U32Ext;
-        sample_timer.start(1000.us()); // 1ms period = 1kHz
+        use atsamd_hal::prelude::InterruptDrivenTimer;
+        sample_timer.start(1000u32.Hz()); // 1kHz
         sample_timer.enable_interrupt();
 
         // Initialize energy calculator
@@ -90,6 +90,7 @@ mod app {
         let channel_index = ctx.local.channel_index;
         
         // Clear timer interrupt
+        use atsamd_hal::prelude::InterruptDrivenTimer;
         timer.wait().ok();
 
         // Simulate ADC reading (replace with real ADC code)

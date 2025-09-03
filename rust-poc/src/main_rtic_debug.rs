@@ -9,32 +9,32 @@ use panic_halt as _;
 mod app {
     use atsamd_hal::{
         clock::GenericClockController,
-        gpio::{Pins, Pin, PushPullOutput, PA17, PA14, PA15, PA21},
+        gpio::{Pin, Pins, PushPullOutput, PA14, PA15, PA17, PA21},
         prelude::*,
     };
     use cortex_m::asm;
     use heapless::Vec;
-    
-    use emon32_rust_poc::energy::{EnergyCalculator, PowerData};
-    use emon32_rust_poc::board::VCT_TOTAL;
 
-    type LedPin = Pin<PA17, PushPullOutput>;       // Pin 13 - Onboard LED
-    type DebugPin1 = Pin<PA14, PushPullOutput>;    // Pin 2 - ADC timing
-    type DebugPin2 = Pin<PA15, PushPullOutput>;    // Pin 5 - Processing
-    type DebugPin3 = Pin<PA21, PushPullOutput>;    // Pin 7 - Interrupt response
+    use emon32_rust_poc::board::VCT_TOTAL;
+    use emon32_rust_poc::energy::{EnergyCalculator, PowerData};
+
+    type LedPin = Pin<PA17, PushPullOutput>; // Pin 13 - Onboard LED
+    type DebugPin1 = Pin<PA14, PushPullOutput>; // Pin 2 - ADC timing
+    type DebugPin2 = Pin<PA15, PushPullOutput>; // Pin 5 - Processing
+    type DebugPin3 = Pin<PA21, PushPullOutput>; // Pin 7 - Interrupt response
 
     #[shared]
     struct Shared {
         energy_calc: EnergyCalculator,
         sample_count: u32,
-        debug_pin1: DebugPin1,  // Shared for ADC timing
-        debug_pin2: DebugPin2,  // Shared for processing
+        debug_pin1: DebugPin1, // Shared for ADC timing
+        debug_pin2: DebugPin2, // Shared for processing
     }
 
     #[local]
     struct Local {
         led: LedPin,
-        debug_pin3: DebugPin3,  // Local for interrupt response
+        debug_pin3: DebugPin3, // Local for interrupt response
         current_samples: Vec<u16, VCT_TOTAL>,
         channel_index: usize,
     }
@@ -54,7 +54,7 @@ mod app {
 
         // LED for status indication (Arduino Zero onboard LED)
         let led: LedPin = pins.pa17.into_push_pull_output();
-        
+
         // Debug pins for oscilloscope validation (Arduino Zero compatible)
         let debug_pin1: DebugPin1 = pins.pa14.into_push_pull_output(); // Pin 2
         let debug_pin2: DebugPin2 = pins.pa15.into_push_pull_output(); // Pin 5
@@ -88,7 +88,7 @@ mod app {
     async fn sample_adc(mut ctx: sample_adc::Context) {
         // === OSCILLOSCOPE MARKER: Interrupt Response Time ===
         ctx.local.debug_pin3.set_high().unwrap();
-        
+
         // === OSCILLOSCOPE MARKER: ADC Start ===
         ctx.shared.debug_pin1.lock(|pin| pin.set_high().unwrap());
 
@@ -97,10 +97,10 @@ mod app {
 
         // Simulate ADC reading with realistic timing
         let sample = 2048u16 + (*channel_index as u16 * 100);
-        
+
         if current_samples.push(sample).is_ok() {
             *channel_index += 1;
-            
+
             // When we have samples for all channels
             if *channel_index >= VCT_TOTAL {
                 // Convert to array for processing
@@ -110,14 +110,14 @@ mod app {
                         sample_array[i] = sample;
                     }
                 }
-                
+
                 // Send to processing task
                 process_energy::spawn(sample_array).ok();
-                
+
                 // Reset for next sample set
                 current_samples.clear();
                 *channel_index = 0;
-                
+
                 // Update count
                 ctx.shared.sample_count.lock(|count| {
                     *count = count.wrapping_add(1);
@@ -127,13 +127,13 @@ mod app {
 
         // === OSCILLOSCOPE MARKER: ADC End ===
         ctx.shared.debug_pin1.lock(|pin| pin.set_low().unwrap());
-        
+
         // === OSCILLOSCOPE MARKER: Interrupt Complete ===
         ctx.local.debug_pin3.set_low().unwrap();
 
         // Realistic sample timing - 4800 Hz = 208μs period
         delay_cycles(9600); // ~200μs at 48MHz
-        
+
         // Reschedule ourselves for next sample
         sample_adc::spawn().ok();
     }
@@ -143,21 +143,21 @@ mod app {
     async fn process_energy(mut ctx: process_energy::Context, samples: [u16; VCT_TOTAL]) {
         // === OSCILLOSCOPE MARKER: Processing Start ===
         ctx.shared.debug_pin2.lock(|pin| pin.set_high().unwrap());
-        
+
         let result = ctx.shared.energy_calc.lock(|calc| {
             // Create a properly sized Vec for the calculator
             let mut sample_vec: heapless::Vec<u16, 128> = heapless::Vec::new();
             for &sample in samples.iter().take(VCT_TOTAL) {
                 sample_vec.push(sample).ok();
             }
-            
+
             let timestamp_ms = 0u32; // Simplified timestamp
             calc.process_samples(&sample_vec, timestamp_ms)
         });
-        
+
         // === OSCILLOSCOPE MARKER: Processing End ===
         ctx.shared.debug_pin2.lock(|pin| pin.set_low().unwrap());
-        
+
         if let Some(power_data) = result {
             // Send to output task
             output_data::spawn(power_data).ok();
@@ -169,10 +169,10 @@ mod app {
     async fn output_data(_ctx: output_data::Context, _power_data: PowerData) {
         // Simulate UART/USB output processing time
         delay_cycles(2400); // ~50μs processing time
-        
+
         // In real implementation:
         // - Send UART data
-        // - Update display  
+        // - Update display
         // - Log to EEPROM
         // - Transmit via RF69
     }
@@ -185,10 +185,10 @@ mod app {
 
         // Check system health
         let _count = ctx.shared.sample_count.lock(|c| *c);
-        
+
         // Heartbeat every ~1 second
         delay_cycles(48_000_000); // ~1 second at 48MHz
-        
+
         // Reschedule
         heartbeat::spawn().ok();
     }
@@ -198,11 +198,11 @@ mod app {
     async fn background_load(_ctx: background_load::Context) {
         // Simulate background computational work
         for _ in 0..1000 {
-            unsafe { 
-                core::ptr::read_volatile(&42u32); 
+            unsafe {
+                core::ptr::read_volatile(&42u32);
             }
         }
-        
+
         // Small delay then reschedule
         delay_cycles(1000);
         background_load::spawn().ok();
@@ -217,7 +217,7 @@ mod app {
             asm::wfi();
         }
     }
-    
+
     // Helper function for precise timing
     fn delay_cycles(cycles: u32) {
         for _ in 0..cycles {
