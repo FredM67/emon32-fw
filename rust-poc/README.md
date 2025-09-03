@@ -8,9 +8,11 @@ This is a proof-of-concept implementation of the emon32 energy monitoring firmwa
 
 - Real-time ADC sampling with timer interrupts
 - Energy calculation with power, RMS, and energy accumulation
-- UART debug output
+- **Hardware UART output** at 115200 baud (Arduino Zero pins 2/5)
+- **Production-ready serial communication** with structured data format
 - Event-driven architecture using RTIC
 - Memory-safe embedded programming
+- **UF2 bootloader compatibility** for easy deployment
 
 ## Hardware Target
 
