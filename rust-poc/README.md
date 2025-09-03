@@ -135,6 +135,56 @@ Ready...
 - `memory.x` - Memory layout for SAMD21J17A
 - `Cargo.toml` - Project dependencies and configuration
 
+## Performance Testing
+
+### Host-based Tests
+
+Run comprehensive accuracy and performance tests on your development machine:
+
+```bash
+# Run all tests including performance benchmarks
+cargo test
+
+# Run performance tests with detailed output
+cargo test --release -- --nocapture performance
+```
+
+### ARM Hardware Performance Tests
+
+For real-world ARM Cortex-M0+ performance validation on Arduino Zero:
+
+```bash
+# Build ARM performance test firmware
+cargo build --bin emon32-performance --target thumbv6m-none-eabi --release --features rtt
+
+# Generate UF2 file for Arduino Zero deployment
+arm-none-eabi-objcopy -O binary target/thumbv6m-none-eabi/release/emon32-performance emon32-performance.bin
+python3 ../scripts/bin_to_uf2.py emon32-performance.bin emon32-performance.uf2
+```
+
+### qfplib Optimization Performance Tests
+
+Compare standard floating-point math vs qfplib optimized ARM assembly:
+
+```bash
+# Build both standard and qfplib optimized versions
+./build_qfplib_performance.sh
+
+# This generates:
+# - emon32-performance-standard.uf2 (micromath baseline)
+# - emon32-qfplib-performance.uf2 (qfplib optimized)
+
+# Deploy to Arduino Zero and use RTT to collect performance data
+probe-rs rtt attach
+```
+
+**Performance Documentation:**
+- [`PERFORMANCE_TESTING_GUIDE.md`](./PERFORMANCE_TESTING_GUIDE.md) - Detailed hardware testing procedures
+- [`PERFORMANCE_RESULTS_TEMPLATE.md`](./PERFORMANCE_RESULTS_TEMPLATE.md) - Template for documenting test results
+- [`QFPLIB_INTEGRATION_COMPLETE.md`](./QFPLIB_INTEGRATION_COMPLETE.md) - qfplib integration technical details
+
+**Expected qfplib Performance Improvements:**\n- Square root operations: 2-3x faster (critical for RMS calculations)\n- Division operations: 2-4x faster (power efficiency calculations)\n- Overall energy calculations: 2-3x improvement\n\n### Documentation Workflow\n\nTo document your performance test results:\n\n```bash\n# 1. Set up documentation files\n./setup_performance_docs.sh\n\n# 2. Run hardware tests (see PERFORMANCE_TESTING_GUIDE.md)\n# 3. Fill in results template with actual measurements\n# 4. Verify documentation completeness\n./verify_performance_docs.sh\n```
+
 ## Comparison with C Version
 
 This Rust POC demonstrates:
