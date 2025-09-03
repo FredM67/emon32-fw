@@ -84,12 +84,45 @@ arm-none-eabi-objcopy -I binary -O ihex --change-addresses 0x2000 \
 
 ## Serial Output
 
-Connect to the device via USB serial at 115200 baud to see energy monitoring data:
+The system now supports **hardware UART output** on Arduino Zero pins:
+
+### Hardware UART (Production Ready)
+- **Pins**: TX=Pin 2 (PA14), RX=Pin 5 (PA15)
+- **Baud Rate**: 115200, 8N1
+- **Output**: Real-time energy monitoring data
 
 ```
+emon32 Rust Energy Monitor v0.1.0
+Hardware UART Output at 115200 baud
+Connected on PA14(TX)/PA15(RX) - Arduino Zero pins 2/5
+Format: timestamp ms: V1=voltage P1=power P2=power P3=power
+Ready...
+
 1000 ms: V1=230.5V P1=150.2W P2=75.1W P3=0.0W
 2000 ms: V1=231.1V P1=152.3W P2=73.8W P3=5.2W
 ...
+```
+
+> **📋 Implementation Status**: Hardware UART output is now **fully implemented**!  
+> See [**HARDWARE_UART_INTEGRATION_COMPLETE.md**](HARDWARE_UART_INTEGRATION_COMPLETE.md) for complete details.
+
+### Build and Deploy
+
+```bash
+# Build hardware UART firmware
+./build_uart_hardware.sh
+
+# Generates:
+# - emon32-uart-hardware.uf2 (Simple hardware demo)  
+# - emon32-rtic-uart-hardware.uf2 (RTIC hardware demo)
+
+# Deploy to Arduino Zero:
+# 1. Double-press reset → EMONBOOT drive appears
+# 2. Copy .uf2 file to EMONBOOT drive  
+# 3. Connect serial terminal at 115200 baud to pins 2(TX)/5(RX)
+
+# RTT demo versions also available:
+./build_uart_demo.sh  # For development without serial connections
 ```
 
 ## Code Structure

@@ -46,8 +46,24 @@ name = "emon32-poc"
 path = "src/main.rs"
 
 [[bin]]
+name = "emon32-uart"
+path = "src/main_uart.rs"
+
+[[bin]]
 name = "emon32-rtic"
 path = "src/main_rtic.rs"
+
+[[bin]]
+name = "emon32-rtic-uart"
+path = "src/main_rtic_uart.rs"
+
+[[bin]]
+name = "emon32-uart-hardware"
+path = "src/main_uart_hardware.rs"
+
+[[bin]]
+name = "emon32-rtic-uart-hardware"
+path = "src/main_rtic_uart_hardware.rs"
 
 # Debug versions with oscilloscope support
 [[bin]]
