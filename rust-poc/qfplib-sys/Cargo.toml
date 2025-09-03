@@ -1,0 +1,56 @@
+[package]
+name = "qfplib-sys"
+version = "0.1.0"
+edition = "2021"
+description = "Low-level FFI bindings for qfplib ARM Cortex-M0+ floating-point library"
+license = "MIT OR Apache-2.0"
+authors = ["emon32-fw contributors"]
+
+[lib]
+name = "qfplib_sys"
+path = "src/lib.rs"
+
+[build-dependencies]
+cc = "1.0"
+which = "4.4"
+
+[features]
+# Enable for ARM Cortex-M0+ targets only
+arm-cortex-m0plus = []
+
+# LTO optimization levels
+lto-minimal = []      # Basic LTO with conservative settings
+lto-aggressive = []   # Maximum LTO with all optimizations
+lto-size = []         # LTO optimized for binary size
+
+[profile.dev]
+debug = true
+lto = false
+opt-level = 0
+
+[profile.release]
+debug = true
+lto = "fat"           # Cross-crate LTO for maximum optimization
+opt-level = "s"       # Optimize for size by default
+codegen-units = 1     # Single codegen unit for better LTO
+panic = "abort"       # Reduce binary size
+overflow-checks = false
+
+# Maximum performance profile for LTO benchmarking
+[profile.lto-max]
+inherits = "release"
+lto = "fat"
+opt-level = 3         # Maximum speed optimization
+codegen-units = 1
+panic = "abort"
+overflow-checks = false
+debug-assertions = false
+
+# Size-optimized profile
+[profile.lto-size]
+inherits = "release"
+lto = "fat"
+opt-level = "z"       # Maximum size optimization
+codegen-units = 1
+panic = "abort"
+strip = true          # Strip debug symbols for smallest size

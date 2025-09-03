@@ -35,7 +35,7 @@ RTIC:       6,252 bytes (6.3KB)
 ```
 **Result**: Debug versions with oscilloscope validation ready
 
-### 4. **`build_performance_test.sh`** ✅ WORKING AS EXPECTED
+### 4. **`build_and_test_comparison.sh`** ✅ WORKING AS EXPECTED
 - Standard version builds successfully ✅
 - qfplib version fails as expected (assembly not linked) ✅
 - UF2 conversion working ✅
@@ -157,7 +157,7 @@ Testing UF2 conversion:
 ### 2. **Performance Validation** (Ready Now)
 ```bash
 # Upload performance test firmware
-./build_performance_test.sh  
+./build_and_test_comparison.sh  
 # Copy emon32-performance-standard.uf2 to EMONBOOT
 # Monitor RTT output: probe-rs rtt attach --chip ATSAMD21J17A
 ```

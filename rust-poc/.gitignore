@@ -3,14 +3,36 @@
 debug/
 target/
 
+# qfplib build artifacts
+qfplib-sys/target/
+*.o
+*.a
+*.so
+*.lib
+
 # Binary artifacts (organized in bin/ directory)
 bin/*.bin
 bin/*.elf  
 bin/*.uf2
 bin/*.hex
 
+# Archive directories for old build artifacts
+bin/archive/
+bin/old_builds/
+old_files_archive/
+src_archive/
+
 # Performance test data (created by hardware testing)
 performance_data/
+
+# Backup files from cleanup operations
+*.backup
+*.old
+*.orig
+*.bak
+*.save
+README.md.backup
+build.rs.old
 
 # Remove Cargo.lock from gitignore if creating an executable, leave it for libraries
 # More information here https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html
@@ -59,6 +81,12 @@ tramp
 
 # Log files
 *.log
+
+# Temporary build files
+*.tmp
+*.temp
+build_output.txt
+compile_commands.json
 
 # Runtime data
 pids

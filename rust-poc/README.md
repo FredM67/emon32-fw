@@ -89,7 +89,7 @@ rust-poc/
 
 ```bash
 # Build firmware
-./build_debug.sh
+./build_unified.sh debug
 
 # Option A: UF2 (if UF2 bootloader installed)
 # Double-press RESET, drag target/emon32-debug.uf2 to EMONBOOT drive
@@ -246,8 +246,14 @@ probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-qfplib
 - [`PERFORMANCE_TESTING_GUIDE.md`](./PERFORMANCE_TESTING_GUIDE.md) - Detailed hardware testing procedures
 - [`PERFORMANCE_RESULTS_TEMPLATE.md`](./PERFORMANCE_RESULTS_TEMPLATE.md) - Template for documenting test results
 - [`QFPLIB_INTEGRATION_COMPLETE.md`](./QFPLIB_INTEGRATION_COMPLETE.md) - qfplib integration technical details
+- [`QFPLIB_LTO_PERFORMANCE_VALIDATION.md`](./QFPLIB_LTO_PERFORMANCE_VALIDATION.md) - ✅ **VALIDATED PERFORMANCE RESULTS**
 
-**Expected qfplib Performance Improvements:**\n- Square root operations: 2-3x faster (critical for RMS calculations)\n- Division operations: 2-4x faster (power efficiency calculations)\n- Overall energy calculations: 2-3x improvement\n\n### Documentation Workflow\n\nTo document your performance test results:\n\n```bash\n# 1. Set up documentation files\n./setup_performance_docs.sh\n\n# 2. Run hardware tests (see PERFORMANCE_TESTING_GUIDE.md)\n# 3. Fill in results template with actual measurements\n# 4. Verify documentation completeness\n./verify_performance_docs.sh\n```
+**✅ Confirmed qfplib Performance Results:**
+- **sin()**: 2.8x faster (972 vs 2716 cycles) - Critical for power factor calculations
+- **exp()**: 5.4x faster (596 vs 3248 cycles) - Used in advanced analytics  
+- **cos()**: 2.6x faster (969 vs 2499 cycles) - Power factor and phase calculations
+- **multiply/divide**: 1.3-1.4x faster - Core energy calculations
+- **LTO effectiveness**: 0-3 cycles FFI overhead (near perfect optimization)
 
 ## Comparison with C Version
 

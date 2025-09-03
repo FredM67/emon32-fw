@@ -42,7 +42,7 @@
 - `Cargo.toml` - Project manifest (cleaned up binary targets)
 - `build.rs` - Build script for qfplib integration
 - `build.sh` - Standard build script
-- `build_performance_test.sh` - Performance test build
+- `build_and_test_comparison.sh` - Performance test build and comparison
 - `upload_arduino_zero.sh` - Upload utility
 
 ### Essential Documentation

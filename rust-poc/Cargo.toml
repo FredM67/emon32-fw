@@ -25,6 +25,9 @@ atsamd21j = { version = "0.14", features = ["rt"] }
 micromath = { version = "2.1", default-features = false }
 heapless = "0.9"
 
+# LTO-optimized qfplib integration
+qfplib-sys = { path = "qfplib-sys", features = ["arm-cortex-m0plus"], optional = true }
+
 # Optional: for RTT debugging (alternative to UART)
 rtt-target = { version = "0.6", optional = true }
 
@@ -38,7 +41,7 @@ portable-atomic = "1.0"
 
 [features]
 default = []
-qfplib = []  # Enable qfplib integration for ARM targets  
+qfplib = ["qfplib-sys", "qfplib-sys/arm-cortex-m0plus"]  # Enable LTO-optimized qfplib integration for ARM targets  
 rtt = ["rtt-target"]
 
 [[bin]]
@@ -86,6 +89,30 @@ name = "emon32-qfplib-performance"
 path = "src/main_qfplib_performance.rs"
 required-features = ["rtt", "qfplib"]
 
+# Simple qfplib correctness test
+[[bin]]
+name = "emon32-qfplib-test"
+path = "src/main_qfplib_simple_test.rs"
+required-features = ["rtt", "qfplib"]
+
+# qfplib debug test to verify integration
+[[bin]]
+name = "emon32-qfplib-debug"
+path = "src/main_qfplib_debug.rs"
+required-features = ["rtt", "qfplib"]
+
+# qfplib complex math performance test
+[[bin]]
+name = "emon32-qfplib-complex"
+path = "src/main_qfplib_complex_performance.rs"
+required-features = ["rtt", "qfplib"]
+
+# Hybrid FastMath performance test (best of both worlds)
+[[bin]]
+name = "emon32-hybrid-performance"
+path = "src/main_hybrid_performance.rs"
+required-features = ["rtt", "qfplib"]
+
 [lib]
 name = "emon32_rust_poc"
 path = "src/lib.rs"
@@ -96,5 +123,18 @@ lto = false
 
 [profile.release]
 debug = true
-lto = true
-opt-level = "s"  # Optimize for size
+lto = "fat"        # Aggressive cross-crate LTO
+opt-level = "s"    # Optimize for size  
+codegen-units = 1  # Better optimization with single codegen unit
+panic = "abort"    # Reduce binary size
+overflow-checks = false  # Disable overflow checks for performance
+
+# Maximum performance profile for LTO testing
+[profile.lto-max]
+inherits = "release"
+lto = "fat"
+opt-level = 3      # Maximum optimization
+codegen-units = 1
+panic = "abort"
+overflow-checks = false
+debug-assertions = false

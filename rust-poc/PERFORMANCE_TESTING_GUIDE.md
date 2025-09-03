@@ -1,5 +1,28 @@
 # Solving the Pending qfplib Performance Testing
 
+## 🎯 Performance Comparison Strategy
+
+The performance tests now provide **explicit comparison** between micromath and qfplib:
+
+### Test Structure
+- **Standard Test** (`emon32-performance-standard.uf2`): Only runs micromath functions (baseline)
+- **Comparison Test** (`emon32-qfplib-performance.uf2`): Runs both micromath AND qfplib functions
+
+This ensures accurate performance comparison by explicitly calling different implementations instead of relying on trait feature flags.
+
+### Quick Start - Performance Comparison
+
+```bash
+# Build both test versions
+./build_and_test_comparison.sh
+
+# Test micromath baseline
+probe-rs run --chip ATSAMD21J17A bin/emon32-performance-standard.uf2
+
+# Test both micromath and qfplib (side by side comparison)
+probe-rs run --chip ATSAMD21J17A bin/emon32-qfplib-performance.uf2
+```
+
 ## 📁 File Structure Overview
 
 **Important**: Different testing methods use different file locations:
