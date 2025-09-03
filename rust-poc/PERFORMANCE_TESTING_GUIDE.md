@@ -60,8 +60,8 @@ sudo mount -t drvfs E: /mnt/emonboot  # Replace E: with actual drive letter
 1. **USB device not visible:**
    ```bash
    # Detach and reattach in Windows PowerShell
-   usbipd wsl detach --busid 3-1
-   usbipd wsl attach --busid 3-1
+   usbipd detach --wsl --busid 2-5
+   usbipd attach --wsl --busid 2-5
    ```
 
 2. **Drive not mounting:**

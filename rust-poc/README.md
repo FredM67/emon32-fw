@@ -175,8 +175,9 @@ Ready...
 ```bash
 # Windows PowerShell (as Administrator):
 winget install usbipd
-usbipd wsl list
-usbipd wsl attach --busid <BUSID>  # Replace with Arduino's bus ID
+usbipd list
+usbipd bind --busid <BUSID>
+usbipd attach --wsl --busid <BUSID>  # Replace with Arduino's bus ID
 
 # WSL verification:
 lsusb | grep -i arduino

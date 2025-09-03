@@ -5,7 +5,11 @@ How to connect an FTDI USB-to-Serial adapter to Arduino Zero for monitoring emon
 ## 🔌 Why Use FTDI Adapter?
 
 **Advantages:**
-- **Simple wiring** - Just 3 connections (TX, RX, GND)
+- **Simple wiring** - Just 3 ```powershell
+# Windows PowerShell (if needed for FTDI)
+usbipd list
+usbipd attach --wsl --busid <BUSID>  # Only if FTDI not visible in WSL
+```ctions (TX, RX, GND)
 - **WSL-friendly** - Shows up as `/dev/ttyUSB0` in Linux
 - **Isolated** - No USB conflicts with Arduino bootloader
 - **Reliable** - Dedicated serial connection

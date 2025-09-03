@@ -45,17 +45,20 @@ winget install usbipd
 # In Windows PowerShell as Administrator
 
 # 1. List all USB devices
-usbipd wsl list
+usbipd list
 
 # Example output:
 # BUSID  VID:PID    DEVICE
-# 3-1    2341:804b  Arduino Zero
+# 2-5    2341:804b  Arduino Zero
 
-# 2. Attach Arduino Zero to WSL (replace 3-1 with your BUSID)
-usbipd wsl attach --busid 3-1
+# 2. Bind the device (required first step)
+usbipd bind --busid 2-5
 
-# 3. Verify attachment
-usbipd wsl list
+# 3. Attach Arduino Zero to WSL (replace 2-5 with your BUSID)
+usbipd attach --wsl --busid 2-5
+
+# 4. Verify attachment
+usbipd list
 # Should show "Attached - Ubuntu" in the STATE column
 ```
 
@@ -145,10 +148,10 @@ probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performan
 cargo install probe-run
 
 # Detach from WSL first
-usbipd wsl detach --busid 3-1
+usbipd detach --wsl --busid 2-5
 
-# Run from Windows
-probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance-standard
+# Run from Windows (using WSL path)
+probe-run --chip ATSAMD21J17A \\wsl$\Ubuntu\home\username\git\emon32-fw\rust-poc\target\thumbv6m-none-eabi\release\emon32-performance-standard
 ```
 
 ### Serial UART
@@ -206,8 +209,8 @@ sudo minicom -D /dev/ttyUSB0 -b 115200
 # 3. Try different USB cable/port
 
 # 4. Detach and reattach in WSL
-usbipd wsl detach --busid 3-1
-usbipd wsl attach --busid 3-1
+usbipd detach --wsl --busid 2-5
+usbipd attach --wsl --busid 2-5
 ```
 
 ### EMONBOOT Drive Not Mounting
@@ -222,7 +225,7 @@ usbipd wsl attach --busid 3-1
 2. **Check USB attachment:**
    ```powershell
    # If attached to WSL, detach first
-   usbipd wsl detach --busid 3-1
+   usbipd detach --wsl --busid 2-5
    ```
 
 3. **Try different timing:**
@@ -268,13 +271,16 @@ wsl --shutdown
 ### Windows PowerShell (Administrator)
 ```powershell
 # List USB devices
-usbipd wsl list
+usbipd list
+
+# Bind device (required first step)
+usbipd bind --busid 2-5
 
 # Attach Arduino Zero to WSL
-usbipd wsl attach --busid 3-1
+usbipd attach --wsl --busid 2-5
 
 # Detach from WSL
-usbipd wsl detach --busid 3-1
+usbipd detach --wsl --busid 2-5
 ```
 
 ### WSL Commands
