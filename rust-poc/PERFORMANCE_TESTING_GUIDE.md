@@ -1,5 +1,79 @@
 # Solving the Pending qfplib Performance Testing
 
+## WSL (Windows Subsystem for Linux) Setup 🖥️
+
+**Important**: If you're using WSL, Arduino Zero USB access requires additional setup:
+
+### 🔧 WSL Prerequisites
+
+1. **Install usbipd-win on Windows host:**
+   ```powershell
+   # Run in Windows PowerShell as Administrator
+   winget install usbipd
+   ```
+
+2. **Attach Arduino Zero to WSL:**
+   ```powershell
+   # In Windows PowerShell as Administrator
+   # 1. List USB devices
+   usbipd wsl list
+   
+   # 2. Find Arduino Zero (look for "Arduino" or "SAMD")
+   # Example output: 3-1    2341:804b  Arduino Zero
+   
+   # 3. Attach to WSL (replace 3-1 with your bus ID)
+   usbipd wsl attach --busid 3-1
+   ```
+
+3. **Verify in WSL:**
+   ```bash
+   # Check USB device is visible
+   lsusb | grep -i arduino
+   # Should show: Bus 001 Device 003: ID 2341:804b Arduino SA Arduino Zero
+   
+   # Check for serial device
+   ls /dev/ttyACM* 2>/dev/null || echo "No ttyACM devices found"
+   ```
+
+### 📁 WSL Drive Mounting
+
+**EMONBOOT drive access in WSL:**
+
+```bash
+# Option 1: Use Windows host for file copy
+# 1. Double-press RESET on Arduino Zero
+# 2. In Windows Explorer, navigate to EMONBOOT drive  
+# 3. Copy .uf2 files from \\wsl$\Ubuntu\home\username\git\emon32-fw\rust-poc\bin\
+
+# Option 2: Mount in WSL (if drive auto-mounts)
+ls /mnt/*/EMONBOOT/ 2>/dev/null || echo "Drive not auto-mounted"
+
+# Option 3: Manual mount (advanced)
+sudo mkdir -p /mnt/emonboot
+sudo mount -t drvfs E: /mnt/emonboot  # Replace E: with actual drive letter
+```
+
+### 🚨 WSL Troubleshooting
+
+**Common Issues:**
+
+1. **USB device not visible:**
+   ```bash
+   # Detach and reattach in Windows PowerShell
+   usbipd wsl detach --busid 3-1
+   usbipd wsl attach --busid 3-1
+   ```
+
+2. **Drive not mounting:**
+   - Use Windows Explorer to copy .uf2 files directly
+   - WSL path: `\\wsl$\Ubuntu\home\username\git\emon32-fw\rust-poc\bin\`
+
+3. **RTT connection issues:**
+   ```bash
+   # May need to run RTT tools from Windows or with USB passthrough
+   # Consider using Windows probe-run installation
+   ```
+
 ## Current Status
 
 6. **Upload qfplib Firmware:**

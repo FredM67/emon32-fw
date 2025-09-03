@@ -166,6 +166,27 @@ Ready...
 ./build_uart_demo.sh  # For development without serial connections
 ```
 
+### 🖥️ WSL (Windows Subsystem for Linux) Users
+
+**Arduino Zero USB access in WSL requires additional setup:**
+
+```bash
+# Windows PowerShell (as Administrator):
+winget install usbipd
+usbipd wsl list
+usbipd wsl attach --busid <BUSID>  # Replace with Arduino's bus ID
+
+# WSL verification:
+lsusb | grep -i arduino
+
+# File transfer options:
+# Option 1: Use Windows Explorer to copy .uf2 files
+# Path: \\wsl$\Ubuntu\home\username\git\emon32-fw\rust-poc\bin\
+# Option 2: Mount EMONBOOT drive in WSL (may require manual mounting)
+```
+
+📖 **Detailed WSL setup**: See `PERFORMANCE_TESTING_GUIDE.md` for complete instructions.
+
 ## Code Structure
 
 - `src/main.rs` - Main application with RTIC tasks
