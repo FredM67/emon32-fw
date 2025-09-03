@@ -3,7 +3,7 @@
 # Performance Documentation Verification Script
 # Checks that performance test documentation is complete and consistent
 
-set -e
+# Note: Not using 'set -e' to allow proper error counting
 
 # Colors for output
 RED='\033[0;31m'
@@ -84,13 +84,11 @@ check_file "build_qfplib_performance.sh"
 
 echo ""
 echo -e "${BLUE}Checking for Results Files:${NC}"
-RESULTS_FILES=$(ls PERFORMANCE_RESULTS_*.md 2>/dev/null || true)
+RESULTS_FILES=$(ls PERFORMANCE_RESULTS_*.md 2>/dev/null | grep -v TEMPLATE || true)
 if [ -n "$RESULTS_FILES" ]; then
     for file in $RESULTS_FILES; do
-        if [ "$file" != "PERFORMANCE_RESULTS_TEMPLATE.md" ]; then
-            echo -e "${GREEN}✓${NC} Found results file: $file"
-            check_placeholders "$file"
-        fi
+        echo -e "${GREEN}✓${NC} Found results file: $file"
+        check_placeholders "$file"
     done
 else
     echo -e "${YELLOW}⚠${NC} No performance results files found (PERFORMANCE_RESULTS_*.md)"
@@ -162,6 +160,7 @@ if [ $WARNINGS -gt 0 ] || [ $ERRORS -gt 0 ]; then
     if [ $WARNINGS -gt 0 ]; then
         echo "• Run hardware tests and fill in the RTT data"
         echo "• Complete any unfilled placeholders in results files"
+        echo "• Run: ./setup_performance_docs.sh to create results template"
     fi
     if [ $ERRORS -gt 0 ]; then
         echo "• Fix missing files and permissions"
@@ -169,4 +168,9 @@ if [ $WARNINGS -gt 0 ] || [ $ERRORS -gt 0 ]; then
     fi
 fi
 
-exit $ERRORS
+# Exit with 0 if only warnings, 1 if errors
+if [ $ERRORS -eq 0 ]; then
+    exit 0
+else
+    exit 1
+fi

@@ -28,8 +28,11 @@
 
 2. **Install RTT Viewer:**
    ```bash
-   # Install probe-rs for RTT (Real-Time Transfer) debugging
-   cargo install probe-rs --features=cli
+   # Install probe-run for RTT (Real-Time Transfer) debugging
+   cargo install probe-run
+   
+   # Alternative: Download pre-built probe-rs binaries
+   # curl -L https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-x86_64-unknown-linux-gnu.tar.gz | tar -xz
    ```
 
 ### Step 2: Deploy and Test Standard Math Baseline
@@ -47,7 +50,11 @@
 3. **Connect RTT Viewer:**
    ```bash
    # Wait for device to restart, then connect RTT
-   probe-rs rtt attach
+   # Using probe-run (recommended for RTT)
+   probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-qfplib-performance
+   
+   # OR if you have probe-rs CLI tools:
+   # probe-rs rtt attach --chip ATSAMD21J17A
    ```
 
 4. **Record Results:**
@@ -110,9 +117,13 @@ This generates both firmware files automatically.
 **If RTT connection fails:**
 ```bash
 # Check if device is detected
-probe-rs list
-# Try with specific target
-probe-rs rtt attach --chip ATSAMD21J17A
+probe-run --list-chips | grep SAMD21
+
+# Try with specific target (if you have probe-rs CLI)
+# probe-rs rtt attach --chip ATSAMD21J17A
+
+# Or run the firmware directly with probe-run
+probe-run --chip ATSAMD21J17A path/to/firmware.elf
 ```
 
 **If bootloader doesn't appear:**

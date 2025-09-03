@@ -175,7 +175,8 @@ Compare standard floating-point math vs qfplib optimized ARM assembly:
 # - emon32-qfplib-performance.uf2 (qfplib optimized)
 
 # Deploy to Arduino Zero and use RTT to collect performance data
-probe-rs rtt attach
+# Install RTT tool: cargo install probe-run
+probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-qfplib-performance
 ```
 
 **Performance Documentation:**
