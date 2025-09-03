@@ -2,6 +2,10 @@
 
 Complete guide for using Arduino Zero with emon32 Rust firmware in Windows Subsystem for Linux (WSL).
 
+# WSL Arduino Zero Setup Guide
+
+Complete guide for using Arduino Zero with emon32 Rust firmware in Windows Subsystem for Linux (WSL).
+
 ## 🎯 Overview
 
 WSL doesn't have direct USB access by default. This guide shows how to:
@@ -9,6 +13,14 @@ WSL doesn't have direct USB access by default. This guide shows how to:
 - Upload firmware (.uf2 files) to Arduino Zero
 - Monitor RTT/serial output
 - Troubleshoot common issues
+
+## 📁 File Structure Note
+
+**Important**: Different tools use different file locations:
+- **probe-run** uses raw binaries: `target/thumbv6m-none-eabi/release/emon32-performance`
+- **UF2 upload** uses processed files: `bin/emon32-performance-standard.uf2`
+
+The build scripts rename binaries when creating UF2 files for clarity.
 
 ## 🔧 Prerequisites
 
@@ -139,7 +151,8 @@ sudo umount /mnt/emonboot
 **Option 1: WSL probe-run (if USB attached)**
 ```bash
 # Ensure Arduino Zero is attached to WSL
-probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance-standard
+# Use the raw binary from target/ folder (not the renamed UF2)
+probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance
 ```
 
 **Option 2: Windows probe-run**
@@ -151,7 +164,8 @@ cargo install probe-run
 usbipd detach --wsl --busid 2-5
 
 # Run from Windows (using WSL path)
-probe-run --chip ATSAMD21J17A \\wsl$\Ubuntu\home\username\git\emon32-fw\rust-poc\target\thumbv6m-none-eabi\release\emon32-performance-standard
+# Use the raw binary from target/ folder (not the renamed UF2)
+probe-run --chip ATSAMD21J17A \\wsl$\Ubuntu\home\username\git\emon32-fw\rust-poc\target\thumbv6m-none-eabi\release\emon32-performance
 ```
 
 ### Serial UART
@@ -295,7 +309,7 @@ ls /dev/ttyACM*
 ./build_qfplib_performance.sh
 
 # Monitor RTT
-probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance-standard
+probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance
 ```
 
 ### File Paths

@@ -1,5 +1,15 @@
 # Solving the Pending qfplib Performance Testing
 
+## 📁 File Structure Overview
+
+**Important**: Different testing methods use different file locations:
+- **RTT monitoring with probe-run**: Uses raw binaries from `target/thumbv6m-none-eabi/release/`
+  - `emon32-performance` (standard micromath version)
+  - `emon32-qfplib-performance` (qfplib optimized version)
+- **UF2 bootloader upload**: Uses processed files from `bin/` directory
+  - `emon32-performance-standard.uf2` (renamed from `emon32-performance`)
+  - `emon32-qfplib-performance.uf2` (same name, different optimization)
+
 ## WSL (Windows Subsystem for Linux) Setup 🖥️
 
 **Important**: If you're using WSL, Arduino Zero USB access requires additional setup:

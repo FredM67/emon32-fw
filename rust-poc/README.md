@@ -52,8 +52,8 @@ All compiled firmware files are organized in the `bin/` directory:
 - `bin/emon32-rtic.bin/.uf2` - RTIC-based concurrent version
 
 **Performance Testing:**
-- `bin/emon32-performance-standard.uf2` (micromath baseline)
-- `bin/emon32-qfplib-performance.uf2` (qfplib optimized)
+- `bin/emon32-performance-standard.uf2` (micromath baseline - from `target/.../emon32-performance`)
+- `bin/emon32-qfplib-performance.uf2` (qfplib optimized - from `target/.../emon32-qfplib-performance`)
 
 **UART Output Demos:**
 - `bin/emon32-uart-hardware.uf2` (Simple hardware demo)  
