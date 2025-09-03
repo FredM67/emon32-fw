@@ -5,8 +5,8 @@
 6. **Upload qfplib Firmware:**
    ```bash
    # Copy bin/emon32-qfplib-performance.uf2 to Arduino Zero
-   # Double-press reset → ARDUINO drive appears  
-   # Copy bin/emon32-qfplib-performance.uf2 to ARDUINO drive
+   # Double-press reset → EMONBOOT drive appears  
+   # Copy bin/emon32-qfplib-performance.uf2 to EMONBOOT drive
    ```Completed:**
 - qfplib integration into Rust project
 - FastMath trait abstraction for conditional compilation
@@ -44,12 +44,12 @@
 
 1. **Enter Bootloader Mode:**
    - Double-press the reset button on Arduino Zero
-   - The board should mount as "ARDUINO" drive
+   - The board should mount as "EMONBOOT" drive
 
 2. **Deploy Standard Math Firmware:**
    ```bash
    cd /home/fredm67/git/emon32-fw/rust-poc
-   cp bin/emon32-performance-standard.uf2 /media/*/ARDUINO/
+   cp bin/emon32-performance-standard.uf2 /media/*/EMONBOOT/
    ```
 
 3. **Connect RTT Viewer:**
@@ -70,11 +70,11 @@
 
 1. **Enter Bootloader Mode Again:**
    - Double-press reset button
-   - Wait for ARDUINO drive to mount
+   - Wait for EMONBOOT drive to mount
 
 2. **Deploy qfplib Firmware:**
    ```bash
-   cp bin/emon32-qfplib-performance.uf2 /media/*/ARDUINO/
+   cp bin/emon32-qfplib-performance.uf2 /media/*/EMONBOOT/
    ```
 
 3. **Connect RTT and Record Results:**
