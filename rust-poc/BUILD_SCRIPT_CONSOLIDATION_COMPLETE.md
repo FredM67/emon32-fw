@@ -34,5 +34,9 @@ Successfully consolidated all build scripts into a unified system that handles a
 - **Automation**: --yes option allows unattended builds
 - **Help System**: Complete documentation and examples
 
-## Archived Scripts
-All legacy scripts moved to `build_scripts_archive/` with documentation explaining the consolidation and migration path.
+## Legacy Scripts
+All legacy scripts are preserved in git history and can be accessed via:
+```bash
+git log --oneline --follow build.sh  # See script evolution
+git show 362671e:rust-poc/build.sh   # View specific version
+```

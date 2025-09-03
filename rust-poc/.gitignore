@@ -19,6 +19,7 @@ bin/*.hex
 # Archive directories for old build artifacts
 bin/archive/
 bin/old_builds/
+build_scripts_archive/
 old_files_archive/
 src_archive/
 
