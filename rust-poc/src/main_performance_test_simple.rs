@@ -68,6 +68,11 @@ fn main() -> ! {
     rprintln!("\n=== Performance Test Complete ===");
     rprintln!("Results demonstrate actual ARM Cortex-M0+ performance");
     rprintln!("Compare with/without --features qfplib for speedup measurement");
+    rprintln!("Test completed successfully - entering low power mode");
+
+    // Disable SysTick to prevent further interrupts
+    systick.disable_counter();
+    systick.disable_interrupt();
 
     loop {
         asm::wfi();
@@ -243,6 +248,6 @@ fn test_accuracy() {
 #[cortex_m_rt::exception]
 fn SysTick() {
     unsafe {
-        SYSTICK_COUNTER += 1;
+        SYSTICK_COUNTER = SYSTICK_COUNTER.wrapping_add(1);
     }
 }

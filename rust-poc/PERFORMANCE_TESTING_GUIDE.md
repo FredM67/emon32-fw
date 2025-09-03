@@ -3,12 +3,14 @@
 ## 📁 File Structure Overview
 
 **Important**: Different testing methods use different file locations:
-- **RTT monitoring with probe-run**: Uses raw binaries from `target/thumbv6m-none-eabi/release/`
+- **RTT monitoring with probe-rs**: Uses raw binaries from `target/thumbv6m-none-eabi/release/`
   - `emon32-performance` (standard micromath version)
   - `emon32-qfplib-performance` (qfplib optimized version)
 - **UF2 bootloader upload**: Uses processed files from `bin/` directory
   - `emon32-performance-standard.uf2` (renamed from `emon32-performance`)
   - `emon32-qfplib-performance.uf2` (same name, different optimization)
+
+**Note**: This guide uses `probe-rs` (the modern replacement for the deprecated `probe-run`).
 
 ## WSL (Windows Subsystem for Linux) Setup 🖥️
 
@@ -81,7 +83,7 @@ sudo mount -t drvfs E: /mnt/emonboot  # Replace E: with actual drive letter
 3. **RTT connection issues:**
    ```bash
    # May need to run RTT tools from Windows or with USB passthrough
-   # Consider using Windows probe-run installation
+   # Consider using Windows probe-rs installation
    ```
 
 ## Current Status
@@ -117,8 +119,8 @@ sudo mount -t drvfs E: /mnt/emonboot  # Replace E: with actual drive letter
 
 2. **Install RTT Viewer:**
    ```bash
-   # Install probe-run for RTT (Real-Time Transfer) debugging
-   cargo install probe-run
+   # Install probe-rs for RTT (Real-Time Transfer) debugging
+   cargo install probe-rs --features=cli
    
    # Alternative: Download pre-built probe-rs binaries
    # curl -L https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-x86_64-unknown-linux-gnu.tar.gz | tar -xz
@@ -139,8 +141,8 @@ sudo mount -t drvfs E: /mnt/emonboot  # Replace E: with actual drive letter
 3. **Connect RTT Viewer:**
    ```bash
    # Wait for device to restart, then connect RTT
-   # Using probe-run (recommended for RTT)
-   probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-qfplib-performance
+   # Using probe-rs (recommended for RTT)
+   probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-qfplib-performance
    
    # OR if you have probe-rs CLI tools:
    # probe-rs rtt attach --chip ATSAMD21J17A
@@ -206,13 +208,13 @@ This generates both firmware files automatically.
 **If RTT connection fails:**
 ```bash
 # Check if device is detected
-probe-run --list-chips | grep SAMD21
+probe-rs chip list | grep SAMD21
 
 # Try with specific target (if you have probe-rs CLI)
 # probe-rs rtt attach --chip ATSAMD21J17A
 
-# Or run the firmware directly with probe-run
-probe-run --chip ATSAMD21J17A path/to/firmware.elf
+# Or run the firmware directly with probe-rs
+probe-rs run --chip ATSAMD21J17A path/to/firmware.elf
 ```
 
 **If bootloader doesn't appear:**

@@ -2,13 +2,11 @@
 
 Complete guide for using Arduino Zero with emon32 Rust firmware in Windows Subsystem for Linux (WSL).
 
-# WSL Arduino Zero Setup Guide
-
-Complete guide for using Arduino Zero with emon32 Rust firmware in Windows Subsystem for Linux (WSL).
-
 ## 🎯 Overview
 
-WSL doesn't have direct USB access by default. This guide shows how to:
+WSL doesn'# Ruprobe-rs run --chip ATSAMD21J17A \\wsl\$\Ubuntu\home\username\git\emon32-fw\rust-poc\target\thumbv6m-none-eabi\release\emon32-performancerobe-rs run --chip ATSAMD21J17A \\wsl\$\Ubuntu\home\username\git\emon32-fw\rust-poc\target\thumbv6m-none-eabi\release\emon32-performance from Windows (using WSL path)
+# Use the raw binary from target/ folder (not the renamed UF2)
+probe-rs run --chip ATSAMD21J17A \\wsl\$\Ubuntu\home\username\git\emon32-fw\rust-poc\target\thumbv6m-none-eabi\release\emon32-performanceave direct USB access by default. This guide shows how to:
 - Share Arduino Zero USB device with WSL
 - Upload firmware (.uf2 files) to Arduino Zero
 - Monitor RTT/serial output
@@ -17,7 +15,7 @@ WSL doesn't have direct USB access by default. This guide shows how to:
 ## 📁 File Structure Note
 
 **Important**: Different tools use different file locations:
-- **probe-run** uses raw binaries: `target/thumbv6m-none-eabi/release/emon32-performance`
+- **probe-rs** uses raw binaries: `target/thumbv6m-none-eabi/release/emon32-performance`
 - **UF2 upload** uses processed files: `bin/emon32-performance-standard.uf2`
 
 The build scripts rename binaries when creating UF2 files for clarity.
@@ -34,7 +32,7 @@ The build scripts rename binaries when creating UF2 files for clarity.
 
 1. **Ubuntu/Debian** WSL distribution
 2. **Rust toolchain** with ARM target
-3. **probe-run** for RTT monitoring
+3. **probe-rs** for RTT monitoring
 
 ## 📦 Installation Steps
 
@@ -148,17 +146,17 @@ sudo umount /mnt/emonboot
 
 ### RTT (Real-Time Transfer)
 
-**Option 1: WSL probe-run (if USB attached)**
+**Option 1: WSL probe-rs (if USB attached)**
 ```bash
 # Ensure Arduino Zero is attached to WSL
 # Use the raw binary from target/ folder (not the renamed UF2)
-probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance
+probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance
 ```
 
-**Option 2: Windows probe-run**
+**Option 2: Windows probe-rs**
 ```powershell
-# Install probe-run on Windows
-cargo install probe-run
+# Install probe-rs on Windows
+cargo install probe-rs --features=cli
 
 # Detach from WSL first
 usbipd detach --wsl --busid 2-5
@@ -248,7 +246,7 @@ usbipd attach --wsl --busid 2-5
 
 ### RTT Connection Issues
 
-**Issue**: `probe-run` can't connect
+**Issue**: `probe-rs` can't connect
 
 **Solutions**:
 1. **Verify USB attachment:**
@@ -257,9 +255,9 @@ usbipd attach --wsl --busid 2-5
    ls /dev/ttyACM*
    ```
 
-2. **Try Windows probe-run:**
+2. **Try Windows probe-rs:**
    - Detach from WSL
-   - Use Windows-installed probe-run
+   - Use Windows-installed probe-rs
 
 3. **Check firmware state:**
    - Re-upload firmware if device stuck
@@ -309,7 +307,7 @@ ls /dev/ttyACM*
 ./build_qfplib_performance.sh
 
 # Monitor RTT
-probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance
+probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance
 ```
 
 ### File Paths
