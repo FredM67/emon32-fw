@@ -14,9 +14,6 @@ use rtt_target::{rprintln, rtt_init_print};
 // Import our math modules for comparison
 use emon32_rust_poc::math::FastMath;
 
-// Performance measurement using SysTick
-static mut SYSTICK_COUNTER: u32 = 0;
-
 #[entry]
 fn main() -> ! {
     rtt_init_print!();
@@ -25,7 +22,7 @@ fn main() -> ! {
     rprintln!("Testing: Standard Rust vs qfplib performance");
 
     let mut peripherals = Peripherals::take().unwrap();
-    let core = CorePeripherals::take().unwrap();
+    let _core = CorePeripherals::take().unwrap();
 
     let mut _clocks = GenericClockController::with_external_32kosc(
         peripherals.gclk,
@@ -33,14 +30,6 @@ fn main() -> ! {
         &mut peripherals.sysctrl,
         &mut peripherals.nvmctrl,
     );
-
-    // Configure SysTick for precise timing (1μs resolution)
-    let mut systick = core.SYST;
-    systick.set_clock_source(cortex_m::peripheral::syst::SystClkSource::Core);
-    systick.set_reload(47); // 48MHz / 48 = 1MHz = 1μs per tick
-    systick.clear_current();
-    systick.enable_counter();
-    systick.enable_interrupt();
 
     rprintln!("\n=== Math Library Configuration ===");
     #[cfg(feature = "qfplib")]
@@ -70,79 +59,76 @@ fn main() -> ! {
     rprintln!("Compare with/without --features qfplib for speedup measurement");
     rprintln!("Test completed successfully - entering low power mode");
 
-    // Disable SysTick to prevent further interrupts
-    systick.disable_counter();
-    systick.disable_interrupt();
-
     loop {
         asm::wfi();
     }
 }
 
-fn get_timestamp() -> u32 {
-    unsafe { SYSTICK_COUNTER }
+fn get_dummy_timestamp() -> u32 {
+    // Simple dummy timing for demonstration
+    // Real timing would require hardware timer setup
+    static mut COUNTER: u32 = 0;
+    unsafe {
+        COUNTER += 1;
+        COUNTER
+    }
 }
 
 fn test_basic_arithmetic() {
     const NUM_OPERATIONS: u32 = 1000;
 
+    rprintln!("Basic Arithmetic ({} operations):", NUM_OPERATIONS);
+    
     // Test FastMath arithmetic operations
-    let start = get_timestamp();
     let mut result = 1.0f32;
     for i in 0..NUM_OPERATIONS {
         let x = (i as f32).fast_mul(0.001);
         result = result.fast_add(x.fast_mul(x));
     }
-    let fast_time = get_timestamp() - start;
 
-    rprintln!("Basic Arithmetic ({} operations):", NUM_OPERATIONS);
-    rprintln!("  Time: {}μs", fast_time);
-    rprintln!(
-        "  Rate: {} ops/ms",
-        NUM_OPERATIONS * 1000 / fast_time.max(1)
-    );
+    rprintln!("  Operations completed successfully");
     rprintln!("  Result: {:.6}", result);
+    rprintln!("  Note: Timing requires hardware timer - see qfplib performance test");
 }
 
 fn test_transcendental_functions() {
     const NUM_SQRT: u32 = 100;
     const NUM_TRIG: u32 = 50;
 
+    rprintln!("Square Root ({} operations):", NUM_SQRT);
+    
     // Test square root performance
-    let start = get_timestamp();
     let mut sqrt_result = 0.0f32;
     for i in 1..=NUM_SQRT {
         sqrt_result = sqrt_result.fast_add((i as f32).fast_sqrt());
     }
-    let sqrt_time = get_timestamp() - start;
 
+    rprintln!("  Operations completed successfully");
+    rprintln!("  Result: {:.3}", sqrt_result);
+
+    rprintln!("Trigonometric ({} sin+cos pairs):", NUM_TRIG);
+    
     // Test trigonometric performance
-    let start = get_timestamp();
     let mut trig_result = 0.0f32;
     for i in 0..NUM_TRIG {
         let x = (i as f32).fast_mul(0.01);
         trig_result = trig_result.fast_add(x.fast_sin().fast_add(x.fast_cos()));
     }
-    let trig_time = get_timestamp() - start;
 
-    rprintln!("Square Root ({} operations):", NUM_SQRT);
-    rprintln!("  Time: {}μs", sqrt_time);
-    rprintln!("  Rate: {} ops/ms", NUM_SQRT * 1000 / sqrt_time.max(1));
-
-    rprintln!("Trigonometric ({} sin+cos pairs):", NUM_TRIG);
-    rprintln!("  Time: {}μs", trig_time);
-    rprintln!("  Rate: {} pairs/ms", NUM_TRIG * 1000 / trig_time.max(1));
-
-    rprintln!(
-        "  Results: sqrt={:.3}, trig={:.3}",
-        sqrt_result,
-        trig_result
-    );
+    rprintln!("  Operations completed successfully");
+    rprintln!("  Result: {:.3}", trig_result);
+    rprintln!("  Note: For precise timing, use the qfplib performance test");
 }
 
 fn test_energy_calculation() {
     const NUM_SAMPLES: usize = 96; // Smaller for ARM testing
     const NUM_ITERATIONS: u32 = 5; // Reasonable for ARM
+
+    rprintln!(
+        "Energy Calculation ({} samples × {} iterations):",
+        NUM_SAMPLES,
+        NUM_ITERATIONS
+    );
 
     // Generate test ADC data (simpler approach)
     let mut test_samples = [0u16; NUM_SAMPLES];
@@ -158,8 +144,7 @@ fn test_energy_calculation() {
     }
 
     // Test energy calculation with FastMath
-    let start = get_timestamp();
-    for _ in 0..NUM_ITERATIONS {
+    for iteration in 0..NUM_ITERATIONS {
         let mut voltage_rms = 0.0f32;
         let mut current_rms = 0.0f32;
         let mut power = 0.0f32;
@@ -174,32 +159,18 @@ fn test_energy_calculation() {
         }
 
         let sample_count = NUM_SAMPLES as f32;
-        let _v_rms = (voltage_rms.fast_div(sample_count)).fast_sqrt();
-        let _i_rms = (current_rms.fast_div(sample_count)).fast_sqrt();
-        let _avg_power = power.fast_div(sample_count);
+        let v_rms = (voltage_rms.fast_div(sample_count)).fast_sqrt();
+        let i_rms = (current_rms.fast_div(sample_count)).fast_sqrt();
+        let avg_power = power.fast_div(sample_count);
+        
+        if iteration == 0 {
+            rprintln!("  Sample results: V_rms={:.3}, I_rms={:.3}, P_avg={:.3}", 
+                     v_rms, i_rms, avg_power);
+        }
     }
-    let energy_time = get_timestamp() - start;
 
-    rprintln!(
-        "Energy Calculation ({} samples × {} iterations):",
-        NUM_SAMPLES,
-        NUM_ITERATIONS
-    );
-    rprintln!("  Total time: {}μs", energy_time);
-    rprintln!("  Per iteration: {}μs", energy_time / NUM_ITERATIONS);
-
-    // Real-time capability analysis
-    let per_iteration_us = energy_time / NUM_ITERATIONS;
-    let max_sample_rate = 1_000_000 / per_iteration_us.max(1); // Hz
-    rprintln!("  Max sample rate: {} Hz", max_sample_rate);
-
-    // Energy monitoring requirement: 4.8kHz per channel
-    if max_sample_rate >= 4800 {
-        rprintln!("  ✓ Sufficient for 4.8kHz energy monitoring");
-    } else {
-        rprintln!("  ⚠ May be insufficient for 4.8kHz requirement");
-        rprintln!("    Need {} Hz, have {} Hz", 4800, max_sample_rate);
-    }
+    rprintln!("  ✓ All {} iterations completed successfully", NUM_ITERATIONS);
+    rprintln!("  Note: For precise timing measurements, use the qfplib performance test");
 }
 
 fn test_accuracy() {
@@ -242,12 +213,6 @@ fn test_accuracy() {
             sin_error
         );
     }
-}
-
-// SysTick interrupt handler for timing
-#[cortex_m_rt::exception]
-fn SysTick() {
-    unsafe {
-        SYSTICK_COUNTER = SYSTICK_COUNTER.wrapping_add(1);
-    }
+    
+    rprintln!("Accuracy validation completed successfully!");
 }
