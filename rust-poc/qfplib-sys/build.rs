@@ -100,10 +100,10 @@ fn determine_lto_level(profile: &str) -> LtoLevel {
     // Fall back to profile-based selection
     match profile {
         "dev" => LtoLevel::Debug,
-        "release" => LtoLevel::Minimal,
+        "release" => LtoLevel::Aggressive,  // Use aggressive LTO for maximum performance
         "lto-max" => LtoLevel::Aggressive,
         "lto-size" => LtoLevel::Size,
-        _ => LtoLevel::Minimal,
+        _ => LtoLevel::Aggressive,  // Default to aggressive for unknown profiles
     }
 }
 

@@ -31,10 +31,11 @@ opt-level = 0
 [profile.release]
 debug = true
 lto = "fat"           # Cross-crate LTO for maximum optimization
-opt-level = "s"       # Optimize for size by default
+opt-level = 3         # Maximum speed optimization for best performance
 codegen-units = 1     # Single codegen unit for better LTO
 panic = "abort"       # Reduce binary size
 overflow-checks = false
+debug-assertions = false  # Disable debug assertions for maximum performance
 
 # Maximum performance profile for LTO benchmarking
 [profile.lto-max]
