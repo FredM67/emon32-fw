@@ -30,7 +30,7 @@ Updated `/rust-poc/src/main_performance_test_simple.rs`:
 
 2. Connect RTT viewer to see output:
    ```bash
-   probe-run bin/emon32-performance-micromath.elf
+   probe-rs run --chip ATSAMD21J17A bin/emon32-performance-micromath.elf
    ```
 
 3. Verify all sections complete:
@@ -45,7 +45,7 @@ Once the micromath test completes successfully, compare with:
 ```bash
 # Upload qfplib version
 cp bin/emon32-performance-qfplib.uf2 /mnt/emonboot/
-probe-run bin/emon32-performance-qfplib.elf
+probe-rs run --chip ATSAMD21J17A bin/emon32-performance-qfplib.elf
 ```
 
 ## Expected Results

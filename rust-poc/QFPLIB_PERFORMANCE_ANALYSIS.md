@@ -147,7 +147,7 @@ qfplib complex math performance (SysTick cycles):
 cp bin/emon32-qfplib-debug.uf2 /path/to/EMONBOOT/
 
 # Monitor output
-probe-run --chip ATSAMD21J17A bin/emon32-qfplib-debug.elf
+probe-rs run --chip ATSAMD21J17A bin/emon32-qfplib-debug.elf
 ```
 
 ### 2. Run Complex Math Test
@@ -156,7 +156,7 @@ probe-run --chip ATSAMD21J17A bin/emon32-qfplib-debug.elf
 cp bin/emon32-qfplib-complex.uf2 /path/to/EMONBOOT/
 
 # Monitor output
-probe-run --chip ATSAMD21J17A bin/emon32-qfplib-complex.elf
+probe-rs run --chip ATSAMD21J17A bin/emon32-qfplib-complex.elf
 ```
 
 ### 3. Compare Results

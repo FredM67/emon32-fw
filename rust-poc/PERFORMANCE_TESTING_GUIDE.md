@@ -17,10 +17,10 @@ This ensures accurate performance comparison by explicitly calling different imp
 ./build_and_test_comparison.sh
 
 # Test micromath baseline
-probe-rs run --chip ATSAMD21J17A bin/emon32-performance-standard.uf2
+probe-rs run --chip ATSAMD21J17A bin/emon32-performance-standard.elf
 
 # Test both micromath and qfplib (side by side comparison)
-probe-rs run --chip ATSAMD21J17A bin/emon32-qfplib-performance.uf2
+probe-rs run --chip ATSAMD21J17A bin/emon32-qfplib-performance.elf
 ```
 
 ## 📁 File Structure Overview
@@ -168,7 +168,7 @@ sudo mount -t drvfs E: /mnt/emonboot  # Replace E: with actual drive letter
    probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-qfplib-performance
    
    # OR if you have probe-rs CLI tools:
-   # probe-rs rtt attach --chip ATSAMD21J17A
+   # probe-rs attach --protocol swd --chip ATSAMD21J17A
    ```
 
 4. **Record Results:**
@@ -188,7 +188,7 @@ sudo mount -t drvfs E: /mnt/emonboot  # Replace E: with actual drive letter
 
 3. **Connect RTT and Record Results:**
    ```bash
-   probe-rs rtt attach
+   probe-rs attach --protocol swd --chip ATSAMD21J17A
    ```
 
 4. **Compare Performance:**

@@ -179,7 +179,7 @@ Debug: SWD via programming header
 2. **Mount Drive**: `EMONBOOT` drive appears
 3. **Upload Firmware**: Drag `.uf2` file to `EMONBOOT` drive
 4. **Auto-Reset**: Firmware starts automatically
-5. **Monitor Output**: Use RTT (probe-run) or serial monitor
+5. **Monitor Output**: Use RTT (probe-rs) or serial monitor
 
 ### Serial Monitor Setup
 
@@ -190,8 +190,8 @@ sudo minicom -D /dev/ttyUSB0 -b 115200
 # Windows with PuTTY
 # Serial, COM port, 115200 baud, 8N1
 
-# Monitor RTT debug output (requires probe-run)
-probe-run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance-micromath
+# Monitor RTT debug output (requires probe-rs)
+probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance-micromath
 ```
 
 ## 🚀 Recommended Testing Sequence
@@ -246,7 +246,7 @@ sudo apt install gcc-arm-none-eabi
 pip3 install -r scripts/requirements.txt
 
 # RTT debugging (optional)
-cargo install probe-run
+cargo install probe-rs --features=cli
 ```
 
 ### Quick Start
