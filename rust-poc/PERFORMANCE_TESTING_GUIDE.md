@@ -5,36 +5,39 @@
 The performance tests now provide **explicit comparison** between micromath and qfplib:
 
 ### Test Structure
-- **Standard Test** (`emon32-performance-standard.uf2`): Only runs micromath functions (baseline)
-- **Comparison Test** (`emon32-qfplib-performance.uf2`): Runs both micromath AND qfplib functions
+- **Micromath Baseline** (`emon32-performance-micromath.uf2`): Uses micromath library for all operations
+- **qfplib Performance** (`emon32-qfplib-performance.uf2`): Uses qfplib-sys for optimized operations
+- **Latest qfplib-sys** (`emon32-qfplib-sys-lto.uf2`): **Recommended** - Latest LTO-optimized qfplib integration
 
-This ensures accurate performance comparison by explicitly calling different implementations instead of relying on trait feature flags.
+This ensures accurate performance comparison by explicitly calling different implementations with maximum optimization.
 
 ### Quick Start - Performance Comparison
 
 ```bash
-# Build both test versions
-./build_and_test_comparison.sh
+# Build performance test suite with unified build system
+./build_unified.sh performance
 
 # Test micromath baseline
-probe-rs run --chip ATSAMD21J17A bin/emon32-performance-standard.elf
+probe-rs run --chip ATSAMD21J17A bin/emon32-performance-micromath.elf
 
-# Test both micromath and qfplib (side by side comparison)
+# Test qfplib comparison
 probe-rs run --chip ATSAMD21J17A bin/emon32-qfplib-performance.elf
 
-# Alternative: Remove timestamps from output
-probe-rs run --chip ATSAMD21J17A --no-location bin/emon32-performance-standard.elf
+# Clean output without timestamps (recommended)
+probe-rs run --chip ATSAMD21J17A bin/emon32-performance-micromath.elf | sed 's/^[0-9]*\.[0-9]* //'
+probe-rs run --chip ATSAMD21J17A bin/emon32-qfplib-performance.elf | sed 's/^[0-9]*\.[0-9]* //'
 ```
 
 ## 📁 File Structure Overview
 
 **Important**: Different testing methods use different file locations:
-- **RTT monitoring with probe-rs**: Uses raw binaries from `target/thumbv6m-none-eabi/release/`
-  - `emon32-performance` (standard micromath version)
-  - `emon32-qfplib-performance` (qfplib optimized version)
-- **UF2 bootloader upload**: Uses processed files from `bin/` directory
-  - `emon32-performance-standard.uf2` (renamed from `emon32-performance`)
-  - `emon32-qfplib-performance.uf2` (same name, different optimization)
+- **RTT monitoring with probe-rs**: Uses raw binaries from `bin/` directory
+  - `emon32-performance-micromath.elf/.uf2` (micromath baseline version)
+  - `emon32-qfplib-performance.elf/.uf2` (qfplib optimized version)
+  - `emon32-qfplib-sys-lto.elf/.uf2` (latest LTO-optimized version)
+- **UF2 bootloader upload**: Uses `.uf2` files from `bin/` directory
+  - `emon32-performance-micromath.uf2` (micromath baseline)
+  - `emon32-qfplib-sys-lto.uf2` (recommended - latest LTO optimized)
 
 **Note**: This guide uses `probe-rs` (the modern replacement for the deprecated `probe-run`).
 
@@ -158,10 +161,10 @@ sudo mount -t drvfs E: /mnt/emonboot  # Replace E: with actual drive letter
    - Double-press the reset button on Arduino Zero
    - The board should mount as "EMONBOOT" drive
 
-2. **Deploy Standard Math Firmware:**
+2. **Deploy Micromath Baseline Firmware:**
    ```bash
    cd /home/fredm67/git/emon32-fw/rust-poc
-   cp bin/emon32-performance-standard.uf2 /media/*/EMONBOOT/
+   cp bin/emon32-performance-micromath.uf2 /media/*/EMONBOOT/
    ```
 
 3. **Connect RTT Viewer:**
@@ -186,7 +189,7 @@ sudo mount -t drvfs E: /mnt/emonboot  # Replace E: with actual drive letter
 
 2. **Deploy qfplib Firmware:**
    ```bash
-   cp bin/emon32-qfplib-performance.uf2 /media/*/EMONBOOT/
+   cp bin/emon32-qfplib-sys-lto.uf2 /media/*/EMONBOOT/
    ```
 
 3. **Connect RTT and Record Results:**
@@ -224,14 +227,22 @@ The qfplib version should show significant improvements:
 
 ### Step 5: Build Script for Easy Testing
 
-The `build_qfplib_performance.sh` script automates the entire build process:
+The `build_unified.sh` script automates the entire build process:
 
 ```bash
 cd /home/fredm67/git/emon32-fw/rust-poc
-./build_qfplib_performance.sh
+
+# Build performance test suite
+./build_unified.sh performance
+
+# Or build with qfplib-sys (latest and recommended)
+./build_unified.sh qfplib-sys
+
+# Or build comparison suite
+./build_unified.sh comparison
 ```
 
-This generates both firmware files automatically.
+This generates all firmware files automatically in the `bin/` directory.
 
 ### Step 6: Troubleshooting
 
