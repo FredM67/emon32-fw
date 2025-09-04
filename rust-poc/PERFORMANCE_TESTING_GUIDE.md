@@ -21,6 +21,9 @@ probe-rs run --chip ATSAMD21J17A bin/emon32-performance-standard.elf
 
 # Test both micromath and qfplib (side by side comparison)
 probe-rs run --chip ATSAMD21J17A bin/emon32-qfplib-performance.elf
+
+# Alternative: Remove timestamps from output
+probe-rs run --chip ATSAMD21J17A --no-location bin/emon32-performance-standard.elf
 ```
 
 ## 📁 File Structure Overview
@@ -188,7 +191,11 @@ sudo mount -t drvfs E: /mnt/emonboot  # Replace E: with actual drive letter
 
 3. **Connect RTT and Record Results:**
    ```bash
-   probe-rs attach --protocol swd --chip ATSAMD21J17A
+   # With timestamps (default)
+   probe-rs run --chip ATSAMD21J17A bin/emon32-qfplib-performance.elf
+   
+   # Clean output without timestamps (recommended)
+   probe-rs run --chip ATSAMD21J17A bin/emon32-qfplib-performance.elf | sed 's/^[0-9]*\.[0-9]* //'
    ```
 
 4. **Compare Performance:**

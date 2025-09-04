@@ -148,6 +148,32 @@ emon32 Rust Energy Monitor v0.1.0
 Hardware UART Output at 115200 baud
 Connected on PA14(TX)/PA15(RX) - Arduino Zero pins 2/5
 Format: timestamp ms: V1=voltage P1=power P2=power P3=power
+
+### RTT Debug Output Configuration
+
+When using `probe-rs run` for development, you can control the output format:
+
+```bash
+# Default RTT output (with timestamps)
+probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance
+
+# Clean output without timestamps (recommended - only working solution)
+probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance | sed 's/^[0-9]*\.[0-9]* //'
+
+# Save clean output to file
+probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance | sed 's/^[0-9]*\.[0-9]* //' > results.txt
+```
+
+> **Note**: probe-rs timestamps cannot be disabled with command-line flags. The `sed` solution is the only reliable way to get clean output.
+
+**💡 Pro Tip**: Create a shell alias for clean RTT output:
+```bash
+# Add to your ~/.bashrc or ~/.zshrc
+alias probe-clean='probe-rs run --chip ATSAMD21J17A "$@" | sed "s/^[0-9]*\.[0-9]* //"'
+
+# Usage:
+probe-clean target/thumbv6m-none-eabi/release/emon32-performance
+```
 Ready...
 
 1000 ms: V1=230.5V P1=150.2W P2=75.1W P3=0.0W
@@ -251,6 +277,9 @@ Compare standard floating-point math vs qfplib optimized ARM assembly:
 # Deploy to Arduino Zero and use RTT to collect performance data
 # Install RTT tool: cargo install probe-rs --features=cli
 probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-qfplib-performance
+
+# To remove timestamps from RTT output:
+probe-rs run --chip ATSAMD21J17A --no-location target/thumbv6m-none-eabi/release/emon32-qfplib-performance
 ```
 
 **Performance Documentation:**

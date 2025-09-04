@@ -4,7 +4,16 @@ Complete guide for using Arduino Zero with emon32 Rust firmware in Windows Subsy
 
 ## 🎯 Overview
 
-WSL doesn't have direct USB access by default. This guide shows how to:
+WSL doesn't ```bash
+# Run from WSL (with timestamps)
+probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance
+
+# Run from WSL (clean output without timestamps)
+probe-rs run --chip ATSAMD21J17A target/thumbv6m-none-eabi/release/emon32-performance | sed 's/^[0-9]*\.[0-9]* //'
+
+# Run from Windows (using WSL path)
+probe-rs run --chip ATSAMD21J17A \\wsl$\Ubuntu\home\username\git\emon32-fw\rust-poc\target\thumbv6m-none-eabi\release\emon32-performance
+```ave direct USB access by default. This guide shows how to:
 - Share Arduino Zero USB device with WSL
 - Upload firmware (.uf2 files) to Arduino Zero
 - Monitor RTT/serial output
