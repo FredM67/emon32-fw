@@ -10,9 +10,13 @@
 #define I2CM_ACTIVATE_TIMEOUT_US 200u /* Time to wait for I2C bus */
 
 static void i2cmCommon(Sercom *pSercom);
-static void i2cmExtPinsSetup(bool enable);
+static void i2cmExtPinsSetup(void);
 static void sercomSetupSPI(void);
 static void spiExtPinsSetup(bool enable);
+
+static void uartConfigureDMA(void);
+static void uartInterruptEnable(Sercom *sercom, uint32_t interrupt);
+static void uartSetup(const UART_Cfg_t *pCfg);
 
 static volatile bool extIntfEnabled = true;
 
@@ -43,17 +47,9 @@ static void i2cmCommon(Sercom *pSercom) {
                                SERCOM_I2CM_INTENSET_ERROR;
 }
 
-static void i2cmExtPinsSetup(bool enable) {
-  if (enable) {
-    portPinMux(GRP_SERCOM_I2C_EXT, PIN_I2C_EXT_SDA, PMUX_I2CM_EXT);
-    portPinMux(GRP_SERCOM_I2C_EXT, PIN_I2C_EXT_SCL, PMUX_I2CM_EXT);
-  } else {
-    portPinMuxClear(GRP_SERCOM_I2C_EXT, PIN_I2C_EXT_SDA);
-    portPinMuxClear(GRP_SERCOM_I2C_EXT, PIN_I2C_EXT_SCL);
-
-    portPinDir(GRP_SERCOM_I2C_EXT, PIN_I2C_EXT_SDA, PIN_DIR_IN);
-    portPinDir(GRP_SERCOM_I2C_EXT, PIN_I2C_EXT_SCL, PIN_DIR_IN);
-  }
+static void i2cmExtPinsSetup(void) {
+  portPinMux(GRP_SERCOM_I2C_EXT, PIN_I2C_EXT_SDA, PMUX_I2CM_EXT);
+  portPinMux(GRP_SERCOM_I2C_EXT, PIN_I2C_EXT_SCL, PMUX_I2CM_EXT);
 }
 
 static void spiExtPinsSetup(bool enable) {
@@ -75,17 +71,8 @@ static void spiExtPinsSetup(bool enable) {
 }
 
 void sercomExtIntfDisable(void) {
-  debugPuts("External interfaces disabled.");
   extIntfEnabled = false;
-  i2cmExtPinsSetup(false);
   spiExtPinsSetup(false);
-}
-
-void sercomExtIntfEnable(void) {
-  debugPuts("External interfaces enabled.");
-  extIntfEnabled = true;
-  i2cmExtPinsSetup(true);
-  spiExtPinsSetup(true);
 }
 
 bool sercomExtIntfEnabled(void) { return extIntfEnabled; }
@@ -94,9 +81,6 @@ void sercomSetup(void) {
   /*****************
    * Debug UART setup
    ******************/
-
-  extIntfEnabled =
-      portPinValue(GRP_nDISABLE_EXT, PIN_nDISABLE_EXT) ? true : false;
 
   UART_Cfg_t uart_dbg_cfg;
   uart_dbg_cfg.sercom    = SERCOM_UART;
@@ -116,17 +100,15 @@ void sercomSetup(void) {
   uart_dbg_cfg.dmaCfg.ctrlb = DMAC_CHCTRLB_LVL(1u) |
                               DMAC_CHCTRLB_TRIGSRC(SERCOM_UART_DMAC_ID_TX) |
                               DMAC_CHCTRLB_TRIGACT_BEAT;
-  sercomSetupUART(&uart_dbg_cfg);
+  uartSetup(&uart_dbg_cfg);
 
   /* Setup DMAC for non-blocking UART (this is optional, unlike ADC) */
   uartConfigureDMA();
-  uartInterruptEnable(SERCOM_UART, SERCOM_USART_INTENSET_RXC);
-  uartInterruptEnable(SERCOM_UART, SERCOM_USART_INTENSET_ERROR);
-  NVIC_EnableIRQ(SERCOM_UART_INTERACTIVE_IRQn);
 
   /*****************
    * I2C Setup
    ******************/
+
   portPinMux(GRP_SERCOM_I2C_INT, PIN_I2C_INT_SDA, PMUX_I2CM_INT);
   portPinMux(GRP_SERCOM_I2C_INT, PIN_I2C_INT_SCL, PMUX_I2CM_INT);
 
@@ -140,7 +122,7 @@ void sercomSetup(void) {
   GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM_I2CM_EXT_GCLK_ID) |
                       GCLK_CLKCTRL_GEN(3u) | GCLK_CLKCTRL_CLKEN;
 
-  i2cmExtPinsSetup(extIntfEnabled);
+  i2cmExtPinsSetup();
   i2cmCommon(SERCOM_I2CM_EXT);
 
   /*****************
@@ -149,7 +131,7 @@ void sercomSetup(void) {
   sercomSetupSPI();
 }
 
-void sercomSetupUART(const UART_Cfg_t *pCfg) {
+static void uartSetup(const UART_Cfg_t *pCfg) {
   uint16_t baud;
   // const uint64_t br_dbg = (uint64_t)65536 * (F_PERIPH - 16 * pCfg->baud) /
   // F_PERIPH;
@@ -203,18 +185,11 @@ void sercomSetupUART(const UART_Cfg_t *pCfg) {
 
   pCfg->sercom->USART.BAUD.reg = baud;
 
-  /* Enable requires synchronisation (26.6.6) */
-  pCfg->sercom->USART.CTRLA.reg |= SERCOM_USART_CTRLA_ENABLE;
-  while (pCfg->sercom->USART.STATUS.reg & SERCOM_USART_SYNCBUSY_ENABLE)
-    ;
-
   /* Configure DMA */
   dmacChannelConfigure(pCfg->dmaChannel, &pCfg->dmaCfg);
 }
 
 static void sercomSetupSPI(void) {
-
-  spiExtPinsSetup(extIntfEnabled);
 
   /* Configure clocks - runs from the OSC8M clock on gen 3 */
   PM->APBCMASK.reg |= SERCOM_SPI_APBCMASK;
@@ -263,7 +238,7 @@ void uartPutsBlocking(Sercom *sercom, const char *s) {
     uartPutcBlocking(sercom, *s++);
 }
 
-void uartConfigureDMA(void) {
+static void uartConfigureDMA(void) {
   volatile DmacDescriptor *dmacDesc = dmacGetDescriptor(DMA_CHAN_UART);
   dmacDesc->BTCTRL.reg = DMAC_BTCTRL_VALID | DMAC_BTCTRL_BLOCKACT_NOACT |
                          DMAC_BTCTRL_STEPSIZE_X1 | DMAC_BTCTRL_STEPSEL_SRC |
@@ -283,26 +258,42 @@ void uartPutsNonBlocking(unsigned int dma_chan, const char *const s,
   dmacChannelEnable(dma_chan);
 }
 
+void uartEnableRx(Sercom *sercom, const uint32_t irqn) {
+  uartInterruptEnable(sercom, SERCOM_USART_INTENSET_RXC);
+  NVIC_EnableIRQ(irqn);
+
+  sercom->USART.CTRLB.reg |= SERCOM_USART_CTRLB_RXEN;
+
+  /* Enable requires synchronisation (26.6.6) */
+  if (!(sercom->USART.CTRLA.reg & SERCOM_USART_CTRLA_ENABLE)) {
+    sercom->USART.CTRLA.reg |= SERCOM_USART_CTRLA_ENABLE;
+    while (sercom->USART.STATUS.reg & SERCOM_USART_SYNCBUSY_ENABLE)
+      ;
+  }
+}
+
+void uartEnableTx(Sercom *sercom) {
+  sercom->USART.CTRLB.reg |= SERCOM_USART_CTRLB_TXEN;
+  /* Enable requires synchronisation (26.6.6) */
+  if (!(sercom->USART.CTRLA.reg & SERCOM_USART_CTRLA_ENABLE)) {
+    sercom->USART.CTRLA.reg |= SERCOM_USART_CTRLA_ENABLE;
+    while (sercom->USART.STATUS.reg & SERCOM_USART_SYNCBUSY_ENABLE)
+      ;
+  }
+}
+
 char uartGetc(Sercom *sercom) { return sercom->USART.DATA.reg; }
 
 bool uartGetcReady(const Sercom *sercom) {
   return (bool)(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_RXC);
 }
 
-void uartInterruptEnable(Sercom *sercom, uint32_t interrupt) {
+static void uartInterruptEnable(Sercom *sercom, uint32_t interrupt) {
   sercom->USART.INTENSET.reg = interrupt;
-}
-
-void uartInterruptDisable(Sercom *sercom, uint32_t interrupt) {
-  sercom->USART.INTENCLR.reg = interrupt;
 }
 
 uint32_t uartInterruptStatus(const Sercom *sercom) {
   return sercom->USART.INTFLAG.reg;
-}
-
-void uartInterruptClear(Sercom *sercom, uint32_t interrupt) {
-  sercom->USART.INTFLAG.reg = interrupt;
 }
 
 /*
@@ -362,11 +353,30 @@ uint8_t i2cDataRead(Sercom *sercom) {
  * =====================================
  */
 
-void spiDeSelect(const Pin_t nSS) { portPinDrv(nSS.grp, nSS.pin, PIN_DRV_SET); }
+void spiConfigureExt(void) {
+  extIntfEnabled = !portPinValue(GRP_DISABLE_EXT, PIN_DISABLE_EXT);
+  spiExtPinsSetup(extIntfEnabled);
+}
 
-void spiSelect(const Pin_t nSS) { portPinDrv(nSS.grp, nSS.pin, PIN_DRV_CLR); }
+void spiDeSelect(const Pin_t nSS) {
+  if (!extIntfEnabled) {
+    return;
+  }
+  portPinDrv(nSS.grp, nSS.pin, PIN_DRV_SET);
+}
+
+void spiSelect(const Pin_t nSS) {
+  if (!extIntfEnabled) {
+    return;
+  }
+  portPinDrv(nSS.grp, nSS.pin, PIN_DRV_CLR);
+}
 
 void spiSendBuffer(Sercom *sercom, const void *pSrc, int n) {
+  if (!extIntfEnabled) {
+    return;
+  }
+
   uint8_t *pData = (uint8_t *)pSrc;
 
   while (n--) {
@@ -375,6 +385,10 @@ void spiSendBuffer(Sercom *sercom, const void *pSrc, int n) {
 }
 
 uint8_t spiSendByte(Sercom *sercom, const uint8_t b) {
+  if (!extIntfEnabled) {
+    return 0;
+  }
+
   while (0 == (sercom->SPI.INTFLAG.reg & SERCOM_SPI_INTFLAG_DRE))
     ;
   sercom->SPI.INTFLAG.reg = SERCOM_SPI_INTFLAG_RXC;

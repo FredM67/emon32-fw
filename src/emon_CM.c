@@ -21,6 +21,7 @@
 
 #define PROC_DEPTH   16 /* Voltage sample buffer depth. Must be power of 2. */
 #define ZC_HYST      2  /* Zero crossing hysteresis */
+#define ZC_HYST_AV   8  /* Zero crossing hysteresis when using assumd voltage */
 #define EQUIL_CYCLES 8  /* Number of cycles to discard at startup */
 
 _Static_assert(!(PROC_DEPTH & (PROC_DEPTH - 1)),
@@ -28,8 +29,9 @@ _Static_assert(!(PROC_DEPTH & (PROC_DEPTH - 1)),
 
 static const float twoPi = 6.2831853072f;
 
-static bool channelActive[VCT_TOTAL];
-static bool threePhase = false;
+static bool channelActive[VCT_TOTAL] = {0};
+static bool threePhase               = false;
+static bool useAssumedV              = false;
 
 /*************************************
  * Local typedefs
@@ -137,6 +139,8 @@ static ECMPerformance_t *perfIdle   = perfCounter + 1;
 
 static ECMDataset_t datasetProc = {0};
 
+static uint32_t t_ZClast = 0;
+
 /******** FIXED POINT MATHS FUNCTIONS ********
  *
  * Adapted from Arm CMSIS-DSP: https://github.com/ARM-software/CMSIS-DSP
@@ -175,8 +179,7 @@ static RAMFUNC float calcRMS(CalcRMS_t *pSrc) {
   return rms;
 }
 
-/*! @brief Swap pointers to buffers
- */
+/*! @brief Swap pointers to buffers */
 static void swapPtr(void **pIn1, void **pIn2) {
   void *tmp = *pIn1;
   *pIn1     = *pIn2;
@@ -213,6 +216,7 @@ void ecmConfigChannel(int_fast8_t ch) {
 
 void configChannelCT(int_fast8_t ch) {
   channelActive[ch + NUM_V] = ecmCfg.ctCfg[ch].active;
+  datasetProc.activeCh      = ecmCfg.ctCfg[ch].active << (ch + NUM_V);
   ecmCfg.ctCfg[ch].ctCal =
       calibrationAmplitude(ecmCfg.ctCfg[ch].ctCalRaw, false);
 
@@ -223,7 +227,8 @@ void configChannelCT(int_fast8_t ch) {
 }
 
 void configChannelV(int_fast8_t ch) {
-  channelActive[ch] = ecmCfg.vCfg[ch].vActive;
+  channelActive[ch]    = ecmCfg.vCfg[ch].vActive;
+  datasetProc.activeCh = ecmCfg.vCfg[ch].vActive << ch;
   ecmCfg.vCfg[ch].voltageCal =
       calibrationAmplitude(ecmCfg.vCfg[ch].voltageCalRaw, true);
 }
@@ -321,6 +326,8 @@ RAMFUNC bool zeroCrossingSW(q15_t smpV) {
         return true;
       }
     }
+  } else {
+    hystCnt = useAssumedV ? ZC_HYST_AV : ZC_HYST;
   }
   return false;
 }
@@ -386,9 +393,9 @@ void ecmFlush(void) {
   discardCycles = EQUIL_CYCLES;
 
   memset(accumBuffer, 0, (2 * sizeof(*accumBuffer)));
-  // memset(sampleRingBuffer, 0, (PROC_DEPTH * sizeof(*sampleRingBuffer)));
   memset(dspBuffer, 0, (DOWNSAMPLE_TAPS * sizeof(*dspBuffer)));
   memset(&residualEnergy, 0, (sizeof(*residualEnergy) * NUM_CT));
+  t_ZClast = 0;
 }
 
 RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
@@ -501,10 +508,12 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
 }
 
 RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
-  bool        reportReady = false;
-  bool        pend_1s     = false;
-  SampleSet_t smpSet      = {0};
-  uint32_t    t_start     = 0;
+  bool            pend1s      = false;
+  bool            reportReady = false;
+  SampleSet_t     smpSet      = {0};
+  static uint32_t t_RepLast   = 0;
+  uint32_t        t_start     = 0;
+  bool            zcFlag      = false;
 
   static int_fast8_t idxInject;
 
@@ -575,6 +584,10 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
    * zero-crossing, swap buffers and pend event.
    */
   if (zeroCrossingSW(smpSet.smpV[0])) {
+
+    zcFlag   = true;
+    t_ZClast = (*ecmCfg.timeMicros)();
+
     if (0 == discardCycles) {
       accumCollecting->cycles++;
     } else {
@@ -584,27 +597,47 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
         accumCollecting->tStart_us = (*ecmCfg.timeMicros)();
       }
     }
+  }
 
-    /* Flag one second before the report is due to allow slow sensors to
-     * sample. For example, DS18B20 requires 750 ms to sample.
-     */
-    if (accumCollecting->cycles == (ecmCfg.reportCycles - ecmCfg.mainsFreq)) {
-      pend_1s = true;
-    }
+  /* If no zero-crossing has been detected in 100 ms, fall back to assumed
+   * Vrms */
+  if ((*ecmCfg.timeMicrosDelta)(t_ZClast) > 100000) {
+    useAssumedV = true;
+  } else {
+    useAssumedV = false;
+  }
 
-    /* All samples for this set are complete, or there has been a request from
-     * software to read out the sample.
-     */
-    if ((accumCollecting->cycles >= ecmCfg.reportCycles) || processTrigger) {
-      accumSwapClear();
+  uint32_t tRepLastDelta = (*ecmCfg.timeMicrosDelta)(t_RepLast);
 
-      accumCollecting->tStart_us = (*ecmCfg.timeMicros)();
-      accumProcessing->tDelta_us =
-          (*ecmCfg.timeMicrosDelta)(accumProcessing->tStart_us);
+  /* Flag one second before the report is due to allow slow sensors to
+   * sample. For example, DS18B20 requires 750 ms to sample.
+   */
+  bool pend1sNoVAC =
+      useAssumedV && (tRepLastDelta > ecmCfg.reportTime_us - 1E6);
+  bool pend1sCycles =
+      accumCollecting->cycles == (ecmCfg.reportCycles - ecmCfg.mainsFreq);
 
-      processTrigger = false;
-      reportReady    = true;
-    }
+  pend1s = pend1sNoVAC || pend1sCycles;
+
+  /* Trigger conditions
+   *   - Number of detected cycles
+   *   - Report time if no V AC sensed
+   *   - A manual trigger (sync'd to cycle if VAC present)
+   */
+  bool repCycles  = (accumCollecting->cycles >= ecmCfg.reportCycles);
+  bool repTime    = useAssumedV && (tRepLastDelta > ecmCfg.reportTime_us);
+  bool repTrigger = processTrigger && (useAssumedV || zcFlag);
+
+  if (repCycles || repTime || repTrigger) {
+    accumSwapClear();
+
+    accumCollecting->tStart_us = (*ecmCfg.timeMicros)();
+    accumProcessing->tDelta_us =
+        (*ecmCfg.timeMicrosDelta)(accumProcessing->tStart_us);
+
+    t_RepLast      = accumCollecting->tStart_us;
+    processTrigger = false;
+    reportReady    = true;
   }
 
   perfActive->numSlices++;
@@ -614,7 +647,7 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
   idxInject = (idxInject + 1u) & (PROC_DEPTH - 1u);
 
   return reportReady ? ECM_REPORT_COMPLETE
-                     : (pend_1s ? ECM_PEND_1S : ECM_CYCLE_ONGOING);
+                     : (pend1s ? ECM_PEND_1S : ECM_CYCLE_ONGOING);
 }
 
 ECMPerformance_t *ecmPerformance(void) {
@@ -635,9 +668,11 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
   const int64_t numSamplesSqr = numSamples * numSamples;
   rms.numSamples              = numSamples;
 
-  const float timeTotal =
-      qfp_fdiv(qfp_uint2float(accumProcessing->tDelta_us), 1000000.0f);
-  datasetProc.wallTime = timeTotal;
+  /* Choose if using the assumed time, or cycle locked real time */
+  const uint32_t t_dividend =
+      useAssumedV ? ecmCfg.reportTime_us : accumProcessing->tDelta_us;
+  const float timeTotal = qfp_fdiv(qfp_uint2float(t_dividend), 1000000.0f);
+  datasetProc.wallTime  = timeTotal;
 
   for (int_fast8_t idxV = 0; idxV < NUM_V; idxV++) {
     if (channelActive[idxV]) {
@@ -645,7 +680,7 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
       rms.sDelta = accumProcessing->processV[idxV].sumV_deltas;
       rms.sSqr   = accumProcessing->processV[idxV].sumV_sqr;
 
-      datasetProc.rmsV[idxV] = calcRMS(&rms);
+      datasetProc.rmsV[idxV] = useAssumedV ? ecmCfg.assumedVrms : calcRMS(&rms);
     } else {
       datasetProc.rmsV[idxV] = 0.0f;
     }
@@ -657,7 +692,8 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
       rms.sDelta = accumProcessing->processV[i + NUM_V].sumV_deltas;
       rms.sSqr   = accumProcessing->processV[i + NUM_V].sumV_sqr;
 
-      datasetProc.rmsV[i + NUM_V] = calcRMS(&rms);
+      datasetProc.rmsV[i + NUM_V] =
+          useAssumedV ? ecmCfg.assumedVrms : calcRMS(&rms);
     }
   }
 
@@ -681,11 +717,16 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
 
       int vi_offset = rms.sDelta * accumProcessing->processV[idxV1].sumV_deltas;
 
-      float powerNow = qfp_fdiv(sumEnergy, qfp_int2float(numSamples));
-      powerNow       = qfp_fsub(powerNow, qfp_fdiv(qfp_int2float(vi_offset),
-                                                   qfp_int642float(numSamplesSqr)));
-      powerNow =
-          qfp_fmul(powerNow, qfp_fmul(rms.cal, ecmCfg.vCfg[idxV1].voltageCal));
+      float powerNow;
+      if (useAssumedV) {
+        powerNow = qfp_fmul(datasetProc.CT[idxCT].rmsI, ecmCfg.assumedVrms);
+      } else {
+        powerNow = qfp_fdiv(sumEnergy, qfp_int2float(numSamples));
+        powerNow = qfp_fsub(powerNow, qfp_fdiv(qfp_int2float(vi_offset),
+                                               qfp_int642float(numSamplesSqr)));
+        powerNow = qfp_fmul(powerNow,
+                            qfp_fmul(rms.cal, ecmCfg.vCfg[idxV1].voltageCal));
+      }
 
       if (idxV1 != idxV2) {
         sumEnergy = qfp_fadd(
@@ -708,22 +749,27 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
 
       // Power factor
       float rmsV;
-      if (idxV1 == idxV2) {
-        rmsV = datasetProc.rmsV[idxV1];
+      if (useAssumedV) {
+        rmsV = ecmCfg.assumedVrms;
       } else {
-        if (0 == idxV1) {
-          if (1 == idxV2) {
-            /* V1-V2 */
-            rmsV = datasetProc.rmsV[3];
-          } else {
-            /* V1-V3 */
-            rmsV = datasetProc.rmsV[4];
-          }
+        if (idxV1 == idxV2) {
+          rmsV = datasetProc.rmsV[idxV1];
         } else {
-          /* V2-V3 */
-          rmsV = datasetProc.rmsV[5];
+          if (0 == idxV1) {
+            if (1 == idxV2) {
+              /* V1-V2 */
+              rmsV = datasetProc.rmsV[3];
+            } else {
+              /* V1-V3 */
+              rmsV = datasetProc.rmsV[4];
+            }
+          } else {
+            /* V2-V3 */
+            rmsV = datasetProc.rmsV[5];
+          }
         }
       }
+
       float VA   = qfp_fmul(datasetProc.CT[idxCT].rmsI, rmsV);
       float pf   = qfp_fdiv(powerNow, VA);
       bool  pf_b = ((pf > 1.05f) || (pf < -1.05f) || (pf != pf));

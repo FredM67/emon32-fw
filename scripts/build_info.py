@@ -56,14 +56,11 @@ def generate_build_info_c(configuration):
     except subprocess.CalledProcessError:
         release = "None"
 
-    if "." in release:
-        year, month, day = [x.lstrip("0") for x in release.split(".", 3)]
-    else:
-        year, month, day = 0, 0, 0
+    day, month, year = datetime.now(timezone.utc).strftime("%d.%m.%Y").split(".")
 
     try:
         revision = subprocess.run(
-            ["git", "describe", "--always", "--tags", "--dirty"],
+            ["git", "describe", "--always", "--dirty"],
             capture_output=True,
             check=True,
             text=True,
@@ -114,9 +111,9 @@ def generate_build_info_c(configuration):
             .compiler = compiler,
             .machine = machine,
             .release = release,
-            .release_year = {year},
-            .release_month = {month},
-            .release_day = {day},
+            .release_year = {int(year)},
+            .release_month = {int(month)},
+            .release_day = {int(day)},
         }};
     }}
 

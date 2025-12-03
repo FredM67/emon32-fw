@@ -14,6 +14,7 @@
 #include "emon32.h"
 #include "emon32_build_info.h"
 #include "emon_CM.h"
+#include "periph_rfm69.h"
 #include "util.h"
 
 #include "printf.h"
@@ -56,7 +57,16 @@ static void     enterBootloader(void);
 static uint32_t getBoardRevision(void);
 static char    *getLastReset(void);
 static void     inBufferClear(int n);
+static void     printSettingCT(const int ch);
+static void     printSettingDatalog(void);
+static void     printSettingJSON(void);
+static void     printSettingOPA(const int ch);
+static void     printSettingRF(void);
+static void     printSettingRFFreq(void);
+static void     printSettingV(const int ch);
 static void     printSettings(void);
+static void     printSettingsHR(void);
+static void     printSettingsKV(void);
 static void     printUptime(void);
 static void     putFloat(float val, int flt_len);
 static char     waitForChar(void);
@@ -82,6 +92,7 @@ static void configDefault(void) {
   config.baseCfg.nodeID       = NODE_ID_DEF;
   config.baseCfg.mainsFreq    = MAINS_FREQ_DEF;
   config.baseCfg.reportTime   = REPORT_TIME_DEF;
+  config.baseCfg.assumedVrms  = ASSUMED_VRMS_DEF;
   config.baseCfg.whDeltaStore = DELTA_WH_STORE_DEF;
   config.baseCfg.dataGrp      = GROUP_ID_DEF;
   config.baseCfg.logToSerial  = true;
@@ -106,15 +117,13 @@ static void configDefault(void) {
 
   /* OneWire/Pulse configuration:
    * OPA1
-   *   - Pulse input
-   *   - Period: 100 ms
-   *   - Rising edge trigger
-   *   - Pull up disabled
+   *   - OneWire input
+   *   - Enabled
    */
-  config.opaCfg[0].func      = 'r';
-  config.opaCfg[0].opaActive = false;
-  config.opaCfg[0].period    = 100u;
-  config.opaCfg[0].puEn      = false;
+  config.opaCfg[0].func      = 'o';
+  config.opaCfg[0].opaActive = true;
+  config.opaCfg[0].period    = 0;
+  config.opaCfg[0].puEn      = true;
 
   /* OPA2
    *   - OneWire input
@@ -230,9 +239,7 @@ static bool configureAnalog(void) {
     ecmCfg->vCfg[ch].vActive         = active;
     ecmCfg->vCfg[ch].voltageCalRaw   = calAmpl;
 
-    printf_("> V%d calibration set to: ", (ch + 1));
-    putFloat(config.voltageCfg[ch].voltageCal, 0);
-    serialPuts("\r\n");
+    printSettingV(ch);
 
     ecmConfigChannel(ch);
     return true;
@@ -271,24 +278,17 @@ static bool configureAnalog(void) {
 
   config.ctCfg[ch].ctCal     = calAmpl;
   ecmCfg->ctCfg[ch].ctCalRaw = calAmpl;
-  printf_("> CT%d calibration set to: ", (ch + 1));
-  putFloat(config.ctCfg[ch].ctCal, 0);
-  serialPuts("\r\n");
 
   config.ctCfg[ch].phase  = calPhase;
   ecmCfg->ctCfg[ch].phCal = calPhase;
-  printf_("> CT%d phase set to: ", (ch + 1));
-  putFloat(config.ctCfg[ch].phase, 0);
-  serialPuts("\r\n");
 
   config.ctCfg[ch].vChan1  = vCh1 - 1;
   ecmCfg->ctCfg[ch].vChan1 = vCh1 - 1;
-  printf_("> CT%d voltage channel 1 set to: %d\r\n", (ch + 1), vCh1);
 
   config.ctCfg[ch].vChan2  = vCh2 - 1;
   ecmCfg->ctCfg[ch].vChan2 = vCh2 - 1;
-  printf_("> CT%d voltage channel 1 set to: %d\r\n", (ch + 1), vCh2);
 
+  printSettingCT(ch);
   ecmConfigChannel(ch + NUM_V);
   return true;
 }
@@ -297,7 +297,7 @@ static bool configureAssumed(void) {
   ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
   if (convI.valid) {
     ECMCfg_t *pEcmCfg          = ecmConfigGet();
-    pEcmCfg->assumedVrms       = convI.val;
+    pEcmCfg->assumedVrms       = qfp_uint2float(convI.val);
     config.baseCfg.assumedVrms = convI.val;
     return true;
   }
@@ -324,6 +324,7 @@ static void configureBackup(void) {
   printf_("\"board_config\":{\"rfmFreq\":%d,\"f_mains\":%d,\"t_report\":%s},",
           config.dataTxCfg.rfmFreq, config.baseCfg.mainsFreq, strBuf);
 
+  printf_("\"assumedV\":%d,", config.baseCfg.assumedVrms);
   /* {v_config} list of dicts */
   serialPuts("\"v_config\":[");
   for (int i = 0; i < NUM_V; i++) {
@@ -366,9 +367,7 @@ static bool configureDatalog(void) {
       ecmConfigReportCycles(
           configTimeToCycles(convF.val, config.baseCfg.mainsFreq));
 
-      serialPuts("> Data log report time set to: ");
-      putFloat(config.baseCfg.reportTime, 0);
-      serialPuts("\r\n");
+      printSettingDatalog();
       return true;
     }
   }
@@ -387,6 +386,7 @@ static bool configureGroupID(void) {
   }
 
   config.baseCfg.dataGrp = convI.val;
+  printf_("rfGroup = %d\r\n", (int)convI.val);
   return true;
 }
 
@@ -402,7 +402,7 @@ static bool configureJSON(void) {
   }
 
   config.baseCfg.useJson = (bool)convI.val;
-  printf_("> Use JSON: %c\r\n", config.baseCfg.useJson ? 'Y' : 'N');
+  printSettingJSON();
   return true;
 }
 
@@ -477,7 +477,7 @@ static bool configureOPA(void) {
 
   if (!active) {
     config.opaCfg[ch].opaActive = false;
-    printf_("> OPA channel %d disabled.\r\n", (ch + 1u));
+    printSettingOPA(ch);
     return true;
   }
   config.opaCfg[ch].opaActive = true;
@@ -503,38 +503,21 @@ static bool configureOPA(void) {
     period = convI.val;
   }
 
-  printf_("> OPA channel %d: ", (ch + 1u));
-
   /* OneWire requires a reset if changed to find any OneWire sensors. */
   if ('o' == func) {
-    serialPuts("OneWire\r\n");
     config.opaCfg[ch].func = 'o';
     if ('o' != config.opaCfg[ch].func) {
       resetReq = true;
     }
+    printSettingOPA(ch);
     return true;
   }
-
-  serialPuts("Pulse (");
-  switch (func) {
-  case 'b':
-    serialPuts("both edges");
-    break;
-  case 'f':
-    serialPuts("falling edge");
-    break;
-  case 'r':
-    serialPuts("rising edge");
-    break;
-  default:
-    break;
-  }
-  printf_(", %s, %d ms)\r\n", (pu ? "pull-up" : "no pull-up"), period);
 
   config.opaCfg[ch].func   = func;
   config.opaCfg[ch].period = period;
   config.opaCfg[ch].puEn   = pu;
 
+  printSettingOPA(ch);
   resetReq = true;
   return true;
 }
@@ -563,12 +546,7 @@ static bool configureRFEnable(void) {
   }
 
   config.dataTxCfg.useRFM = (bool)val;
-  serialPuts("> RF ");
-  if (val) {
-    serialPuts("enabled.\r\n");
-  } else {
-    serialPuts("disabled.\r\n");
-  }
+  printf_("RF = %s\r\n", (bool)val ? "on" : "off");
 
   return true;
 }
@@ -585,13 +563,12 @@ static bool configureRF433(void) {
     return false;
   }
 
-  if (val) {
-    config.dataTxCfg.rfmFreq = 2;
-    serialPuts("> 433.00 MHz (backwards compatible, illegal).\r\n");
-  } else {
-    config.dataTxCfg.rfmFreq = 3;
-    serialPuts("> 433.92 MHz (check Rx frequency).\r\n");
-  }
+  config.dataTxCfg.rfmFreq = val ? 2 : 3;
+
+  serialPuts("rfBand = ");
+  printSettingRFFreq();
+  serialPuts(" MHz\r\n");
+
   return true;
 }
 
@@ -609,6 +586,7 @@ static bool configureRFPower(void) {
   }
 
   config.dataTxCfg.rfmPwr = convI.val;
+  printf_("rfPower = %d\r\n", (int)convI.val);
   return true;
 }
 
@@ -627,7 +605,6 @@ static bool configureSerialLog(void) {
   }
 
   config.baseCfg.logToSerial = (bool)convI.val;
-  printf_("> Log to serial: %c\r\n", config.baseCfg.logToSerial ? 'Y' : 'N');
   return true;
 }
 
@@ -701,29 +678,99 @@ static void inBufferClear(int n) {
   (void)memset(inBuffer, 0, n);
 }
 
+static void printSettingCT(const int ch) {
+  printf_("iCal%d = ", (ch + 1));
+  putFloat(config.ctCfg[ch].ctCal, 0);
+  printf_(", iLead%d = ", (ch + 1));
+  putFloat(config.ctCfg[ch].phase, 0);
+  printf_(", iActive%d = %s", (ch + 1), config.ctCfg[ch].ctActive ? "1" : "0");
+  printf_(", v1Chan%d = %d, v2Chan%d = %d\r\n", (ch + 1),
+          (config.ctCfg[ch].vChan1 + 1), (ch + 1),
+          (config.ctCfg[ch].vChan2 + 1));
+}
+
+static void printSettingDatalog(void) {
+  serialPuts("datalog = ");
+  putFloat(config.baseCfg.reportTime, 0);
+  serialPuts("\r\n");
+}
+
+static void printSettingJSON(void) {
+  printf_("json = %s\r\n", config.baseCfg.useJson ? "on" : "off");
+}
+
+static void printSettingOPA(const int ch) {
+  printf_("opa%d = ", (ch + 1));
+
+  /* OneWire */
+  if ('o' == config.opaCfg[ch].func) {
+    printf_("onewire, active = %s\r\n",
+            config.opaCfg[ch].opaActive ? "1" : "0");
+    return;
+  }
+
+  /* Pulse */
+  printf_("pulse, pulsePeriod = %d, pullUp = %s, active = %s\r\n",
+          config.opaCfg[ch].period, config.opaCfg[ch].puEn ? "on" : "off",
+          config.opaCfg[ch].opaActive ? "1" : "0");
+}
+
+static void printSettingRF(void) {
+  printf_("RF = %s, ", config.dataTxCfg.useRFM ? "on" : "off");
+  serialPuts("rfBand = ");
+  printSettingRFFreq();
+  serialPuts(" MHz, ");
+  printf_("rfGroup = %d, ", config.baseCfg.dataGrp);
+  printf_("rfNode = %d, ", config.baseCfg.nodeID);
+  printf_("rfPower = %d, ", config.dataTxCfg.rfmPwr);
+  serialPuts("rfFormat = LowPowerLabs\r\n");
+}
+
+static void printSettingRFFreq(void) {
+  switch (config.dataTxCfg.rfmFreq) {
+  case 0:
+    serialPuts("868");
+    break;
+  case 1:
+    serialPuts("915");
+    break;
+  case 2:
+    serialPuts("433.00");
+    break;
+  case 3:
+    serialPuts("433.92");
+    break;
+  }
+}
+
+static void printSettingV(const int ch) {
+  printf_("vCal%d = ", (ch + 1));
+  putFloat(config.voltageCfg[ch].voltageCal, 0);
+  printf_(", vActive%d = %s\r\n", (ch + 1),
+          config.voltageCfg[ch].vActive ? "1" : "0");
+}
+
 static void printSettings(void) {
+  if ('h' == inBuffer[1]) {
+    printSettingsHR();
+  } else {
+    printSettingsKV();
+  }
+
+  if (unsavedChange) {
+    serialPuts("There are unsaved changes. Command \"s\" to save.\r\n\r\n");
+  }
+}
+
+static void printSettingsHR(void) {
   serialPuts("\r\n\r\n==== Settings ====\r\n\r\n");
   printf_("Mains frequency (Hz):      %d\r\n", config.baseCfg.mainsFreq);
   serialPuts("Data log time (s):         ");
   putFloat(config.baseCfg.reportTime, 0);
-  printf_("\r\nMinimum accumulation (Wh): %d\r\n", config.baseCfg.whDeltaStore);
-  serialPuts("Data transmission:         ");
+  serialPuts("\r\nData transmission:         ");
   if (config.dataTxCfg.useRFM) {
     serialPuts("RFM69, ");
-    switch (config.dataTxCfg.rfmFreq) {
-    case 0:
-      serialPuts("868");
-      break;
-    case 1:
-      serialPuts("915");
-      break;
-    case 2:
-      serialPuts("433.00");
-      break;
-    case 3:
-      serialPuts("433.92");
-      break;
-    }
+    printSettingRFFreq();
     printf_(" MHz @ %ddb\r\n", (-18 + config.dataTxCfg.rfmPwr));
     printf_("  - Data group:            %d\r\n", config.baseCfg.dataGrp);
     printf_("  - Node ID:               %d\r\n", config.baseCfg.nodeID);
@@ -763,6 +810,8 @@ static void printSettings(void) {
     serialPuts("\r\n");
   }
 
+  printf_("Assumed RMS voltage: %d V\r\n\r\n", config.baseCfg.assumedVrms);
+
   serialPuts(
       "| Ref | Channel | Active | Calibration | Phase  | In 1 | In 2 |\r\n");
   serialPuts(
@@ -783,10 +832,27 @@ static void printSettings(void) {
             (config.ctCfg[i].vChan2 + 1));
   }
   serialPuts("\r\n");
+}
 
-  if (unsavedChange) {
-    serialPuts("There are unsaved changes. Command \"s\" to save.\r\n\r\n");
+static void printSettingsKV(void) {
+  serialPuts("hardware = emonPi3\r\n");
+  printf_("hardware_rev = %" PRIu32 "\r\n", getBoardRevision());
+  printf_("version = %d.%d.%d\r\n", VERSION_FW_MAJ, VERSION_FW_MIN,
+          VERSION_FW_REV);
+  printf_("commit = %s\r\n", emon32_build_info().revision);
+  printf_("assumedV = %d\r\n", config.baseCfg.assumedVrms);
+  for (int i = 0; i < NUM_V; i++) {
+    printSettingV(i);
   }
+  for (int i = 0; i < NUM_CT; i++) {
+    printSettingCT(i);
+  }
+  for (int i = 0; i < NUM_OPA; i++) {
+    printSettingOPA(i);
+  }
+  printSettingRF();
+  printSettingDatalog();
+  printSettingJSON();
 }
 
 static void putFloat(float val, int flt_len) {
@@ -893,11 +959,12 @@ void configCmdChar(const uint8_t c) {
 }
 
 void configFirmwareBoardInfo(void) {
-  serialPuts("\033c==== emon32 ====\r\n\r\n");
+  serialPuts("\033c==== emonPi3 | emonTx6 ====\r\n\r\n");
 
   serialPuts("> Board:\r\n");
-  printf_("  - emonPi3     (arch. rev. %" PRIu32 ")\r\n", getBoardRevision());
-  printf_("  - Serial:     0x%02x%02x%02x%02x\r\n",
+  printf_("  - emonPi3/emonTx6 (arch. rev. %" PRIu32 ")\r\n",
+          getBoardRevision());
+  printf_("  - Serial    : 0x%02x%02x%02x%02x\r\n",
           (unsigned int)getUniqueID(0), (unsigned int)getUniqueID(1),
           (unsigned int)getUniqueID(2), (unsigned int)getUniqueID(3));
   printf_("  - Last reset: %s\r\n", getLastReset());
@@ -923,8 +990,8 @@ Emon32Config_t *configLoadFromNVM(void) {
   char           c           = 0;
 
   /* Load from "static" part of EEPROM. If the key does not match
-   * CONFIG_NVM_KEY as this is the first time it has been run, run the built in
-   * self test, write the default configuration to the EEPROM and zero wear
+   * CONFIG_NVM_KEY as this is the first time it has been run, run the built
+   * in self test, write the default configuration to the EEPROM and zero wear
    * levelled portion before resetting.
    */
   eepromRead(0, &config, cfgSize);
@@ -1054,8 +1121,8 @@ void configProcessCmd(void) {
     break;
   case 'g':
     if (configureGroupID()) {
+      rfmSetGroupID(config.baseCfg.dataGrp);
       unsavedChange = true;
-      resetReq      = true;
       emon32EventSet(EVT_CONFIG_CHANGED);
     }
     break;
@@ -1087,7 +1154,6 @@ void configProcessCmd(void) {
   case 'n':
     /* Set the node ID */
     if (configureNodeID()) {
-      resetReq      = true;
       unsavedChange = true;
       emon32EventSet(EVT_CONFIG_CHANGED);
     }
@@ -1095,7 +1161,7 @@ void configProcessCmd(void) {
   case 'p':
     /* Configure RF power */
     if (configureRFPower()) {
-      resetReq      = true;
+      rfmSetPowerLevel(config.dataTxCfg.rfmPwr);
       unsavedChange = true;
       emon32EventSet(EVT_CONFIG_CHANGED);
     }
@@ -1141,8 +1207,8 @@ void configProcessCmd(void) {
 
   case 'x':
     if (configureRF433()) {
+      rfmSetFrequency(config.dataTxCfg.rfmFreq);
       unsavedChange = true;
-      resetReq      = true;
       emon32EventSet(EVT_CONFIG_CHANGED);
     }
     break;
@@ -1182,4 +1248,6 @@ void SERCOM_UART_INTERACTIVE_HANDLER {
       uartPutcBlocking(SERCOM_UART_INTERACTIVE, rx_char);
     }
   }
+
+  /* Revisit : need to handle the Error interrupt? */
 }

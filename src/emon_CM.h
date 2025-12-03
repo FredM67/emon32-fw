@@ -84,11 +84,12 @@ typedef struct ECMCfg_ {
   uint32_t (*timeMicros)(void);          /* Time in microseconds now */
   uint32_t (*timeMicrosDelta)(uint32_t); /* Time delta in microseconds */
 
-  bool downsample;   /* DSP enabled */
-  int  reportCycles; /* Number of cycles before reporting */
-  int  mainsFreq;    /* Mains frequency */
-  int  samplePeriod; /* Sampling period for each sample */
-  int  assumedVrms;  /* Assume RMS voltage if not found */
+  bool     downsample;    /* DSP enabled */
+  int      reportCycles;  /* Number of cycles before reporting */
+  int      mainsFreq;     /* Mains frequency */
+  int      samplePeriod;  /* Sampling period for each sample */
+  uint32_t reportTime_us; /* Report time in microseconds */
+  float    assumedVrms;   /* Assume RMS voltage if not found */
 
   int_fast8_t mapCTLog[NUM_CT]; /* Map of CT to microcontroller pins */
 
@@ -108,6 +109,7 @@ typedef struct DataCT_ {
 
 typedef struct ECMDataset_ {
   float    wallTime;
+  uint32_t activeCh;
   float    rmsV[NUM_V * 2]; /* For L-L */
   DataCT_t CT[NUM_CT];
 } ECMDataset_t;

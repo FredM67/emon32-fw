@@ -130,9 +130,9 @@
 #define PIN_OPA1_PU 18
 #define PIN_OPA2_PU 19
 
-/* nDISABLE_EXT_INTF */
-#define GRP_nDISABLE_EXT GRP_PINB
-#define PIN_nDISABLE_EXT 16u
+/* DISABLE_EXT_INTF */
+#define GRP_DISABLE_EXT GRP_PINB
+#define PIN_DISABLE_EXT 16u
 
 /* ADC Pins */
 #define GRP_ADC_VMID   GRP_PINA
@@ -187,11 +187,11 @@
 
 /* UART related defines */
 #define PMUX_UART       PORT_PMUX_PMUXE_C /* SERCOM */
-#define GRP_SERCOM_UART GRP_PINB
-#define PIN_UART_RX     20u
-#define PIN_UART_TX     21u
-#define UART_PAD_RX     1u
-#define UART_PAD_TX     0u
+#define GRP_SERCOM_UART GRP_PINA
+#define PIN_UART_TX     20u
+#define PIN_UART_RX     21u
+#define UART_PAD_RX     3u /* RXPO */
+#define UART_PAD_TX     1u /* TXPO value, Tx on pad 2 */
 #define UART_BAUD       115200u
 
 /* RFM related defines */

@@ -24,11 +24,6 @@ typedef enum I2CM_Status_ {
   I2CM_DISABLED
 } I2CM_Status_t;
 
-typedef struct Sercom_Cfg_ {
-  Sercom *sercomExtI2C;
-  Sercom *sercomExtSPI;
-} SercomCfg_t;
-
 typedef enum UART_BAUD_ {
   UART_BAUD_9600   = 9600,
   UART_BAUD_19200  = 19200,
@@ -58,19 +53,11 @@ typedef struct UART_Cfg_ {
 /*! @brief Disable the external SPI and I2C interfaces */
 void sercomExtIntfDisable(void);
 
-/*! @brief Enable the external SPI and I2C interfaces */
-void sercomExtIntfEnable(void);
-
 /*! @brief Status of the external SPI and I2C interfaces */
 bool sercomExtIntfEnabled(void);
 
 /*! @brief configure the serial communication modules. */
 void sercomSetup(void);
-
-/*! @brief Configure a SERCOM module for UART functions.
- *  @param [in] pCfg : pointer to configuration struct
- */
-void sercomSetupUART(const UART_Cfg_t *pCfg);
 
 /*! @brief Set I2C address. If dma is 1, then a packet of len bytes is sent
  *         or received.
@@ -98,6 +85,9 @@ void i2cDataWrite(Sercom *sercom, uint8_t data);
  */
 uint8_t i2cDataRead(Sercom *sercom);
 
+/*! @brief Configure the external interface */
+void spiConfigureExt(void);
+
 /*! @brief Select an SPI peripheral
  *  @param [in] nSS : grp+pin of chip select line
  */
@@ -122,8 +112,15 @@ void spiSendBuffer(Sercom *sercom, const void *pSrc, int n);
  */
 uint8_t spiSendByte(Sercom *sercom, const uint8_t b);
 
-/*! @brief Configure the DMA for non-blocking transactions */
-void uartConfigureDMA(void);
+/*! @brief Enable the UART instance for Rx
+ *  @param [in] irqn : interrupt number
+ */
+void uartEnableRx(Sercom *sercom, const uint32_t irqn);
+
+/*! @brief Enable the UART instance for Tx
+ *  @param [in] sercom : pointer to SERCOM instance
+ */
+void uartEnableTx(Sercom *sercom);
 
 /*! @brief Get a character from the USART data buffer. Only valid when the
  *         INTFLAG.RXC bit it set.
@@ -135,24 +132,6 @@ char uartGetc(Sercom *sercom);
  *  @return true if waiting, false otherwise
  */
 bool uartGetcReady(const Sercom *sercom);
-
-/*! @brief Clear the interrupt status for the UART instance
- *  @param [in] sercom : SERCOM instance
- *  @param [in] interrupt : interrupt to clear
- */
-void uartInterruptClear(Sercom *sercom, uint32_t interrupt);
-
-/*! @brief Disable the an interrupt for the UART instance
- *  @param [in] sercom : SERCOM instance
- *  @param [in] interrupt : interrupt to disable
- */
-void uartInterruptDisable(Sercom *sercom, uint32_t interrupt);
-
-/*! @brief Enable the an interrupt for the UART instance
- *  @param [in] sercom : SERCOM instance
- *  @param [in] interrupt : interrupt to enable
- */
-void uartInterruptEnable(Sercom *sercom, uint32_t interrupt);
 
 /*! @brief Return the interrupt status for the UART instance
  *  @param [in] sercom : SERCOM instance

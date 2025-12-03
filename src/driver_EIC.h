@@ -1,7 +1,7 @@
 #pragma once
 
-/*! @brief Configure RFM IRQ EIC */
-void eicConfigureRfmIrq(void);
+/*! @brief Enable the External Interrupt Controller */
+void eicEnable(void);
 
 /*! @brief Setup the External Interrupt Controller */
 void eicSetup(void);

@@ -5,33 +5,14 @@
 #include "board_def.h"
 #include "driver_EIC.h"
 #include "driver_PORT.h"
-#include "driver_SERCOM.h"
-#include "periph_rfm69.h"
+#include "emon32.h"
 
-void eicConfigureRfmIrq(void) {
-
-  /* Check the status of the nDISABLE_EXT_INTF pin before disabling to catch a
-   * transition while the EIC controller is disabled */
-  bool nDisable = portPinValue(GRP_nDISABLE_EXT, PIN_nDISABLE_EXT);
-  portPinMux(GRP_RFM_INTF, PIN_RFM_IRQ, PMUX_RFM_IRQ);
-
-  EIC->CTRL.reg = 0;
-  while (EIC->STATUS.reg & EIC_STATUS_SYNCBUSY)
-    ;
-  EIC->CONFIG[1].reg = EIC_CONFIG_FILTEN7 | EIC_CONFIG_SENSE7_RISE;
-  EIC->INTENSET.reg  = EIC_INTENSET_EXTINT14;
-  EIC->CTRL.reg      = EIC_CTRL_ENABLE;
+void eicEnable(void) {
+  EIC->CTRL.reg = EIC_CTRL_ENABLE;
   while (EIC->STATUS.reg & EIC_STATUS_SYNCBUSY)
     ;
 
-  if (nDisable != portPinValue(GRP_nDISABLE_EXT, PIN_nDISABLE_EXT)) {
-    if (nDisable) {
-      sercomExtIntfEnable();
-    } else {
-      EIC->INTENCLR.reg = EIC_INTENCLR_EXTINT14;
-      sercomExtIntfDisable();
-    }
-  }
+  NVIC_EnableIRQ(EIC_IRQn);
 }
 
 void eicSetup(void) {
@@ -40,30 +21,18 @@ void eicSetup(void) {
   GCLK->CLKCTRL.reg =
       GCLK_CLKCTRL_ID(EIC_GCLK_ID) | GCLK_CLKCTRL_GEN(3u) | GCLK_CLKCTRL_CLKEN;
 
-  /* EXTINT[0] is nDISABLE_EXT_INTF */
-  portPinMux(GRP_nDISABLE_EXT, PIN_nDISABLE_EXT, PORT_PMUX_PMUXE_A);
-  EIC->CONFIG[0].reg = EIC_CONFIG_FILTEN0 | EIC_CONFIG_SENSE0_BOTH;
+  /* EXTINT[0] is DISABLE_EXT_INTF */
+  portPinMux(GRP_DISABLE_EXT, PIN_DISABLE_EXT, PORT_PMUX_PMUXE_A);
+  EIC->CONFIG[0].reg = EIC_CONFIG_FILTEN0 | EIC_CONFIG_SENSE0_RISE;
   EIC->INTENSET.reg  = EIC_INTENSET_EXTINT0;
-
-  EIC->CTRL.reg = EIC_CTRL_ENABLE;
-  while (EIC->STATUS.reg & EIC_STATUS_SYNCBUSY)
-    ;
-
-  NVIC_EnableIRQ(EIC_IRQn);
 }
 
 void irq_handler_eic(void) {
   if (EIC->INTFLAG.reg & EIC_INTFLAG_EXTINT0) {
-    if (portPinValue(GRP_nDISABLE_EXT, PIN_nDISABLE_EXT)) {
-      sercomExtIntfEnable();
-    } else {
-      sercomExtIntfDisable();
+    if (portPinValue(GRP_DISABLE_EXT, PIN_DISABLE_EXT)) {
+      /* Disable asynchronously so any onging transactions can complete */
+      emon32EventSet(EVT_EXT_DISABLE);
     }
     EIC->INTFLAG.reg = EIC_INTFLAG_EXTINT0;
-  }
-
-  if (EIC->INTFLAG.reg & EIC_INTFLAG_EXTINT14) {
-    rfmInterrupt();
-    EIC->INTFLAG.reg = EIC_INTFLAG_EXTINT14;
   }
 }
