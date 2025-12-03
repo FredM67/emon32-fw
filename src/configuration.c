@@ -8,7 +8,6 @@
 #include "driver_SERCOM.h"
 #include "driver_TIME.h"
 #include "driver_USB.h"
-#include "tusb.h"
 
 #include "configuration.h"
 #include "eeprom.h"
