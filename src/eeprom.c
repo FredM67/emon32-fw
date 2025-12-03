@@ -6,6 +6,7 @@
 #include "driver_SERCOM.h"
 #include "driver_TIME.h"
 #include "emon32_assert.h"
+#include "tusb.h"
 
 #include "printf.h"
 
@@ -237,7 +238,12 @@ void eepromInitBlock(unsigned int startAddr, const unsigned int val,
     }
     i2cAck(SERCOM_I2CM, I2CM_ACK, I2CM_ACK_CMD_STOP);
 
-    timerDelay_us(EEPROM_WR_TIME);
+    /* Keep USB alive during the 5ms EEPROM write delay */
+    uint32_t tStart = timerMicros();
+    while (timerMicrosDelta(tStart) < EEPROM_WR_TIME) {
+      tud_task();
+    }
+
     startAddr += EEPROM_PAGE_SIZE;
     n -= EEPROM_PAGE_SIZE;
   }

@@ -8,6 +8,7 @@
 #include "driver_SERCOM.h"
 #include "driver_TIME.h"
 #include "driver_USB.h"
+#include "tusb.h"
 
 #include "configuration.h"
 #include "eeprom.h"
@@ -894,8 +895,11 @@ static char waitForChar(void) {
    */
   char c;
   if (usbCDCIsConnected()) {
-    while (!usbCDCRxAvailable())
-      ;
+    while (!usbCDCRxAvailable()) {
+      tud_task(); /* Keep USB CDC alive while waiting */
+      /* NOTE: Don't call usbCDCTask() here as it would consume the character
+       * we're waiting for via configCmdChar() */
+    }
     c = usbCDCRxGetChar();
   } else {
     int irqEnabled = (NVIC->ISER[0] &
