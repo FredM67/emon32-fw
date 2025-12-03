@@ -71,7 +71,7 @@ static void     printSettingsKV(void);
 static void     printUptime(void);
 static void     putFloat(float val, int flt_len);
 static char     waitForChar(void);
-static bool     zeroAccumulators(void);
+static void     zeroAccumulators(void);
 
 /*************************************
  * Local variables
@@ -84,6 +84,16 @@ static int            inBufferIdx   = 0;
 static bool           cmdPending    = false;
 static bool           resetReq      = false;
 static bool           unsavedChange = false;
+
+/* Confirmation state for async user prompts */
+typedef enum {
+  CONFIRM_NONE = 0,     /* No confirmation pending */
+  CONFIRM_BOOTLOADER,   /* Waiting for bootloader entry confirmation */
+  CONFIRM_ZERO_ACCUM,   /* Waiting for zero accumulators confirmation */
+  CONFIRM_NVM_OVERWRITE /* Waiting for NVM overwrite confirmation */
+} ConfirmState_t;
+
+static ConfirmState_t confirmState = CONFIRM_NONE;
 
 /*! @brief Set all configuration values to defaults */
 static void configDefault(void) {
@@ -611,21 +621,13 @@ static bool configureSerialLog(void) {
 
 static void enterBootloader(void) {
   /* Linker reserves 4 bytes at the bottom of the stack and write the UF2
-   * bootloader key followed by reset. Will enter bootloader upon reset. */
-  char               c;
-  volatile uint32_t *p_blsm =
-      (volatile uint32_t *)(HMCRAMC0_ADDR + HMCRAMC0_SIZE - 4);
-  // Key is uf2-samdx1/inc/uf2.h:DBL_TAP_MAGIC
-  const uint32_t blsm_key = 0xF01669EF;
+   * bootloader key followed by reset. Will enter bootloader upon reset.
+   * This function is now async - it displays the prompt and sets state.
+   * The actual bootloader entry happens in configCmdChar() when user responds.
+   */
   serialPuts("> Enter bootloader? All unsaved changes will be lost. 'y' to "
              "proceed.\r\n");
-  c = waitForChar();
-  if ('y' == c) {
-    *p_blsm = blsm_key;
-    NVIC_SystemReset();
-  } else {
-    serialPuts("    - Cancelled.");
-  }
+  confirmState = CONFIRM_BOOTLOADER;
 }
 
 /*! @brief Get the board revision, software visible changes only
@@ -892,14 +894,13 @@ static void printUptime(void) {
 static char waitForChar(void) {
   /* Disable the NVIC for the interrupt if needed while waiting for the
    * character otherwise it is handled by the configuration buffer.
+   * NOTE: This function is only used during NVM init (startup), so a brief
+   * busy-wait is acceptable. USB is kept alive by the timer interrupt.
    */
   char c;
   if (usbCDCIsConnected()) {
-    while (!usbCDCRxAvailable()) {
-      tud_task(); /* Keep USB CDC alive while waiting */
-      /* NOTE: Don't call usbCDCTask() here as it would consume the character
-       * we're waiting for via configCmdChar() */
-    }
+    while (!usbCDCRxAvailable())
+      ; /* Busy-wait - USB serviced by timer interrupt */
     c = usbCDCRxGetChar();
   } else {
     int irqEnabled = (NVIC->ISER[0] &
@@ -923,25 +924,48 @@ static char waitForChar(void) {
 }
 
 /*! @brief Zero the accumulator portion of the NVM
- *  @return true if cleared, false if cancelled
+ *  This function is now async - it displays the prompt and sets state.
+ *  The actual zeroing happens in configCmdChar() when user responds.
  */
-static bool zeroAccumulators(void) {
-  char c;
+static void zeroAccumulators(void) {
   serialPuts(
       "> Zero accumulators. This can not be undone. 'y' to proceed.\r\n");
-
-  c = waitForChar();
-  if ('y' == c) {
-    eepromInitBlock(EEPROM_WL_OFFSET, 0, (1024 - EEPROM_WL_OFFSET));
-    serialPuts("    - Accumulators cleared.\r\n");
-    return true;
-  } else {
-    serialPuts("    - Cancelled.\r\n");
-    return false;
-  }
+  confirmState = CONFIRM_ZERO_ACCUM;
 }
 
 void configCmdChar(const uint8_t c) {
+  /* If waiting for confirmation, only accept 'y' to confirm
+   * Any other character cancels and is consumed (not processed as a command)
+   * NOTE: We can't do serial output here as this is called from interrupt
+   * context! */
+  if (CONFIRM_NONE != confirmState) {
+    if ('y' == c) {
+      /* Process confirmation based on state */
+      if (CONFIRM_BOOTLOADER == confirmState) {
+        confirmState = CONFIRM_NONE;
+        /* Enter bootloader */
+        volatile uint32_t *p_blsm =
+            (volatile uint32_t *)(HMCRAMC0_ADDR + HMCRAMC0_SIZE - 4);
+        const uint32_t blsm_key = 0xF01669EF;
+        *p_blsm                 = blsm_key;
+        NVIC_SystemReset();
+      } else if (CONFIRM_ZERO_ACCUM == confirmState) {
+        confirmState = CONFIRM_NONE;
+        /* Set event - actual clearing and output happens in main loop */
+        emon32EventSet(EVT_CLEAR_ACCUM);
+      } else if (CONFIRM_NVM_OVERWRITE == confirmState) {
+        confirmState = CONFIRM_NONE;
+        configInitialiseNVM();
+      }
+    } else {
+      /* Any other character cancels confirmation - consume it, don't process */
+      confirmState = CONFIRM_NONE;
+      emon32EventSet(EVT_CONFIRM_CANCEL); /* Let main loop print "Cancelled" */
+    }
+    return; /* Consume the character (whether 'y' or cancel) */
+  }
+
+  /* Normal command buffering */
   if (('\r' == c) || ('\n' == c)) {
     if (!cmdPending) {
       serialPuts("\r\n");
@@ -1217,9 +1241,8 @@ void configProcessCmd(void) {
     }
     break;
   case 'z':
-    if (zeroAccumulators()) {
-      emon32EventSet(EVT_CLEAR_ACCUM);
-    }
+    zeroAccumulators();
+    /* Note: EVT_CLEAR_ACCUM is now set in configCmdChar() when user confirms */
     break;
   }
 

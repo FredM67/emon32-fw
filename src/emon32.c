@@ -554,17 +554,24 @@ int main(void) {
        * read/write is reset. Clear the running counters in the main loop, any
        * residual energy in the dataset, and all pulse counters.
        */
+      /* User confirmation was cancelled (pressed key other than 'y') */
+      if (evtPending(EVT_CONFIRM_CANCEL)) {
+        serialPuts("    - Cancelled.\r\n");
+        emon32EventClr(EVT_CONFIRM_CANCEL);
+      }
+
       if (evtPending(EVT_CLEAR_ACCUM)) {
         lastStoredWh = 0;
-        /* REVISIT : may need to make this asynchronous as it will take 240 ms
-         * (worst case) to clear the whole area for a 1KB EEPROM.
-         */
+        /* Note: This takes ~240ms for 1KB EEPROM but runs in main loop
+         * so system stays responsive (timer interrupt keeps running) */
+        serialPuts("    - Clearing accumulators...\r\n");
         eepromWLClear();
         eepromWLReset(sizeof(nvmCumulative));
         ecmClearEnergy();
         for (int i = 0; i < NUM_OPA; i++) {
           pulseSetCount(i, 0);
         }
+        serialPuts("    - Accumulators cleared.\r\n");
         emon32EventClr(EVT_CLEAR_ACCUM);
       }
 
