@@ -545,6 +545,9 @@ int main(void) {
 
       /* 1 ms timer flag */
       if (evtPending(EVT_TICK_1kHz)) {
+        tud_task();
+        usbCDCTask();
+
         evtKiloHertz();
         emon32EventClr(EVT_TICK_1kHz);
       }
