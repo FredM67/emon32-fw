@@ -50,6 +50,7 @@ typedef enum {
 static void     configDefault(void);
 static void     configInitialiseNVM(void);
 static int      configTimeToCycles(const float time, const int mainsFreq);
+static bool     configWriteToEEPROM(void);
 static bool     configureAnalog(void);
 static bool     configureAssumed(void);
 static void     configureBackup(void);
@@ -154,14 +155,10 @@ static void configDefault(void) {
   config.crc16_ccitt = calcCRC16_ccitt(&config, (sizeof(config) - 2u));
 }
 
-/*! @brief Write the configuration values to index 0, and zero the
- *         accumulator space to.
+/*! @brief Write config to EEPROM with page-by-page writes and verification
+ *  @return true if write and verification succeeded, false otherwise
  */
-static void configInitialiseNVM(void) {
-  serialPuts("  - Initialising NVM... ");
-
-  configDefault();
-
+static bool configWriteToEEPROM(void) {
   /* Write config to EEPROM in 16-byte pages with proper delays */
   const uint8_t *pData     = (const uint8_t *)&config;
   unsigned int   addr      = 0;
@@ -180,8 +177,30 @@ static void configInitialiseNVM(void) {
     remaining -= chunk;
   }
 
-  eepromWLClear();
-  serialPuts("Done!\r\n");
+  /* Verify the write */
+  Emon32Config_t verifyConfig;
+  eepromRead(0, &verifyConfig, sizeof(verifyConfig));
+  uint16_t verifyCrc = calcCRC16_ccitt(&verifyConfig, sizeof(verifyConfig) - 2);
+
+  return (verifyConfig.key == CONFIG_NVM_KEY &&
+          verifyCrc == verifyConfig.crc16_ccitt);
+}
+
+/*! @brief Write the configuration values to index 0, and zero the
+ *         accumulator space to.
+ */
+static void configInitialiseNVM(void) {
+  serialPuts("  - Initialising NVM... ");
+
+  configDefault();
+
+  if (configWriteToEEPROM()) {
+    eepromWLClear();
+    serialPuts("Done!\r\n");
+  } else {
+    serialPuts("FAILED!\r\n");
+    serialPuts("  - ERROR: EEPROM write verification failed!\r\n");
+  }
 }
 
 static bool configureAnalog(void) {
@@ -1357,48 +1376,19 @@ void configProcessCmd(void) {
 
     serialPuts("> Saving configuration to NVM... ");
 
-    /* Write config to EEPROM in 16-byte pages with proper delays */
-    {
-      const uint8_t *pData     = (const uint8_t *)&config;
-      unsigned int   addr      = 0;
-      unsigned int   remaining = sizeof(config);
-
-      while (remaining > 0) {
-        unsigned int chunk = (remaining > 16) ? 16 : remaining;
-        eepromWrite(addr, pData, chunk);
-        while (EEPROM_WR_COMPLETE != eepromWrite(0, 0, 0)) {
-          timerDelay_us(100);
-        }
-        timerDelay_us(EEPROM_WR_TIME);
-
-        addr += chunk;
-        pData += chunk;
-        remaining -= chunk;
-      }
-
-      /* Verify the write */
-      Emon32Config_t verifyConfig;
-      eepromRead(0, &verifyConfig, sizeof(verifyConfig));
-      uint16_t verifyCrc =
-          calcCRC16_ccitt(&verifyConfig, sizeof(verifyConfig) - 2);
-
-      if (verifyConfig.key == CONFIG_NVM_KEY &&
-          verifyCrc == verifyConfig.crc16_ccitt) {
-        serialPuts("Done!\r\n");
-        serialPuts("  - EEPROM write verified successfully.\r\n");
-        unsavedChange = false;
-        if (!resetReq) {
-          emon32EventSet(EVT_CONFIG_SAVED);
-        } else {
-          emon32EventSet(EVT_SAFE_RESET_REQ);
-        }
+    if (configWriteToEEPROM()) {
+      serialPuts("Done!\r\n");
+      serialPuts("  - EEPROM write verified successfully.\r\n");
+      unsavedChange = false;
+      if (!resetReq) {
+        emon32EventSet(EVT_CONFIG_SAVED);
       } else {
-        serialPuts("FAILED!\r\n");
-        printf_(
-            "  - ERROR: EEPROM verification failed! key=0x%08X crc=0x%04X\r\n",
-            (unsigned int)verifyConfig.key, verifyCrc);
-        /* Don't clear unsavedChange or trigger events on failure */
+        emon32EventSet(EVT_SAFE_RESET_REQ);
       }
+    } else {
+      serialPuts("FAILED!\r\n");
+      serialPuts("  - ERROR: EEPROM verification failed!\r\n");
+      /* Don't clear unsavedChange or trigger events on failure */
     }
     break;
   case 't':
