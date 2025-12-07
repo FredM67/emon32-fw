@@ -158,12 +158,28 @@ static void configDefault(void) {
  *         accumulator space to.
  */
 static void configInitialiseNVM(void) {
-
   serialPuts("  - Initialising NVM... ");
 
   configDefault();
-  eepromInitBlock(0, 0, EEPROM_WL_OFFSET);
-  eepromInitConfig(&config, sizeof(config));
+
+  /* Write config to EEPROM in 16-byte pages with proper delays */
+  const uint8_t *pData     = (const uint8_t *)&config;
+  unsigned int   addr      = 0;
+  unsigned int   remaining = sizeof(config);
+
+  while (remaining > 0) {
+    unsigned int chunk = (remaining > 16) ? 16 : remaining;
+    eepromWrite(addr, pData, chunk);
+    while (EEPROM_WR_COMPLETE != eepromWrite(0, 0, 0)) {
+      timerDelay_us(100);
+    }
+    timerDelay_us(EEPROM_WR_TIME);
+
+    addr += chunk;
+    pData += chunk;
+    remaining -= chunk;
+  }
+
   eepromWLClear();
   serialPuts("Done!\r\n");
 }
@@ -1129,29 +1145,46 @@ Emon32Config_t *configLoadFromNVM(void) {
      * size to account for the stored 16 bit CRC.
      */
     crc16_ccitt = calcCRC16_ccitt(&config, cfgSize - 2u);
-    if (crc16_ccitt != config.crc16_ccitt) {
-      serialPuts("  - NVM may be corrupt. Overwrite with default? (y/n)\r\n");
 
+    if (crc16_ccitt != config.crc16_ccitt) {
       /* NVM corruption check happens at startup - semi-blocking is acceptable
        * here since the system hasn't fully initialized yet. We keep USB
        * processing active via tud_task() to maintain the connection, while
        * UART uses blocking wait. Once the system is running, all confirmations
        * use the async state machine (handleConfirmation) instead.
        */
+      uint32_t lastPromptTime  = timerMillis();
+      bool     promptDisplayed = false;
+
       while ('y' != c && 'n' != c) {
-        /* Keep USB processing active while waiting */
-        if (usbCDCIsConnected()) {
-          tud_task();
-          if (usbCDCRxAvailable()) {
-            c = usbCDCRxGetChar();
-          }
-        } else {
-          c = waitForChar(); /* Use blocking wait for UART */
+        /* Keep USB processing active while waiting for enumeration and input */
+        tud_task();
+
+        /* Display prompt initially and every 3 seconds */
+        if (!promptDisplayed || timerMillisDelta(lastPromptTime) >= 3000) {
+          serialPuts(
+              "  - NVM may be corrupt. Overwrite with default? (y/n)\r\n");
+          lastPromptTime  = timerMillis();
+          promptDisplayed = true;
+        }
+
+        if (usbCDCIsConnected() && usbCDCRxAvailable()) {
+          c = usbCDCRxGetChar();
+        } else if (!usbCDCIsConnected() && uartGetcReady(SERCOM_UART)) {
+          /* UART has data and USB not connected - switch to UART blocking mode
+           */
+          c = waitForChar();
           break;
         }
+        /* Otherwise keep looping, giving USB time to enumerate */
       }
       if ('y' == c) {
         configInitialiseNVM();
+        serialPuts("  - NVM cleared successfully. Resetting device...\r\n");
+        timerDelay_ms(100);
+        NVIC_SystemReset();
+      } else if ('n' == c) {
+        serialPuts("  - Continuing with potentially corrupt NVM.\r\n");
       }
     }
   }
@@ -1323,14 +1356,49 @@ void configProcessCmd(void) {
     config.crc16_ccitt = calcCRC16_ccitt(&config, (sizeof(config) - 2));
 
     serialPuts("> Saving configuration to NVM... ");
-    eepromInitConfig(&config, sizeof(config));
-    serialPuts("Done!\r\n");
 
-    unsavedChange = false;
-    if (!resetReq) {
-      emon32EventSet(EVT_CONFIG_SAVED);
-    } else {
-      emon32EventSet(EVT_SAFE_RESET_REQ);
+    /* Write config to EEPROM in 16-byte pages with proper delays */
+    {
+      const uint8_t *pData     = (const uint8_t *)&config;
+      unsigned int   addr      = 0;
+      unsigned int   remaining = sizeof(config);
+
+      while (remaining > 0) {
+        unsigned int chunk = (remaining > 16) ? 16 : remaining;
+        eepromWrite(addr, pData, chunk);
+        while (EEPROM_WR_COMPLETE != eepromWrite(0, 0, 0)) {
+          timerDelay_us(100);
+        }
+        timerDelay_us(EEPROM_WR_TIME);
+
+        addr += chunk;
+        pData += chunk;
+        remaining -= chunk;
+      }
+
+      /* Verify the write */
+      Emon32Config_t verifyConfig;
+      eepromRead(0, &verifyConfig, sizeof(verifyConfig));
+      uint16_t verifyCrc =
+          calcCRC16_ccitt(&verifyConfig, sizeof(verifyConfig) - 2);
+
+      if (verifyConfig.key == CONFIG_NVM_KEY &&
+          verifyCrc == verifyConfig.crc16_ccitt) {
+        serialPuts("Done!\r\n");
+        serialPuts("  - EEPROM write verified successfully.\r\n");
+        unsavedChange = false;
+        if (!resetReq) {
+          emon32EventSet(EVT_CONFIG_SAVED);
+        } else {
+          emon32EventSet(EVT_SAFE_RESET_REQ);
+        }
+      } else {
+        serialPuts("FAILED!\r\n");
+        printf_(
+            "  - ERROR: EEPROM verification failed! key=0x%08X crc=0x%04X\r\n",
+            (unsigned int)verifyConfig.key, verifyCrc);
+        /* Don't clear unsavedChange or trigger events on failure */
+      }
     }
     break;
   case 't':
