@@ -57,9 +57,7 @@ typedef enum wlAsyncState_ {
   WL_ASYNC_START_DATA_WRITE, /* Initiate data write (may need to wait for
                                 timing) */
   WL_ASYNC_WRITING_DATA,
-  WL_ASYNC_WAITING_DATA,
-  WL_ASYNC_COMPLETE,
-  WL_ASYNC_ERROR
+  WL_ASYNC_WAITING_DATA
 } wlAsyncState_t;
 
 typedef struct wlAsyncCtx_ {
@@ -446,9 +444,7 @@ static void eepromWLAsyncCallback(void) {
 
   switch (wlAsyncCtx.state) {
   case WL_ASYNC_IDLE:
-  case WL_ASYNC_COMPLETE:
-  case WL_ASYNC_ERROR:
-    /* Should not be called in these states */
+    /* Should not be called in idle state */
     return;
 
   case WL_ASYNC_WRITING_HEADER:
@@ -459,16 +455,16 @@ static void eepromWLAsyncCallback(void) {
       wlAsyncCtx.state = WL_ASYNC_WAITING_HEADER;
       /* Schedule next callback after EEPROM_WR_TIME */
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_ERROR; /* Callback queue full */
+        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
       }
     } else if (status == EEPROM_WR_COMPLETE) {
       /* Header write completed immediately (small write), start data write */
       wlAsyncCtx.state = WL_ASYNC_WRITING_DATA;
       if (!timerScheduleCallback(eepromWLAsyncCallback, 0)) {
-        wlAsyncCtx.state = WL_ASYNC_ERROR; /* Callback queue full */
+        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
       }
     } else if (status == EEPROM_WR_FAIL) {
-      wlAsyncCtx.state = WL_ASYNC_ERROR;
+      wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
     }
     break;
 
@@ -480,15 +476,15 @@ static void eepromWLAsyncCallback(void) {
       wlAsyncCtx.state = WL_ASYNC_START_DATA_WRITE;
       /* Schedule callback immediately to attempt data write start */
       if (!timerScheduleCallback(eepromWLAsyncCallback, 0)) {
-        wlAsyncCtx.state = WL_ASYNC_ERROR; /* Callback queue full */
+        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
       }
     } else if (status == EEPROM_WR_PEND) {
       /* Still pending, schedule next callback */
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_ERROR; /* Callback queue full */
+        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
       }
     } else if (status == EEPROM_WR_FAIL) {
-      wlAsyncCtx.state = WL_ASYNC_ERROR;
+      wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
     }
     break;
 
@@ -499,23 +495,23 @@ static void eepromWLAsyncCallback(void) {
     if (status == EEPROM_WR_TOO_SOON) {
       /* Too soon since last write, reschedule after EEPROM_WR_TIME */
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_ERROR; /* Callback queue full */
+        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
       }
       /* Stay in START_DATA_WRITE state to retry */
     } else if (status == EEPROM_WR_PEND) {
       /* Data write started, transition to WAITING_DATA */
       wlAsyncCtx.state = WL_ASYNC_WAITING_DATA;
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_ERROR; /* Callback queue full */
+        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
       }
     } else if (status == EEPROM_WR_COMPLETE) {
       /* Data write completed immediately (shouldn't happen but handle it) */
       wlAsyncCtx.state = WL_ASYNC_WAITING_DATA;
       if (!timerScheduleCallback(eepromWLAsyncCallback, 0)) {
-        wlAsyncCtx.state = WL_ASYNC_ERROR; /* Callback queue full */
+        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
       }
     } else if (status == EEPROM_WR_FAIL) {
-      wlAsyncCtx.state = WL_ASYNC_ERROR;
+      wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
     }
     break;
 
@@ -523,7 +519,7 @@ static void eepromWLAsyncCallback(void) {
     /* Should transition immediately to WAITING_DATA */
     wlAsyncCtx.state = WL_ASYNC_WAITING_DATA;
     if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-      wlAsyncCtx.state = WL_ASYNC_ERROR; /* Callback queue full */
+      wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
     }
     break;
 
@@ -537,21 +533,21 @@ static void eepromWLAsyncCallback(void) {
         unsigned int validByte;
         if (!eepromRead(wlAsyncCtx.addrWr, &validByte, 1u)) {
           /* Read failed - cannot update valid byte, treat as error */
-          wlAsyncCtx.state = WL_ASYNC_ERROR;
+          wlAsyncCtx.state = WL_ASYNC_IDLE;
           break;
         }
         wlCurrentValid = nextValidByte(validByte);
         idxWr          = 0;
       }
       wlIdxNxtWr       = idxWr;
-      wlAsyncCtx.state = WL_ASYNC_COMPLETE;
+      wlAsyncCtx.state = WL_ASYNC_IDLE; /* Ready for next write */
     } else if (status == EEPROM_WR_PEND) {
       /* Still pending, schedule next callback */
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_ERROR; /* Callback queue full */
+        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, but ready for retry */
       }
     } else if (status == EEPROM_WR_FAIL) {
-      wlAsyncCtx.state = WL_ASYNC_ERROR;
+      wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, but ready for retry */
     }
     break;
   }
@@ -560,12 +556,7 @@ static void eepromWLAsyncCallback(void) {
 /*! @brief Check if an asynchronous wear-leveled write is in progress
  *  @return true if write is in progress, false otherwise
  */
-bool eepromWriteWLBusy(void) {
-  return (wlAsyncCtx.state != WL_ASYNC_IDLE) &&
-         (wlAsyncCtx.state != WL_ASYNC_COMPLETE) &&
-         (wlAsyncCtx.state != WL_ASYNC_ERROR);
-  /* Note: WL_ASYNC_START_DATA_WRITE is considered busy */
-}
+bool eepromWriteWLBusy(void) { return (wlAsyncCtx.state != WL_ASYNC_IDLE); }
 
 /*! @brief Start an asynchronous wear-leveled write operation
  *  @param [in] pPktWr : pointer to write packet
@@ -614,24 +605,6 @@ eepromWrStatus_t eepromWriteWLAsync(const void *pPktWr, int *pIdx) {
   }
 
   return EEPROM_WR_PEND;
-}
-
-/*! @brief Get the status of the asynchronous wear-leveled write
- *  @return Current status of the async write operation
- */
-eepromWrStatus_t eepromWriteWLAsyncStatus(void) {
-  switch (wlAsyncCtx.state) {
-  case WL_ASYNC_IDLE:
-    return EEPROM_WR_COMPLETE;
-  case WL_ASYNC_COMPLETE:
-    wlAsyncCtx.state = WL_ASYNC_IDLE; /* Reset to idle after reading */
-    return EEPROM_WR_WL_COMPLETE;
-  case WL_ASYNC_ERROR:
-    wlAsyncCtx.state = WL_ASYNC_IDLE; /* Reset to idle after reading */
-    return EEPROM_WR_FAIL;
-  default:
-    return EEPROM_WR_PEND;
-  }
 }
 
 eepromWrStatus_t eepromWriteWL(const void *pPktWr, int *pIdx) {

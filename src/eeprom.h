@@ -98,15 +98,9 @@ eepromWrStatus_t eepromWriteWL(const void *pPktWr, int *pIdx);
  *  @return EEPROM_WR_BUSY if another write is in progress, EEPROM_WR_PEND
  * otherwise
  *  @warning The data pointed to by pPktWr must remain valid until the write
- * completes! Use eepromWriteWLAsyncStatus() or eepromWriteWLBusy() to check
- * completion.
+ * completes! Use eepromWriteWLBusy() to check completion.
  */
 eepromWrStatus_t eepromWriteWLAsync(const void *pPktWr, int *pIdx);
-
-/*! @brief Get the status of the asynchronous wear-leveled write.
- *  @return Current status of the async write operation
- */
-eepromWrStatus_t eepromWriteWLAsyncStatus(void);
 
 /*! @brief Check if an asynchronous wear-leveled write is in progress.
  *  @return true if write is in progress, false otherwise
