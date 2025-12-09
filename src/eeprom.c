@@ -130,7 +130,6 @@ static eepromWLStatus_t wlFindLast(void) {
     int        addr = EEPROM_WL_OFFSET + (idxBlk * wlBlkSize);
     WLHeader_t headerNxt;
 
-    timerDelay_us(100); /* Allow I2C bus to settle between reads */
     eepromRead(addr, &headerNxt, 4u);
     if (wlHeader.valid != headerNxt.valid) {
       wlIdxNxtWr = idxBlk;
@@ -324,7 +323,6 @@ eepromWLStatus_t eepromReadWL(void *pPktRd, int *pIdx) {
 
   if (-1 == wlIdxNxtWr) {
     status = wlFindLast();
-    timerDelay_us(100); /* Allow I2C bus to settle after multiple reads */
   }
 
   idxRd = wlIdxNxtWr - 1u;
@@ -474,17 +472,9 @@ eepromWrStatus_t eepromWriteWL(const void *pPktWr, int *pIdx) {
     wrStatus = eepromWrite(0, 0, 0);
   }
 
-  /* Wait for EEPROM internal write cycle to complete */
-  timerDelay_us(EEPROM_WR_TIME);
-
-  /* Perform a verification read to ensure write is fully complete. This also
-   * provides additional settling time for the EEPROM's internal write cycle.
+  /* Wait for EEPROM internal write cycle to complete (per datasheet: 5ms max)
    */
-  {
-    WLHeader_t verify;
-    eepromRead(addrWr, &verify, sizeof(verify));
-    (void)verify; /* Unused - read is for timing and verification */
-  }
+  timerDelay_us(EEPROM_WR_TIME);
 
   /* Once all blocks with the same "valid" byte have been written out,
    * generate the next "valid" byte to be used and wrap.
