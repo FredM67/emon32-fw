@@ -924,15 +924,16 @@ static void readAccumulators(void) {
   Emon32Cumulative_t cumulative;
   eepromWLStatus_t   status;
   bool               eepromOK;
+  int                idx;
 
-  status   = eepromReadWL(&cumulative, 0);
+  status   = eepromReadWL(&cumulative, &idx);
   eepromOK = (EEPROM_WL_OK == status);
 
   serialPuts("> Accumulators");
   if (!eepromOK) {
     serialPuts(" (no valid NVM data)");
   }
-  serialPuts(":\r\n");
+  printf_(" [%d]:\r\n", idx);
 
   for (unsigned int i = 0; i < NUM_CT; i++) {
     uint32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
