@@ -83,7 +83,7 @@ eepromWrStatus_t eepromWrite(unsigned int addr, const void *pSrc,
  */
 eepromWrStatus_t eepromWriteContinue(void);
 
-/*! @brief Save data to EEPROM with wear leveling.
+/*! @brief Save data to EEPROM with wear leveling (blocking).
  *  @param [in] pPktWr : pointer to write packet
  *  @param [out] pIdx : pointer to the value of the index written to
  *  @return status of the EEPROM write process

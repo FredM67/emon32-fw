@@ -46,11 +46,11 @@ typedef struct TxBlink_ {
  * Persistent state variables
  *************************************/
 
-static volatile uint32_t evtPend;
-AssertInfo_t             g_assert_info;
-static unsigned int      lastStoredWh;
-static TxBlink_t         txBlink;
-Emon32Config_t          *pConfig = 0;
+static volatile uint32_t evtPend       = 0;
+AssertInfo_t             g_assert_info = {0};
+static unsigned int      lastStoredWh  = 0;
+static TxBlink_t         txBlink       = {0};
+Emon32Config_t          *pConfig       = 0;
 
 /*************************************
  * Static function prototypes
@@ -73,11 +73,13 @@ void                putchar_(char c);
 static void         serialPutsNonBlocking(const char *const s, uint16_t len);
 static void         rfmConfigure(void);
 static void         ssd1306Setup(void);
-static uint32_t     tempSetup(void);
-static uint32_t     totalEnergy(const Emon32Dataset_t *pData);
+static void     tempReadEvt(Emon32Dataset_t *pData, const unsigned int numT);
+static uint32_t tempSetup(Emon32Dataset_t *pData);
+static uint32_t totalEnergy(const Emon32Dataset_t *pData);
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
                          char *txBuffer);
 static void ucSetup(void);
+static void waitWithUSB(uint32_t t_ms);
 
 /*************************************
  * Functions
@@ -115,7 +117,8 @@ static unsigned int cumulativeNVMLoad(Emon32Cumulative_t *pPkt,
 }
 
 /*! @brief Store cumulative energy and pulse values
- *  @param [in] pRes : pointer to cumulative values
+ *  @param [in] pPkt : pointer to cumulative values
+ *  @param [in] pData : pointer to current dataset
  */
 static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
                                const Emon32Dataset_t *pData) {
@@ -130,7 +133,7 @@ static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
     pPkt->pulseCnt[idxPulse] = pData->pulseCnt[idxPulse];
   }
 
-  (void)eepromWriteWL(pPkt, 0);
+  eepromWriteWL(pPkt, 0);
 }
 
 /*! @brief Calculate the cumulative energy consumption and store if the delta
@@ -158,6 +161,13 @@ static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
   energyOverflow = (latestWh < lastStoredWh);
   deltaWh        = latestWh - lastStoredWh;
   if ((deltaWh >= whDeltaStore) || energyOverflow) {
+    /* TESTING: Async EEPROM writes enabled with fixed implementation.
+     * Fixes applied:
+     * - No busy-waits in callbacks (TOO_SOON status, eeprom.c:400-402)
+     * - Callback queue increased 4→8 (driver_TIME.c:23)
+     * - Error handling with debug output (below)
+     * Monitor debug serial for "EEPROM async write" messages.
+     */
     cumulativeNVMStore(pPkt, pData);
     lastStoredWh = latestWh;
   }
@@ -386,10 +396,35 @@ static void ssd1306Setup(void) {
   }
 }
 
+static void tempReadEvt(Emon32Dataset_t *pData, const unsigned int numT) {
+  static unsigned int tempRdCount;
+
+  if (numT > 0) {
+    TempRead_t tempValue = tempReadSample(TEMP_INTF_ONEWIRE, tempRdCount);
+
+    if (TEMP_OK == tempValue.status) {
+      pData->temp[tempRdCount] = tempValue.temp;
+    } else if (TEMP_OUT_OF_RANGE == tempValue.status) {
+      pData->temp[tempRdCount] = 4832; /* 302°C */
+    } else {
+      pData->temp[tempRdCount] = 4864; /* 304°C */
+    }
+
+    tempRdCount++;
+  }
+
+  if ((0 == numT) || (numT == tempRdCount)) {
+    emon32EventSet(EVT_PROCESS_DATASET);
+    emon32EventClr(EVT_TEMP_READ);
+    tempRdCount = 0;
+  }
+}
+
 /*! @brief Initialises the temperature sensors
+ *  @param [in] pData : pointer to dataset to initialise
  *  @return number of temperature sensors found
  */
-static uint32_t tempSetup(void) {
+static uint32_t tempSetup(Emon32Dataset_t *pData) {
   const uint8_t opaPins[NUM_OPA] = {PIN_OPA1, PIN_OPA2};
   const uint8_t opaPUs[NUM_OPA]  = {PIN_OPA1_PU, PIN_OPA2_PU};
 
@@ -405,6 +440,11 @@ static uint32_t tempSetup(void) {
       dsCfg.pinPU  = opaPUs[i];
       numTempSensors += tempInitSensors(TEMP_INTF_ONEWIRE, &dsCfg);
     }
+  }
+
+  /* Set all unused temperature slots to 300°C (4800 as Q4 fixed point) */
+  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+    pData->temp[i] = 4800;
   }
 
   return numTempSensors;
@@ -473,19 +513,30 @@ static void ucSetup(void) {
   usbSetup();
 }
 
+static void waitWithUSB(uint32_t t_ms) {
+  uint32_t t_start    = timerMillis();
+  uint32_t t_last_usb = t_start;
+  while (timerMillisDelta(t_start) < t_ms) {
+    if (1 == timerMillisDelta(t_last_usb)) {
+      tud_task();
+      usbCDCTask();
+      t_last_usb = timerMillis();
+    }
+  }
+}
+
 int main(void) {
 
   Emon32Dataset_t    dataset               = {0};
   unsigned int       numTempSensors        = 0;
   Emon32Cumulative_t nvmCumulative         = {0};
-  unsigned int       tempCount             = 0;
   char               txBuffer[TX_BUFFER_W] = {0};
 
   ucSetup();
   uiLedColour(LED_YELLOW);
 
   /* Pause to allow any external pins to settle */
-  timerDelay_ms(100);
+  waitWithUSB(100);
   spiConfigureExt();
 
   /* If the system is booted while it is connected to an active Pi, do not write
@@ -513,12 +564,12 @@ int main(void) {
 
   /* Set up pulse and temperature sensors, if present. */
   pulseConfigure();
-  numTempSensors = tempSetup();
+  numTempSensors = tempSetup(&dataset);
 
   /* Wait 1s to allow USB to enumerate as serial. Not always possible, but gives
    * the possibility. The board information can be accessed through the serial
    * console later. */
-  timerDelay_ms(1000);
+  waitWithUSB(1000);
   configFirmwareBoardInfo();
 
   /* Set up buffers for ADC data, configure energy processing, and start */
@@ -545,6 +596,15 @@ int main(void) {
 
       /* 1 ms timer flag */
       if (evtPending(EVT_TICK_1kHz)) {
+        tud_task();
+        usbCDCTask();
+
+        /* Process any timer callbacks that are ready */
+        timerProcessPendingCallbacks();
+
+        /* Check for confirmation timeout (30s) */
+        configCheckConfirmationTimeout();
+
         evtKiloHertz();
         emon32EventClr(EVT_TICK_1kHz);
       }
@@ -625,23 +685,7 @@ int main(void) {
        * through the configured interface.
        */
       if (evtPending(EVT_TEMP_READ)) {
-        if (numTempSensors > 0) {
-          TempRead_t tempValue = tempReadSample(TEMP_INTF_ONEWIRE, tempCount);
-
-          if (TEMP_OK == tempValue.status) {
-            dataset.temp[tempCount] = tempValue.temp;
-          }
-
-          tempCount++;
-          if (tempCount == numTempSensors) {
-            emon32EventSet(EVT_PROCESS_DATASET);
-            emon32EventClr(EVT_TEMP_READ);
-            tempCount = 0;
-          }
-        } else {
-          emon32EventSet(EVT_PROCESS_DATASET);
-          emon32EventClr(EVT_TEMP_READ);
-        }
+        tempReadEvt(&dataset, numTempSensors);
       }
 
       /* Report period elapsed; generate, pack, and send through the

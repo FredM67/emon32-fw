@@ -32,8 +32,12 @@ void usbCDCTask(void) {
     for (int i = 0; i < nrx; i++) {
       int ch = tud_cdc_read_char();
       if (-1 != ch) {
-        configCmdChar(((uint8_t)ch));
-        usbCDCTxChar((uint8_t)ch);
+        /* Check if we're waiting for a confirmation (bootloader, zero, etc.) */
+        if (!configHandleConfirmation((uint8_t)ch)) {
+          /* Normal command processing */
+          configCmdChar(((uint8_t)ch));
+          usbCDCTxChar((uint8_t)ch);
+        }
       }
     }
   }

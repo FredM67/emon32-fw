@@ -15,6 +15,7 @@
 
 #endif /* HOSTED */
 
+#include "driver_TIME.h"
 #include "eeprom.h"
 #include "emon32.h"
 
@@ -361,12 +362,6 @@ void eepromWLClear(void) {
     int addr = EEPROM_WL_OFFSET + (i * wlBlkSize);
     eepromWrite(addr, &wlHeader, sizeof(wlHeader));
   }
-
-  /* Set wlCurrentValid to 1 so the next write is distinguishable from cleared
-   * blocks (which have valid=0). Without this, wlFindLast() can't find the
-   * written block after reboot since all blocks would have the same valid byte.
-   */
-  wlCurrentValid = 1;
 }
 
 void eepromWLReset(int len) {
@@ -396,6 +391,11 @@ eepromWrStatus_t eepromWrite(unsigned int addr, const void *pSrc,
       return EEPROM_WR_COMPLETE;
     }
 
+    /* Wait for enough time to pass since last write */
+    while (timerMicrosDelta(tLastWrite_us) < EEPROM_WR_TIME) {
+      /* Busy wait */
+    }
+
     wrLocal.n_residual = n;
     wrLocal.pData      = (uint8_t *)pSrc;
     wrLocal.addr       = addr;
@@ -407,9 +407,7 @@ eepromWrStatus_t eepromWrite(unsigned int addr, const void *pSrc,
     }
   }
 
-  /* Hold off write if too close to the last one. */
-  while (timerMicrosDelta(tLastWrite_us) < EEPROM_WR_TIME)
-    ;
+  /* Update timestamp when starting actual I2C transaction */
   tLastWrite_us = timerMicros();
 
   unsigned int nBytes = 0;
@@ -455,9 +453,7 @@ eepromWrStatus_t eepromWriteWL(const void *pPktWr, int *pIdx) {
   }
   addrWr = EEPROM_WL_OFFSET + (wlIdxNxtWr * wlBlkSize);
 
-  /* Write the header followed by the data.
-   * REVISIT : may need to make this asynchronous
-   */
+  /* Write the header followed by the data */
   wrStatus = eepromWrite(addrWr, &header, sizeof(header));
   if ((wrStatus != EEPROM_WR_PEND) && (wrStatus != EEPROM_WR_COMPLETE)) {
     return wrStatus;
