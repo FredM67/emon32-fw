@@ -297,11 +297,17 @@ bool eepromRead(unsigned int addr, void *pDst, unsigned int n) {
     return false;
   }
 
-  while (n--) {
+  while (n) {
     *pData++ = i2cDataRead(SERCOM_I2CM);
-    i2cAck(SERCOM_I2CM, I2CM_ACK, I2CM_ACK_CMD_CONTINUE);
+    n--;
+    if (n == 0) {
+      /* Last byte - send NACK and STOP */
+      i2cAck(SERCOM_I2CM, I2CM_NACK, I2CM_ACK_CMD_STOP);
+    } else {
+      /* More bytes to read - send ACK and continue */
+      i2cAck(SERCOM_I2CM, I2CM_ACK, I2CM_ACK_CMD_CONTINUE);
+    }
   }
-  i2cAck(SERCOM_I2CM, I2CM_NACK, I2CM_ACK_CMD_STOP);
 
   return true;
 }
