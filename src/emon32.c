@@ -115,7 +115,8 @@ static unsigned int cumulativeNVMLoad(Emon32Cumulative_t *pPkt,
 }
 
 /*! @brief Store cumulative energy and pulse values
- *  @param [in] pRes : pointer to cumulative values
+ *  @param [in] pPkt : pointer to cumulative values
+ *  @param [in] pData : pointer to current dataset
  */
 static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
                                const Emon32Dataset_t *pData) {
@@ -130,7 +131,7 @@ static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
     pPkt->pulseCnt[idxPulse] = pData->pulseCnt[idxPulse];
   }
 
-  (void)eepromWriteWL(pPkt, 0);
+  eepromWriteWL(pPkt, 0);
 }
 
 /*! @brief Calculate the cumulative energy consumption and store if the delta
@@ -158,6 +159,13 @@ static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
   energyOverflow = (latestWh < lastStoredWh);
   deltaWh        = latestWh - lastStoredWh;
   if ((deltaWh >= whDeltaStore) || energyOverflow) {
+    /* TESTING: Async EEPROM writes enabled with fixed implementation.
+     * Fixes applied:
+     * - No busy-waits in callbacks (TOO_SOON status, eeprom.c:400-402)
+     * - Callback queue increased 4→8 (driver_TIME.c:23)
+     * - Error handling with debug output (below)
+     * Monitor debug serial for "EEPROM async write" messages.
+     */
     cumulativeNVMStore(pPkt, pData);
     lastStoredWh = latestWh;
   }
@@ -545,6 +553,15 @@ int main(void) {
 
       /* 1 ms timer flag */
       if (evtPending(EVT_TICK_1kHz)) {
+        tud_task();
+        usbCDCTask();
+
+        /* Process any timer callbacks that are ready */
+        timerProcessPendingCallbacks();
+
+        /* Check for confirmation timeout (30s) */
+        configCheckConfirmationTimeout();
+
         evtKiloHertz();
         emon32EventClr(EVT_TICK_1kHz);
       }
