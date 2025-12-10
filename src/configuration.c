@@ -788,6 +788,8 @@ static void printAccumulators(void) {
 static void printSettings(void) {
   if ('h' == inBuffer[1]) {
     printSettingsHR();
+    /* Only show accumulators with 'lh' command */
+    printAccumulators();
   } else {
     printSettingsKV();
   }
@@ -797,8 +799,6 @@ static void printSettings(void) {
   } else {
     serialPuts("All settings saved.\r\n\r\n");
   }
-
-  printAccumulators();
 }
 
 static void printSettingsHR(void) {
@@ -852,14 +852,14 @@ static void printSettingsHR(void) {
   printf_("Assumed RMS voltage: %d V\r\n\r\n", config.baseCfg.assumedVrms);
 
   serialPuts(
-      "| Ref | Channel | Active | Calibration | Phase  | In 1 | In 2 |\r\n");
+      "| Ref | Channel | Active | Calibration |  Phase  | In 1 | In 2 |\r\n");
   serialPuts(
-      "+=====+=========+========+=============+========+======+======+\r\n");
+      "+=====+=========+========+=============+=========+======+======+\r\n");
   for (int i = 0; i < NUM_V; i++) {
     printf_("| %2d  |  V %2d   | %c      | ", (i + 1), (i + 1),
             (config.voltageCfg[i].vActive ? 'Y' : 'N'));
     putFloat(config.voltageCfg[i].voltageCal, 6);
-    serialPuts("      |        |      |      |\r\n");
+    serialPuts("      |         |      |      |\r\n");
   }
   for (int i = 0; i < NUM_CT; i++) {
     printf_("| %2d  | CT %2d   | %c      | ", (i + 1 + NUM_V), (i + 1),
@@ -1215,7 +1215,8 @@ void configProcessCmd(void) {
       "   - z.z       : CT phase calibration value\r\n"
       "   - v1        : CT voltage channel 1\r\n"
       "   - v2        : CT voltage channel 2\r\n"
-      " - l           : list settings and accumulators\r\n"
+      " - l           : list settings\r\n"
+      " - lh          : list settings and accumulators (human readable)\r\n"
       " - m<v> <w> <x> <y> <z>\r\n"
       "   - Configure a OneWire/pulse input.\r\n"
       "     - v : channel index\r\n"
