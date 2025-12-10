@@ -865,7 +865,7 @@ static void printSettingsHR(void) {
     printf_("| %2d  | CT %2d   | %c      | ", (i + 1 + NUM_V), (i + 1),
             (config.ctCfg[i].ctActive ? 'Y' : 'N'));
     putFloat(config.ctCfg[i].ctCal, 6);
-    serialPuts("      | ");
+    serialPuts("      |  ");
     putFloat(config.ctCfg[i].phase, 6);
     printf_(" | %d    | %d    |\r\n", (config.ctCfg[i].vChan1 + 1),
             (config.ctCfg[i].vChan2 + 1));
@@ -899,9 +899,10 @@ static void putFloat(float val, int flt_len) {
   int  ftoalen = utilFtoa(strBuffer, val);
 
   if (flt_len) {
-    int fillSpace = flt_len - ftoalen;
+    /* ftoalen includes null terminator, subtract 1 for actual string length */
+    int fillSpace = flt_len - (ftoalen - 1);
 
-    while (fillSpace--) {
+    while (fillSpace-- > 0) {
       serialPuts(" ");
     }
   }
