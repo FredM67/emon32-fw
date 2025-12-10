@@ -89,11 +89,11 @@ static bool     zeroAccumulators(void);
  *************************************/
 
 #define IN_BUFFER_W 64
+
 static Emon32Config_t config;
 static char           inBuffer[IN_BUFFER_W];
 
 /* Async confirmation state */
-#define CONFIRM_TIMEOUT_MS 30000u /* 30 second timeout for confirmations */
 static volatile ConfirmState_t confirmState        = CONFIRM_IDLE;
 static volatile uint32_t       confirmStartTime_ms = 0;
 static int                     inBufferIdx         = 0;
