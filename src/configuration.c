@@ -759,6 +759,32 @@ static void printSettingV(const int ch) {
           config.voltageCfg[ch].vActive ? "1" : "0");
 }
 
+static void printAccumulators(void) {
+  Emon32Cumulative_t cumulative;
+  eepromWLStatus_t   status;
+  bool               eepromOK;
+  int                idx;
+
+  status   = eepromReadWL(&cumulative, &idx);
+  eepromOK = (EEPROM_WL_OK == status);
+
+  serialPuts("Accumulators (can be updated by command 'u'):");
+  if (!eepromOK) {
+    serialPuts(" (no valid NVM data)");
+  }
+  printf_(" [%d]:\r\n", idx);
+
+  for (unsigned int i = 0; i < NUM_CT; i++) {
+    uint32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
+    printf_("  E%d = %" PRIu32 " Wh\r\n", (i + 1), wh);
+  }
+  for (unsigned int i = 0; i < NUM_OPA; i++) {
+    uint32_t pulse = eepromOK ? cumulative.pulseCnt[i] : 0;
+    printf_("  pulse%d = %" PRIu32 "\r\n", (i + 1), pulse);
+  }
+  serialPuts("\r\n");
+}
+
 static void printSettings(void) {
   if ('h' == inBuffer[1]) {
     printSettingsHR();
@@ -771,6 +797,8 @@ static void printSettings(void) {
   } else {
     serialPuts("All settings saved.\r\n\r\n");
   }
+
+  printAccumulators();
 }
 
 static void printSettingsHR(void) {
@@ -1034,32 +1062,6 @@ static char waitForChar(void) {
   return c;
 }
 
-/*! @brief Read and display the current accumulator values from NVM */
-static void readAccumulators(void) {
-  Emon32Cumulative_t cumulative;
-  eepromWLStatus_t   status;
-  bool               eepromOK;
-  int                idx;
-
-  status   = eepromReadWL(&cumulative, &idx);
-  eepromOK = (EEPROM_WL_OK == status);
-
-  serialPuts("> Accumulators");
-  if (!eepromOK) {
-    serialPuts(" (no valid NVM data)");
-  }
-  printf_(" [%d]:\r\n", idx);
-
-  for (unsigned int i = 0; i < NUM_CT; i++) {
-    uint32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
-    printf_("  E%d = %" PRIu32 " Wh\r\n", (i + 1), wh);
-  }
-  for (unsigned int i = 0; i < NUM_OPA; i++) {
-    uint32_t pulse = eepromOK ? cumulative.pulseCnt[i] : 0;
-    printf_("  pulse%d = %" PRIu32 "\r\n", (i + 1), pulse);
-  }
-}
-
 /* Removed pending OEM decision on restore defaults confirmation
  *
  * static bool restoreDefaults(void) {
@@ -1295,9 +1297,6 @@ void configProcessCmd(void) {
       unsavedChange = true;
       emon32EventSet(EVT_CONFIG_CHANGED);
     }
-    break;
-  case 'i':
-    readAccumulators();
     break;
   case 'j':
     if (configureJSON()) {
