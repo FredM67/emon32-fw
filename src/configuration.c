@@ -768,7 +768,7 @@ static void printAccumulators(void) {
   status   = eepromReadWL(&cumulative, &idx);
   eepromOK = (EEPROM_WL_OK == status);
 
-  serialPuts("Accumulators (can be updated by command 'u'):");
+  serialPuts("Accumulators (can be updated by command 'u')");
   if (!eepromOK) {
     serialPuts(" (no valid NVM data)");
   }
