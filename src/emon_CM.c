@@ -24,7 +24,8 @@
 #define ZC_HYST_AV   8  /* Zero crossing hysteresis when using assumd voltage */
 #define EQUIL_CYCLES 8  /* Number of cycles to discard at startup */
 #define ZC_MIN_VPEAK                                                           \
-  200 /* Minimum peak voltage to accept zero-crossings (q15_t) */
+  40 /* Minimum peak voltage to accept zero-crossings (40 counts = ~14V mains) \
+      */
 #define ZC_PERIOD_MIN_US                                                       \
   14000 /* Minimum period between crossings (14ms = ~71Hz, 60Hz +13.5%         \
            tolerance) */
