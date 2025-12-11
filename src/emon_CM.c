@@ -26,7 +26,8 @@
 #define ZC_MIN_VPEAK                                                           \
   200 /* Minimum peak voltage to accept zero-crossings (q15_t) */
 #define ZC_PERIOD_MIN_US                                                       \
-  8000 /* Minimum period between crossings (8ms = 62.5Hz) */
+  14000 /* Minimum period between crossings (14ms = ~71Hz, 60Hz +13.5%         \
+           tolerance) */
 #define ZC_PERIOD_MAX_US                                                       \
   25000 /* Maximum period between crossings (25ms = 40Hz) */
 
@@ -347,7 +348,7 @@ RAMFUNC bool zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) {
 
         if (lastZC_us != 0 && timeNow_us != 0) {
           uint32_t period_us = timeNow_us - lastZC_us;
-          /* Accept period if within reasonable bounds for 40-62.5 Hz */
+          /* Accept period if within reasonable bounds for 40-71 Hz */
           validPeriod        = (period_us >= ZC_PERIOD_MIN_US &&
                          period_us <= ZC_PERIOD_MAX_US) ||
                         useAssumedV;
