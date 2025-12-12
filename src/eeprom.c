@@ -666,14 +666,30 @@ eepromWrStatus_t eepromWriteWL(const void *pPktWr, int *pIdx) {
   addrWr = EEPROM_WL_OFFSET + (wlIdxNxtWr * wlBlkSize);
 
   /* Write the header followed by the data */
-  wrStatus = eepromWrite(addrWr, &header, sizeof(header));
+  do {
+    wrStatus = eepromWrite(addrWr, &header, sizeof(header));
+    if (wrStatus == EEPROM_WR_TOO_SOON) {
+      timerDelay_us(EEPROM_WR_TIME);
+    }
+  } while (wrStatus == EEPROM_WR_TOO_SOON);
+
   if ((wrStatus != EEPROM_WR_PEND) && (wrStatus != EEPROM_WR_COMPLETE)) {
     return wrStatus;
   }
 
+  while (EEPROM_WR_COMPLETE != wrStatus) {
+    timerDelay_us(EEPROM_WR_TIME);
+    wrStatus = eepromWrite(0, 0, 0);
+  }
+
   timerDelay_us(EEPROM_WR_TIME);
 
-  wrStatus = eepromWrite((addrWr + sizeof(header)), pPktWr, wlData_n);
+  do {
+    wrStatus = eepromWrite((addrWr + sizeof(header)), pPktWr, wlData_n);
+    if (wrStatus == EEPROM_WR_TOO_SOON) {
+      timerDelay_us(EEPROM_WR_TIME);
+    }
+  } while (wrStatus == EEPROM_WR_TOO_SOON);
 
   while (EEPROM_WR_COMPLETE != wrStatus) {
     timerDelay_us(EEPROM_WR_TIME);
