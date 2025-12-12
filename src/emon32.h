@@ -11,16 +11,18 @@ _Static_assert((sizeof(bool) == 1), "bool must be 1 byte");
  * Common configurable options
  *********************************/
 
-#define DOWNSAMPLE_DSP     1u   /* 0: no downsampling; 1: half band LPF */
-#define NUM_CT_ACTIVE_DEF  6    /* Onboard CTs only */
-#define DELTA_WH_STORE_DEF 200u /* Threshold, in Wh, to store to NVM */
-#define NODE_ID_DEF        17u  /* Node ID for reports */
-#define GROUP_ID_DEF       210u /* Group ID default for OEM */
-#define MAINS_FREQ_DEF     50u  /* Mains frequency */
-#define REPORT_TIME_DEF    9.8f /* Report time, in seconds */
-#define ASSUMED_VRMS_DEF   0    /* Assumed voltage, used if no AC sense */
-#define PERF_ENABLED       0u   /* Performance tracing */
-#define TX_INDICATE_T      250u /* Transmission indication time (ms) */
+#define DOWNSAMPLE_DSP     1u     /* 0: no downsampling; 1: half band LPF */
+#define NUM_CT_ACTIVE_DEF  6      /* Onboard CTs only */
+#define DELTA_WH_STORE_DEF 200u   /* Threshold, in Wh, to store to NVM */
+#define DELTA_EP_STORE_DEF 200u   /* Threshold, in Wh/pulse, to store to NVM */
+#define NODE_ID_DEF        17u    /* Node ID for reports */
+#define GROUP_ID_DEF       210u   /* Group ID default for OEM */
+#define MAINS_FREQ_DEF     50u    /* Mains frequency */
+#define REPORT_TIME_DEF    9.8f   /* Report time, in seconds */
+#define ASSUMED_VRMS_DEF   0      /* Assumed voltage, used if no AC sense */
+#define PERF_ENABLED       0u     /* Performance tracing */
+#define TX_INDICATE_T      250u   /* Transmission indication time (ms) */
+#define CONFIRM_TIMEOUT_MS 30000u /* Confirmation timeout (ms) */
 
 /*********************************
  * Firmware version
@@ -100,6 +102,7 @@ typedef enum EVTSRC_ {
   EVT_SAFE_RESET_REQ  = 18u,
   EVT_PROCESS_CMD     = 19u,
   EVT_PROCESS_DATASET = 20u,
+  EVT_STORE_ACCUM     = 21u,
   EVT_CLEAR_ACCUM     = 22u,
   EVT_ECM_PEND_1S     = 23u,
   EVT_ECM_TRIG        = 24u

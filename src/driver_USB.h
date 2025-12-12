@@ -30,5 +30,10 @@ void usbCDCTxChar(uint8_t c);
 /*! @brief Flush the Tx buffer */
 void usbCDCTxFlush(void);
 
+/*! @brief Indicate if there is space in the Tx buffer
+ *  @return true if the buffer is full.
+ */
+bool usbCDCTxFull(void);
+
 /*! @brief Set up USB hardware and tinyUSB stack */
 void usbSetup(void);

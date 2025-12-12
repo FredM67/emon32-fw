@@ -80,7 +80,8 @@ static void     printSettingsKV(void);
 static void     printUptime(void);
 static void     putFloat(float val, int flt_len);
 static void     handleConfirmation(char c);
-static char     waitForChar(void);
+/* static char     waitForChar(void); - Removed, NVM corruption now auto-loads
+ * defaults */
 /* static bool     restoreDefaults(void); - Removed pending OEM decision */
 static bool     zeroAccumulators(void);
 
@@ -89,11 +90,11 @@ static bool     zeroAccumulators(void);
  *************************************/
 
 #define IN_BUFFER_W 64
+
 static Emon32Config_t config;
 static char           inBuffer[IN_BUFFER_W];
 
 /* Async confirmation state */
-#define CONFIRM_TIMEOUT_MS 30000u /* 30 second timeout for confirmations */
 static volatile ConfirmState_t confirmState        = CONFIRM_IDLE;
 static volatile uint32_t       confirmStartTime_ms = 0;
 static int                     inBufferIdx         = 0;
@@ -106,30 +107,36 @@ static void configDefault(void) {
   config.key = CONFIG_NVM_KEY;
 
   /* Single phase, 50 Hz, 240 VAC, 10 s report period */
-  config.baseCfg.nodeID       = NODE_ID_DEF;
-  config.baseCfg.mainsFreq    = MAINS_FREQ_DEF;
-  config.baseCfg.reportTime   = REPORT_TIME_DEF;
+  config.baseCfg.nodeID     = NODE_ID_DEF;
+  config.baseCfg.mainsFreq  = MAINS_FREQ_DEF;
+  config.baseCfg.reportTime = REPORT_TIME_DEF;
+  config.baseCfg.reportCycles =
+      configTimeToCycles(REPORT_TIME_DEF, MAINS_FREQ_DEF);
   config.baseCfg.assumedVrms  = ASSUMED_VRMS_DEF;
-  config.baseCfg.whDeltaStore = DELTA_WH_STORE_DEF;
+  config.baseCfg.epDeltaStore = DELTA_EP_STORE_DEF;
   config.baseCfg.dataGrp      = GROUP_ID_DEF;
   config.baseCfg.logToSerial  = true;
   config.baseCfg.useJson      = false;
-  config.dataTxCfg.useRFM     = true;
-  config.dataTxCfg.rfmPwr     = RFM_PALEVEL_DEF;
-  config.dataTxCfg.rfmFreq    = RFM_FREQ_DEF;
+  config.baseCfg.debugSerial  = false;
+  (void)memset(config.baseCfg.res0, 0, sizeof(config.baseCfg.res0));
+  config.dataTxCfg.useRFM  = true;
+  config.dataTxCfg.rfmPwr  = RFM_PALEVEL_DEF;
+  config.dataTxCfg.rfmFreq = RFM_FREQ_DEF;
+  config.dataTxCfg.res0    = 0;
 
   for (int idxV = 0u; idxV < NUM_V; idxV++) {
     config.voltageCfg[idxV].voltageCal = 100.0f;
     config.voltageCfg[idxV].vActive    = (0 == idxV);
   }
 
-  /* 4.2 degree shift @ 50 Hz */
-  for (int idxCT = 0u; idxCT < NUM_CT; idxCT++) {
+  /* 4.2 degree shift @ 50 Hz. Initialize ALL slots including reserved. */
+  for (int idxCT = 0u; idxCT < (NUM_CT + CT_RES); idxCT++) {
     config.ctCfg[idxCT].ctCal    = 100.0f;
     config.ctCfg[idxCT].phase    = 4.2f;
     config.ctCfg[idxCT].vChan1   = 0;
     config.ctCfg[idxCT].vChan2   = 0;
     config.ctCfg[idxCT].ctActive = (idxCT < NUM_CT_ACTIVE_DEF);
+    config.ctCfg[idxCT].res0     = 0;
   }
 
   /* OneWire/Pulse configuration:
@@ -150,6 +157,17 @@ static void configDefault(void) {
   config.opaCfg[1].opaActive = true;
   config.opaCfg[1].period    = 0;
   config.opaCfg[1].puEn      = true;
+
+  /* Initialize reserved OPA slots */
+  for (int idxOPA = NUM_OPA; idxOPA < (NUM_OPA + PULSE_RES); idxOPA++) {
+    config.opaCfg[idxOPA].func      = 0;
+    config.opaCfg[idxOPA].opaActive = false;
+    config.opaCfg[idxOPA].period    = 0;
+    config.opaCfg[idxOPA].puEn      = false;
+  }
+
+  /* Zero all reserved bytes before CRC calculation */
+  (void)memset(config.res0, 0, sizeof(config.res0));
 
   config.crc16_ccitt = calcCRC16_ccitt(&config, (sizeof(config) - 2u));
 }
@@ -381,8 +399,9 @@ static bool configureDatalog(void) {
       serialPuts("> Log report time out of range.\r\n");
     } else {
       config.baseCfg.reportTime = convF.val;
-      ecmConfigReportCycles(
-          configTimeToCycles(convF.val, config.baseCfg.mainsFreq));
+      config.baseCfg.reportCycles =
+          configTimeToCycles(convF.val, config.baseCfg.mainsFreq);
+      ecmConfigReportCycles(config.baseCfg.reportCycles);
 
       printSettingDatalog();
       return true;
@@ -759,9 +778,37 @@ static void printSettingV(const int ch) {
           config.voltageCfg[ch].vActive ? "1" : "0");
 }
 
+static void printAccumulators(void) {
+  Emon32Cumulative_t cumulative;
+  eepromWLStatus_t   status;
+  bool               eepromOK;
+  int                idx;
+
+  status   = eepromReadWL(&cumulative, &idx);
+  eepromOK = (EEPROM_WL_OK == status);
+
+  serialPuts("Accumulators (can be updated by command 'u')");
+  if (!eepromOK) {
+    serialPuts(" (no valid NVM data)");
+  }
+  printf_(" [%d]:\r\n", idx);
+
+  for (unsigned int i = 0; i < NUM_CT; i++) {
+    uint32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
+    printf_("  E%d = %" PRIu32 " Wh\r\n", (i + 1), wh);
+  }
+  for (unsigned int i = 0; i < NUM_OPA; i++) {
+    uint32_t pulse = eepromOK ? cumulative.pulseCnt[i] : 0;
+    printf_("  pulse%d = %" PRIu32 "\r\n", (i + 1), pulse);
+  }
+  serialPuts("\r\n");
+}
+
 static void printSettings(void) {
   if ('h' == inBuffer[1]) {
     printSettingsHR();
+    /* Only show accumulators with 'lh' command */
+    printAccumulators();
   } else {
     printSettingsKV();
   }
@@ -824,20 +871,20 @@ static void printSettingsHR(void) {
   printf_("Assumed RMS voltage: %d V\r\n\r\n", config.baseCfg.assumedVrms);
 
   serialPuts(
-      "| Ref | Channel | Active | Calibration | Phase  | In 1 | In 2 |\r\n");
+      "| Ref | Channel | Active | Calibration |  Phase  | In 1 | In 2 |\r\n");
   serialPuts(
-      "+=====+=========+========+=============+========+======+======+\r\n");
+      "+=====+=========+========+=============+=========+======+======+\r\n");
   for (int i = 0; i < NUM_V; i++) {
     printf_("| %2d  |  V %2d   | %c      | ", (i + 1), (i + 1),
             (config.voltageCfg[i].vActive ? 'Y' : 'N'));
     putFloat(config.voltageCfg[i].voltageCal, 6);
-    serialPuts("      |        |      |      |\r\n");
+    serialPuts("      |         |      |      |\r\n");
   }
   for (int i = 0; i < NUM_CT; i++) {
     printf_("| %2d  | CT %2d   | %c      | ", (i + 1 + NUM_V), (i + 1),
             (config.ctCfg[i].ctActive ? 'Y' : 'N'));
     putFloat(config.ctCfg[i].ctCal, 6);
-    serialPuts("      | ");
+    serialPuts("      |  ");
     putFloat(config.ctCfg[i].phase, 6);
     printf_(" | %d    | %d    |\r\n", (config.ctCfg[i].vChan1 + 1),
             (config.ctCfg[i].vChan2 + 1));
@@ -871,9 +918,10 @@ static void putFloat(float val, int flt_len) {
   int  ftoalen = utilFtoa(strBuffer, val);
 
   if (flt_len) {
-    int fillSpace = flt_len - ftoalen;
+    /* ftoalen includes null terminator, subtract 1 for actual string length */
+    int fillSpace = flt_len - (ftoalen - 1);
 
-    while (fillSpace--) {
+    while (fillSpace-- > 0) {
       serialPuts(" ");
     }
   }
@@ -1007,33 +1055,6 @@ void configCheckConfirmationTimeout(void) {
   }
 }
 
-/*! @brief Blocking wait for a key from the UART serial link
- *  @note USB CDC confirmations are now handled asynchronously
- */
-static char waitForChar(void) {
-  /* Disable the NVIC for the interrupt if needed while waiting for the
-   * character otherwise it is handled by the configuration buffer.
-   */
-  char c;
-  int  irqEnabled =
-      (NVIC->ISER[0] & (1 << ((uint32_t)(SERCOM_UART_INTERACTIVE_IRQn) & 0x1F)))
-           ? 1
-           : 0;
-  if (irqEnabled) {
-    NVIC_DisableIRQ(SERCOM_UART_INTERACTIVE_IRQn);
-  }
-
-  while (0 == (uartInterruptStatus(SERCOM_UART) & SERCOM_USART_INTFLAG_RXC))
-    ;
-  c = uartGetc(SERCOM_UART);
-
-  if (irqEnabled) {
-    NVIC_EnableIRQ(SERCOM_UART_INTERACTIVE_IRQn);
-  }
-
-  return c;
-}
-
 /* Removed pending OEM decision on restore defaults confirmation
  *
  * static bool restoreDefaults(void) {
@@ -1112,7 +1133,6 @@ Emon32Config_t *configLoadFromNVM(void) {
 
   const uint32_t cfgSize     = sizeof(config);
   uint16_t       crc16_ccitt = 0;
-  char           c           = 0;
 
   /* Load from "static" part of EEPROM. If the key does not match
    * CONFIG_NVM_KEY as this is the first time it has been run, run the built
@@ -1130,34 +1150,12 @@ Emon32Config_t *configLoadFromNVM(void) {
      */
     crc16_ccitt = calcCRC16_ccitt(&config, cfgSize - 2u);
     if (crc16_ccitt != config.crc16_ccitt) {
-      serialPuts("  - NVM may be corrupt. Overwrite with default? (y/n)\r\n");
-
-      /* NVM corruption check happens at startup - semi-blocking is acceptable
-       * here since the system hasn't fully initialized yet. We keep USB
-       * processing active via tud_task() to maintain the connection, while
-       * UART uses blocking wait. Once the system is running, all confirmations
-       * use the async state machine (handleConfirmation) instead.
-       */
-      while ('y' != c && 'n' != c) {
-        /* Keep USB processing active while waiting */
-        if (usbCDCIsConnected()) {
-          tud_task();
-          if (usbCDCRxAvailable()) {
-            c = usbCDCRxGetChar();
-          }
-        } else {
-          c = waitForChar(); /* Use blocking wait for UART */
-          break;
-        }
-      }
-      if ('y' == c) {
-        configInitialiseNVM();
-      }
+      serialPuts(
+          "  - NVM corrupt. Loading defaults (save with 's' to fix).\r\n");
+      configDefault();
+      unsavedChange = true;
     }
   }
-
-  config.baseCfg.reportCycles =
-      configTimeToCycles(config.baseCfg.reportTime, config.baseCfg.mainsFreq);
 
   return &config;
 }
@@ -1188,6 +1186,7 @@ void configProcessCmd(void) {
       "   - v1        : CT voltage channel 1\r\n"
       "   - v2        : CT voltage channel 2\r\n"
       " - l           : list settings\r\n"
+      " - lh          : list settings and accumulators (human readable)\r\n"
       " - m<v> <w> <x> <y> <z>\r\n"
       "   - Configure a OneWire/pulse input.\r\n"
       "     - v : channel index\r\n"
@@ -1200,6 +1199,7 @@ void configProcessCmd(void) {
       " - r           : restore defaults\r\n"
       " - s           : save settings to NVM\r\n"
       " - t           : trigger report on next cycle\r\n"
+      " - u           : store current accumulator values to NVM\r\n"
       " - v           : firmware and board information\r\n"
       " - w<n>        : RF active. n = 0: OFF, n = 1: ON\r\n"
       " - x<n>        : 433 MHz compatibility. n = 0: 433.92 MHz, n = 1: "
@@ -1336,6 +1336,9 @@ void configProcessCmd(void) {
   case 't':
     emon32EventSet(EVT_ECM_TRIG);
     break;
+  case 'u':
+    emon32EventSet(EVT_STORE_ACCUM);
+    break;
   case 'v':
     configFirmwareBoardInfo();
     break;
@@ -1363,6 +1366,8 @@ void configProcessCmd(void) {
   cmdPending = false;
   inBufferClear(arglen + 1);
 }
+
+bool configUnsavedChanges(void) { return unsavedChange; }
 
 int configTimeToCycles(const float time, const int mainsFreq) {
   return qfp_float2uint(qfp_fmul(time, qfp_int2float(mainsFreq)));

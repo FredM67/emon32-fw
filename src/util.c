@@ -166,7 +166,12 @@ unsigned int utilFtoa(char *pBuf, float val) {
     *pBuf++ = '-';
     charCnt++;
   }
-  utilStrReverse(pBase, charCnt);
+
+  /* Terminate and return */
+  *pBuf = '\0';
+  charCnt++;
+
+  utilStrReverse(pBase, charCnt - 1u);
   return charCnt;
 }
 

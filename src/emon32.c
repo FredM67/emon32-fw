@@ -30,54 +30,60 @@
 #include "printf.h"
 #include "qfplib-m0-full.h"
 
+typedef struct EPAccum_ {
+  uint32_t E; /* Energy */
+  uint32_t P; /* Pulse */
+} EPAccum_t;
+
 typedef struct TransmitOpt_ {
-  bool    json;
-  bool    useRFM;
-  bool    logSerial;
-  uint8_t node;
+  bool    json;      /* Use JSON format */
+  bool    useRFM;    /* Use wireless */
+  bool    logSerial; /* Log to serial */
+  uint8_t node;      /*  Node ID */
 } TransmitOpt_t;
 
 typedef struct TxBlink_ {
-  bool         txIndicate;
-  unsigned int timeBlink;
+  bool         txIndicate; /* Tx in progress */
+  unsigned int timeBlink;  /* Time to blink LED for */
 } TxBlink_t;
 
 /*************************************
  * Persistent state variables
  *************************************/
 
-static volatile uint32_t evtPend;
-AssertInfo_t             g_assert_info;
-static unsigned int      lastStoredWh;
-static TxBlink_t         txBlink;
-Emon32Config_t          *pConfig = 0;
+static volatile uint32_t evtPend       = 0;
+AssertInfo_t             g_assert_info = {0};
+static EPAccum_t         lastStoredEP  = {0};
+static TxBlink_t         txBlink       = {0};
+Emon32Config_t          *pConfig       = 0;
 
 /*************************************
  * Static function prototypes
  *************************************/
 
-static unsigned int cumulativeNVMLoad(Emon32Cumulative_t *pPkt,
-                                      Emon32Dataset_t    *pData);
-static void         cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
-                                       const Emon32Dataset_t *pData, bool blocking);
-static void         cumulativeProcess(Emon32Cumulative_t    *pPkt,
-                                      const Emon32Dataset_t *pData,
-                                      const unsigned int     whDeltaStore);
-static void         datasetAddPulse(Emon32Dataset_t *pDst);
-static void         ecmConfigure(void);
-static void         ecmDmaCallback(void);
-static void         evtKiloHertz(void);
-static bool         evtPending(EVTSRC_t evt);
-static void         pulseConfigure(void);
-void                putchar_(char c);
-static void         serialPutsNonBlocking(const char *const s, uint16_t len);
-static void         rfmConfigure(void);
-static void         ssd1306Setup(void);
-static uint32_t     tempSetup(void);
-static uint32_t     totalEnergy(const Emon32Dataset_t *pData);
+static void cumulativeNVMLoad(Emon32Cumulative_t *pPkt, Emon32Dataset_t *pData);
+static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
+                               const Emon32Dataset_t *pData, bool blocking);
+static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
+                              const Emon32Dataset_t *pData,
+                              const unsigned int     epDeltaStore);
+static void datasetAddPulse(Emon32Dataset_t *pDst);
+static void ecmConfigure(void);
+static void ecmDmaCallback(void);
+static void evtKiloHertz(void);
+static bool evtPending(EVTSRC_t evt);
+static void pulseConfigure(void);
+void        putchar_(char c);
+static void serialPutsNonBlocking(const char *const s, uint16_t len);
+static void rfmConfigure(void);
+static void ssd1306Setup(void);
+static void tempReadEvt(Emon32Dataset_t *pData, const unsigned int numT);
+static uint32_t tempSetup(Emon32Dataset_t *pData);
+static void     totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc);
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
                          char *txBuffer);
 static void ucSetup(void);
+static void waitWithUSB(uint32_t t_ms);
 
 /*************************************
  * Functions
@@ -88,14 +94,15 @@ static void ucSetup(void);
  *  @param [out] pData : pointer to current dataset
  *  @return total Wh stored in NVM
  */
-static unsigned int cumulativeNVMLoad(Emon32Cumulative_t *pPkt,
-                                      Emon32Dataset_t    *pData) {
+static void cumulativeNVMLoad(Emon32Cumulative_t *pPkt,
+                              Emon32Dataset_t    *pData) {
   EMON32_ASSERT(pPkt);
   EMON32_ASSERT(pData);
 
-  unsigned int totalWh  = 0;
-  bool         eepromOK = false;
-  ECMCfg_t    *ecmCfg   = ecmConfigGet();
+  uint32_t  totalP   = 0;
+  uint32_t  totalWh  = 0;
+  bool      eepromOK = false;
+  ECMCfg_t *ecmCfg   = ecmConfigGet();
 
   eepromWLReset(sizeof(*pPkt));
   eepromOK = (EEPROM_WL_OK == eepromReadWL(pPkt, 0));
@@ -108,17 +115,19 @@ static unsigned int cumulativeNVMLoad(Emon32Cumulative_t *pPkt,
   }
 
   for (unsigned int idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
-    pData->pulseCnt[idxPulse] = eepromOK ? pPkt->pulseCnt[idxPulse] : 0;
+    uint32_t pulse = eepromOK ? pPkt->pulseCnt[idxPulse] : 0;
+
+    pData->pulseCnt[idxPulse] = pulse;
+    totalP += pulse;
   }
 
-  return totalWh;
+  lastStoredEP.E = totalWh;
+  lastStoredEP.P = totalP;
 }
 
 /*! @brief Store cumulative energy and pulse values
  *  @param [in] pPkt : pointer to cumulative values
  *  @param [in] pData : pointer to current dataset
- *  @param [in] blocking : true for blocking write (before reset), false for
- * async
  */
 static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
                                const Emon32Dataset_t *pData, bool blocking) {
@@ -155,27 +164,32 @@ static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
  *         since last storage is greater than a configurable threshold
  *  @param [in] pPkt : pointer to an NVM packet
  *  @param [in] pData : pointer to the current dataset
- *  @param [in] whDeltaStore : Wh delta between stores to NVM
+ *  @param [in] epDeltaStore : Wh/pulse delta between stores to NVM
  */
 static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
                               const Emon32Dataset_t *pData,
-                              const unsigned int     whDeltaStore) {
+                              const unsigned int     epDeltaStore) {
   EMON32_ASSERT(pPkt);
   EMON32_ASSERT(pData);
 
-  bool     energyOverflow;
-  uint32_t latestWh;
-  uint32_t deltaWh;
+  uint32_t  deltaPulse = 0;
+  uint32_t  deltaWh    = 0;
+  EPAccum_t ep         = {0};
+  bool      epOverflow = false;
 
   /* Store cumulative values if over threshold */
-  latestWh = totalEnergy(pData);
+  totalEnergy(pData, &ep);
 
   /* Catch overflow of energy. This corresponds to ~4 MWh(!), so unlikely to
    * but handle safely.
    */
-  energyOverflow = (latestWh < lastStoredWh);
-  deltaWh        = latestWh - lastStoredWh;
-  if ((deltaWh >= whDeltaStore) || energyOverflow) {
+  epOverflow = (ep.E < lastStoredEP.E) || (ep.P < lastStoredEP.P);
+
+  /* Treat 1 pulse == 1 Wh; not true in general case but reasonable criterion
+   * for storage threshold. */
+  deltaPulse = ep.P - lastStoredEP.P;
+  deltaWh    = ep.E - lastStoredEP.E;
+  if ((deltaWh >= epDeltaStore) || (deltaPulse >= epDeltaStore) || epOverflow) {
     /* TESTING: Async EEPROM writes enabled with fixed implementation.
      * Fixes applied:
      * - No busy-waits in callbacks (TOO_SOON status, eeprom.c:400-402)
@@ -183,8 +197,9 @@ static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
      * - Error handling with debug output (below)
      * Monitor debug serial for "EEPROM async write" messages.
      */
-    cumulativeNVMStore(pPkt, pData, false); /* false = async (TESTING) */
-    lastStoredWh = latestWh;
+    cumulativeNVMStore(pPkt, pData, false);
+    lastStoredEP.E = ep.E;
+    lastStoredEP.P = ep.P;
   }
 }
 
@@ -305,7 +320,12 @@ static void evtKiloHertz(void) {
   if (txBlink.txIndicate &&
       (timerMillisDelta(txBlink.timeBlink) > TX_INDICATE_T)) {
     txBlink.txIndicate = false;
-    uiLedColour(LED_GREEN);
+
+    if (configUnsavedChanges()) {
+      uiLedColour(LED_YELLOW);
+    } else {
+      uiLedColour(LED_GREEN);
+    }
   }
 
   /* Track milliseconds to indicate uptime */
@@ -411,10 +431,35 @@ static void ssd1306Setup(void) {
   }
 }
 
+static void tempReadEvt(Emon32Dataset_t *pData, const unsigned int numT) {
+  static unsigned int tempRdCount;
+
+  if (numT > 0) {
+    TempRead_t tempValue = tempReadSample(TEMP_INTF_ONEWIRE, tempRdCount);
+
+    if (TEMP_OK == tempValue.status) {
+      pData->temp[tempRdCount] = tempValue.temp;
+    } else if (TEMP_OUT_OF_RANGE == tempValue.status) {
+      pData->temp[tempRdCount] = 4832; /* 302°C */
+    } else {
+      pData->temp[tempRdCount] = 4864; /* 304°C */
+    }
+
+    tempRdCount++;
+  }
+
+  if ((0 == numT) || (numT == tempRdCount)) {
+    emon32EventSet(EVT_PROCESS_DATASET);
+    emon32EventClr(EVT_TEMP_READ);
+    tempRdCount = 0;
+  }
+}
+
 /*! @brief Initialises the temperature sensors
+ *  @param [in] pData : pointer to dataset to initialise
  *  @return number of temperature sensors found
  */
-static uint32_t tempSetup(void) {
+static uint32_t tempSetup(Emon32Dataset_t *pData) {
   const uint8_t opaPins[NUM_OPA] = {PIN_OPA1, PIN_OPA2};
   const uint8_t opaPUs[NUM_OPA]  = {PIN_OPA1_PU, PIN_OPA2_PU};
 
@@ -432,21 +477,31 @@ static uint32_t tempSetup(void) {
     }
   }
 
+  /* Set all unused temperature slots to 300°C (4800 as Q4 fixed point) */
+  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+    pData->temp[i] = 4800;
+  }
+
   return numTempSensors;
 }
 
 /*! @brief Total energy across all CTs
  *  @param [in] pData : pointer to data setup
- *  @return sum of Wh for all CTs
+ *  @param [out] pAcc : pointer to E/P accumulator
  */
-static uint32_t totalEnergy(const Emon32Dataset_t *pData) {
+static void totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc) {
   EMON32_ASSERT(pData);
+  EMON32_ASSERT(pAcc);
 
-  uint32_t totalEnergy = 0;
+  pAcc->E = 0;
+  pAcc->P = 0;
+
   for (unsigned int idxCT = 0; idxCT < NUM_CT; idxCT++) {
-    totalEnergy += pData->pECM->CT[idxCT].wattHour;
+    pAcc->E += pData->pECM->CT[idxCT].wattHour;
   }
-  return totalEnergy;
+  for (unsigned int idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
+    pAcc->P += pData->pulseCnt[idxPulse];
+  }
 }
 
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
@@ -498,19 +553,30 @@ static void ucSetup(void) {
   usbSetup();
 }
 
+static void waitWithUSB(uint32_t t_ms) {
+  uint32_t t_start    = timerMillis();
+  uint32_t t_last_usb = t_start;
+  while (timerMillisDelta(t_start) < t_ms) {
+    if (1 == timerMillisDelta(t_last_usb)) {
+      tud_task();
+      usbCDCTask();
+      t_last_usb = timerMillis();
+    }
+  }
+}
+
 int main(void) {
 
   Emon32Dataset_t    dataset               = {0};
   unsigned int       numTempSensors        = 0;
   Emon32Cumulative_t nvmCumulative         = {0};
-  unsigned int       tempCount             = 0;
   char               txBuffer[TX_BUFFER_W] = {0};
 
   ucSetup();
-  uiLedColour(LED_YELLOW);
+  uiLedColour(LED_RED);
 
   /* Pause to allow any external pins to settle */
-  timerDelay_ms(100);
+  waitWithUSB(100);
   spiConfigureExt();
 
   /* If the system is booted while it is connected to an active Pi, do not write
@@ -530,7 +596,7 @@ int main(void) {
   pConfig = configLoadFromNVM();
 
   /* Load the accumulated energy and pulse values from NVM. */
-  lastStoredWh = cumulativeNVMLoad(&nvmCumulative, &dataset);
+  cumulativeNVMLoad(&nvmCumulative, &dataset);
 
   if (sercomExtIntfEnabled()) {
     rfmConfigure();
@@ -538,12 +604,12 @@ int main(void) {
 
   /* Set up pulse and temperature sensors, if present. */
   pulseConfigure();
-  numTempSensors = tempSetup();
+  numTempSensors = tempSetup(&dataset);
 
   /* Wait 1s to allow USB to enumerate as serial. Not always possible, but gives
    * the possibility. The board information can be accessed through the serial
    * console later. */
-  timerDelay_ms(1000);
+  waitWithUSB(1000);
   configFirmwareBoardInfo();
 
   /* Set up buffers for ADC data, configure energy processing, and start */
@@ -553,7 +619,11 @@ int main(void) {
   adcDMACStart();
   uartEnableRx(SERCOM_UART, SERCOM_UART_INTERACTIVE_IRQn);
 
-  uiLedColour(LED_GREEN);
+  if (configUnsavedChanges()) {
+    uiLedColour(LED_YELLOW);
+  } else {
+    uiLedColour(LED_GREEN);
+  }
 
   for (;;) {
 
@@ -583,13 +653,29 @@ int main(void) {
         emon32EventClr(EVT_TICK_1kHz);
       }
 
+      /* Configuration request to store accumulator values to NVM on demand. */
+      if (evtPending(EVT_STORE_ACCUM)) {
+        int idx;
+        for (unsigned int idxCT = 0; idxCT < NUM_CT; idxCT++) {
+          nvmCumulative.wattHour[idxCT] = dataset.pECM->CT[idxCT].wattHour;
+        }
+        for (unsigned int idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
+          nvmCumulative.pulseCnt[idxPulse] = dataset.pulseCnt[idxPulse];
+        }
+        (void)eepromWriteWL(&nvmCumulative, &idx);
+        totalEnergy(&dataset, &lastStoredEP);
+        printf_("> Stored [%d]\r\n", idx);
+        emon32EventClr(EVT_STORE_ACCUM);
+      }
+
       /* Configuration request to clear all accumulator values (energy and pulse
        * count). The NVM is overwritten with 0s and the index of the next
        * read/write is reset. Clear the running counters in the main loop, any
        * residual energy in the dataset, and all pulse counters.
        */
       if (evtPending(EVT_CLEAR_ACCUM)) {
-        lastStoredWh = 0;
+        lastStoredEP.E = 0;
+        lastStoredEP.P = 0;
         /* REVISIT : may need to make this asynchronous as it will take 240 ms
          * (worst case) to clear the whole area for a 1KB EEPROM.
          */
@@ -644,23 +730,7 @@ int main(void) {
        * through the configured interface.
        */
       if (evtPending(EVT_TEMP_READ)) {
-        if (numTempSensors > 0) {
-          TempRead_t tempValue = tempReadSample(TEMP_INTF_ONEWIRE, tempCount);
-
-          if (TEMP_OK == tempValue.status) {
-            dataset.temp[tempCount] = tempValue.temp;
-          }
-
-          tempCount++;
-          if (tempCount == numTempSensors) {
-            emon32EventSet(EVT_PROCESS_DATASET);
-            emon32EventClr(EVT_TEMP_READ);
-            tempCount = 0;
-          }
-        } else {
-          emon32EventSet(EVT_PROCESS_DATASET);
-          emon32EventClr(EVT_TEMP_READ);
-        }
+        tempReadEvt(&dataset, numTempSensors);
       }
 
       /* Report period elapsed; generate, pack, and send through the
@@ -682,7 +752,7 @@ int main(void) {
          * configured energy delta then save the accumulated energy to NVM.
          */
         cumulativeProcess(&nvmCumulative, &dataset,
-                          pConfig->baseCfg.whDeltaStore);
+                          pConfig->baseCfg.epDeltaStore);
 
         /* Blink the STATUS LED, and clear the event. */
         uiLedColour(LED_RED);
@@ -708,8 +778,7 @@ int main(void) {
       }
 
       if (evtPending(EVT_SAFE_RESET_REQ)) {
-        cumulativeNVMStore(&nvmCumulative, &dataset,
-                           true); /* Blocking write before reset */
+        cumulativeNVMStore(&nvmCumulative, &dataset, true);
         NVIC_SystemReset();
       }
     }

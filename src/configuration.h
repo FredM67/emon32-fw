@@ -12,7 +12,7 @@ typedef struct __attribute__((__packed__)) BaseCfg_ {
   uint8_t  nodeID;       /* ID for report*/
   uint8_t  mainsFreq;    /* Mains frequency */
   uint16_t reportCycles; /* Cycles between reports */
-  uint16_t whDeltaStore; /* Minimum energy delta to store */
+  uint16_t epDeltaStore; /* Minimum energy/pulse delta to store */
   uint8_t  dataGrp;      /* Transmission group - default 210 */
   bool     logToSerial;  /* Log data to serial output */
   bool     useJson;      /* JSON format for serial output */
@@ -106,6 +106,11 @@ Emon32Config_t *configLoadFromNVM(void);
 
 /*! @brief Process a pending command from the UART */
 void configProcessCmd(void);
+
+/*! @brief Indicate if there are unsaved changes
+ *  @return true if there are unsaved changes, false otherwise
+ */
+bool configUnsavedChanges(void);
 
 /*! @brief Fetch the version and revision information
  *  @return Version and revision struct

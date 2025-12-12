@@ -6,32 +6,34 @@
 #include "driver_USB.h"
 #include "tusb_config.h"
 
+#include <string.h>
+
 bool usbCDCIsConnected(void) { return tud_cdc_connected(); }
 
 void usbCDCPutsBlocking(const char *s) {
-  const size_t csize = CFG_TUD_CDC_TX_BUFSIZE;
-  size_t       ccnt  = 0;
-  size_t       n     = 0;
-  uint8_t     *p     = (uint8_t *)s;
+  /* Write string to CDC buffer without flushing. When buffer is full, wait for
+   * space to become available. Flushing is handled by usbCDCTask() and explicit
+   * usbCDCTxFlush() calls to maintain line atomicity across multiple
+   * printf/serialPuts calls.
+   */
+  size_t len    = strlen(s);
+  size_t offset = 0;
 
-  /* Flush any residual characters in Tx buffer */
-  tud_cdc_write_flush();
-  tud_task();
+  while (offset < len) {
+    size_t available = tud_cdc_write_available();
 
-  /* Send in chunks of TX_BUFSIZE, then flush residual */
-  while (*p++) {
-    n++;
-    if (!(n % csize)) {
-      tud_cdc_write(s + (ccnt++ * csize), csize);
-      tud_cdc_write_flush();
+    if (available == 0) {
+      /* Buffer full - service USB to allow it to drain */
       tud_task();
+      continue;
     }
+
+    /* Write as much as fits in available space */
+    size_t to_send = (len - offset) > available ? available : (len - offset);
+    tud_cdc_write(s + offset, to_send);
+    offset += to_send;
   }
-  if (n % csize) {
-    tud_cdc_write(s + (ccnt * csize), (n % csize));
-    tud_cdc_write_flush();
-    tud_task();
-  }
+  /* No flush here - let caller control when to flush */
 }
 
 bool usbCDCRxAvailable(void) { return tud_cdc_available(); }
@@ -60,25 +62,26 @@ void usbCDCTask(void) {
         if (!configHandleConfirmation((uint8_t)ch)) {
           /* Normal command processing */
           configCmdChar(((uint8_t)ch));
+          usbCDCTxChar((uint8_t)ch);
         }
-        /* Echo character */
-        usbCDCTxChar((uint8_t)ch);
       }
     }
   }
 }
 
 void usbCDCTxChar(uint8_t c) {
-  static size_t n = 0;
-  tud_cdc_write_char(c);
-  n++;
-  if (!(n % 64)) {
-    tud_cdc_write_flush();
+  /* Wait for buffer space if full */
+  while (tud_cdc_write_available() == 0) {
+    /* Service USB to drain buffer */
     tud_task();
   }
+  tud_cdc_write_char(c);
+  /* No flush here - let caller control flushing */
 }
 
 void usbCDCTxFlush(void) { tud_cdc_write_flush(); }
+
+bool usbCDCTxFull(void) { return !tud_cdc_write_available(); }
 
 void usbSetup(void) {
   /* Clocking:
