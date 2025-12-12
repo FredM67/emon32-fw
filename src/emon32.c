@@ -648,7 +648,7 @@ int main(void) {
           nvmCumulative.pulseCnt[idxPulse] = dataset.pulseCnt[idxPulse];
         }
         (void)eepromWriteWL(&nvmCumulative, &idx);
-        lastStoredWh = totalEnergy(&dataset);
+        totalEnergy(&dataset, &lastStoredEP);
         printf_("> Stored [%d]\r\n", idx);
         emon32EventClr(EVT_STORE_ACCUM);
       }
