@@ -638,6 +638,21 @@ int main(void) {
         emon32EventClr(EVT_TICK_1kHz);
       }
 
+      /* Configuration request to store accumulator values to NVM on demand. */
+      if (evtPending(EVT_STORE_ACCUM)) {
+        int idx;
+        for (unsigned int idxCT = 0; idxCT < NUM_CT; idxCT++) {
+          nvmCumulative.wattHour[idxCT] = dataset.pECM->CT[idxCT].wattHour;
+        }
+        for (unsigned int idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
+          nvmCumulative.pulseCnt[idxPulse] = dataset.pulseCnt[idxPulse];
+        }
+        (void)eepromWriteWL(&nvmCumulative, &idx);
+        lastStoredWh = totalEnergy(&dataset);
+        printf_("> Stored [%d]\r\n", idx);
+        emon32EventClr(EVT_STORE_ACCUM);
+      }
+
       /* Configuration request to clear all accumulator values (energy and pulse
        * count). The NVM is overwritten with 0s and the index of the next
        * read/write is reset. Clear the running counters in the main loop, any

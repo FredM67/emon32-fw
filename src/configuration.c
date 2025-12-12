@@ -90,11 +90,11 @@ static bool     zeroAccumulators(void);
  *************************************/
 
 #define IN_BUFFER_W 64
+
 static Emon32Config_t config;
 static char           inBuffer[IN_BUFFER_W];
 
 /* Async confirmation state */
-#define CONFIRM_TIMEOUT_MS 30000u /* 30 second timeout for confirmations */
 static volatile ConfirmState_t confirmState        = CONFIRM_IDLE;
 static volatile uint32_t       confirmStartTime_ms = 0;
 static int                     inBufferIdx         = 0;
@@ -778,9 +778,37 @@ static void printSettingV(const int ch) {
           config.voltageCfg[ch].vActive ? "1" : "0");
 }
 
+static void printAccumulators(void) {
+  Emon32Cumulative_t cumulative;
+  eepromWLStatus_t   status;
+  bool               eepromOK;
+  int                idx;
+
+  status   = eepromReadWL(&cumulative, &idx);
+  eepromOK = (EEPROM_WL_OK == status);
+
+  serialPuts("Accumulators (can be updated by command 'u')");
+  if (!eepromOK) {
+    serialPuts(" (no valid NVM data)");
+  }
+  printf_(" [%d]:\r\n", idx);
+
+  for (unsigned int i = 0; i < NUM_CT; i++) {
+    uint32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
+    printf_("  E%d = %" PRIu32 " Wh\r\n", (i + 1), wh);
+  }
+  for (unsigned int i = 0; i < NUM_OPA; i++) {
+    uint32_t pulse = eepromOK ? cumulative.pulseCnt[i] : 0;
+    printf_("  pulse%d = %" PRIu32 "\r\n", (i + 1), pulse);
+  }
+  serialPuts("\r\n");
+}
+
 static void printSettings(void) {
   if ('h' == inBuffer[1]) {
     printSettingsHR();
+    /* Only show accumulators with 'lh' command */
+    printAccumulators();
   } else {
     printSettingsKV();
   }
@@ -843,20 +871,20 @@ static void printSettingsHR(void) {
   printf_("Assumed RMS voltage: %d V\r\n\r\n", config.baseCfg.assumedVrms);
 
   serialPuts(
-      "| Ref | Channel | Active | Calibration | Phase  | In 1 | In 2 |\r\n");
+      "| Ref | Channel | Active | Calibration |  Phase  | In 1 | In 2 |\r\n");
   serialPuts(
-      "+=====+=========+========+=============+========+======+======+\r\n");
+      "+=====+=========+========+=============+=========+======+======+\r\n");
   for (int i = 0; i < NUM_V; i++) {
     printf_("| %2d  |  V %2d   | %c      | ", (i + 1), (i + 1),
             (config.voltageCfg[i].vActive ? 'Y' : 'N'));
     putFloat(config.voltageCfg[i].voltageCal, 6);
-    serialPuts("      |        |      |      |\r\n");
+    serialPuts("      |         |      |      |\r\n");
   }
   for (int i = 0; i < NUM_CT; i++) {
     printf_("| %2d  | CT %2d   | %c      | ", (i + 1 + NUM_V), (i + 1),
             (config.ctCfg[i].ctActive ? 'Y' : 'N'));
     putFloat(config.ctCfg[i].ctCal, 6);
-    serialPuts("      | ");
+    serialPuts("      |  ");
     putFloat(config.ctCfg[i].phase, 6);
     printf_(" | %d    | %d    |\r\n", (config.ctCfg[i].vChan1 + 1),
             (config.ctCfg[i].vChan2 + 1));
@@ -890,9 +918,10 @@ static void putFloat(float val, int flt_len) {
   int  ftoalen = utilFtoa(strBuffer, val);
 
   if (flt_len) {
-    int fillSpace = flt_len - ftoalen;
+    /* ftoalen includes null terminator, subtract 1 for actual string length */
+    int fillSpace = flt_len - (ftoalen - 1);
 
-    while (fillSpace--) {
+    while (fillSpace-- > 0) {
       serialPuts(" ");
     }
   }
@@ -1157,6 +1186,7 @@ void configProcessCmd(void) {
       "   - v1        : CT voltage channel 1\r\n"
       "   - v2        : CT voltage channel 2\r\n"
       " - l           : list settings\r\n"
+      " - lh          : list settings and accumulators (human readable)\r\n"
       " - m<v> <w> <x> <y> <z>\r\n"
       "   - Configure a OneWire/pulse input.\r\n"
       "     - v : channel index\r\n"
@@ -1169,6 +1199,7 @@ void configProcessCmd(void) {
       " - r           : restore defaults\r\n"
       " - s           : save settings to NVM\r\n"
       " - t           : trigger report on next cycle\r\n"
+      " - u           : store current accumulator values to NVM\r\n"
       " - v           : firmware and board information\r\n"
       " - w<n>        : RF active. n = 0: OFF, n = 1: ON\r\n"
       " - x<n>        : 433 MHz compatibility. n = 0: 433.92 MHz, n = 1: "
@@ -1304,6 +1335,9 @@ void configProcessCmd(void) {
     break;
   case 't':
     emon32EventSet(EVT_ECM_TRIG);
+    break;
+  case 'u':
+    emon32EventSet(EVT_STORE_ACCUM);
     break;
   case 'v':
     configFirmwareBoardInfo();

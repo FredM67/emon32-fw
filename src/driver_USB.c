@@ -81,6 +81,8 @@ void usbCDCTxChar(uint8_t c) {
 
 void usbCDCTxFlush(void) { tud_cdc_write_flush(); }
 
+bool usbCDCTxFull(void) { return !tud_cdc_write_available(); }
+
 void usbSetup(void) {
   /* Clocking:
    *  - AHB is enabled by default (16.8.7)

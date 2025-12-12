@@ -138,6 +138,26 @@ static eepromWLStatus_t wlFindLast(void) {
     }
   }
 
+  /* Set wlCurrentValid based on what was found. If wlIdxNxtWr is still 0,
+   * all blocks have the same valid byte - advance to next valid byte so new
+   * writes are distinguishable. Otherwise, use the valid byte from the most
+   * recently written block (at index wlIdxNxtWr - 1).
+   */
+  if (wlIdxNxtWr == 0) {
+    /* All blocks identical - advance valid byte for next write */
+    wlCurrentValid = nextValidByte(wlHeader.valid);
+  } else {
+    /* Use valid byte from last written block. If lastWrittenIdx is 0, we
+     * already have block 0's header in wlHeader from the initial read.
+     */
+    int lastWrittenIdx = wlIdxNxtWr - 1;
+    if (lastWrittenIdx != 0) {
+      int lastWrittenAddr = EEPROM_WL_OFFSET + (lastWrittenIdx * wlBlkSize);
+      eepromRead(lastWrittenAddr, &wlHeader, 4u);
+    }
+    wlCurrentValid = wlHeader.valid;
+  }
+
   return status;
 }
 
@@ -289,11 +309,17 @@ bool eepromRead(unsigned int addr, void *pDst, unsigned int n) {
     return false;
   }
 
-  while (n--) {
+  while (n) {
     *pData++ = i2cDataRead(SERCOM_I2CM);
-    i2cAck(SERCOM_I2CM, I2CM_ACK, I2CM_ACK_CMD_CONTINUE);
+    n--;
+    if (n == 0) {
+      /* Last byte - send NACK and STOP */
+      i2cAck(SERCOM_I2CM, I2CM_NACK, I2CM_ACK_CMD_STOP);
+    } else {
+      /* More bytes to read - send ACK and continue */
+      i2cAck(SERCOM_I2CM, I2CM_ACK, I2CM_ACK_CMD_CONTINUE);
+    }
   }
-  i2cAck(SERCOM_I2CM, I2CM_NACK, I2CM_ACK_CMD_STOP);
 
   return true;
 }
@@ -426,13 +452,13 @@ eepromWrStatus_t eepromWriteWL(const void *pPktWr, int *pIdx) {
   WLHeader_t       header;
   eepromWrStatus_t wrStatus;
 
-  header.res0        = 0;
-  header.valid       = wlCurrentValid;
-  header.crc16_ccitt = calcCRC16_ccitt(pPktWr, wlData_n);
-
   if (-1 == wlIdxNxtWr) {
     wlFindLast();
   }
+
+  header.res0        = 0;
+  header.valid       = wlCurrentValid;
+  header.crc16_ccitt = calcCRC16_ccitt(pPktWr, wlData_n);
 
   if (pIdx) {
     *pIdx = wlIdxNxtWr;
@@ -453,6 +479,10 @@ eepromWrStatus_t eepromWriteWL(const void *pPktWr, int *pIdx) {
     timerDelay_us(EEPROM_WR_TIME);
     wrStatus = eepromWrite(0, 0, 0);
   }
+
+  /* Wait for EEPROM internal write cycle to complete (per datasheet: 5ms max)
+   */
+  timerDelay_us(EEPROM_WR_TIME);
 
   /* Once all blocks with the same "valid" byte have been written out,
    * generate the next "valid" byte to be used and wrap.
