@@ -5,7 +5,8 @@
 typedef enum eepromWLStatus_ {
   EEPROM_WL_OK,
   EEPROM_WL_CRC_BAD,
-  EEPROM_WL_CRC_ALL_BAD
+  EEPROM_WL_CRC_ALL_BAD,
+  EEPROM_WL_BUSY /* Async write in progress, read would be inconsistent */
 } eepromWLStatus_t;
 
 typedef enum eepromWrStatus_ {

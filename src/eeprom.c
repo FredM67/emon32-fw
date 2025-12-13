@@ -361,6 +361,14 @@ eepromWLStatus_t eepromReadWL(void *pPktRd, int *pIdx) {
   WLHeader_t       header;
   eepromWLStatus_t status = EEPROM_WL_OK;
 
+  /* If an async write is in progress, the data may be inconsistent */
+  if (eepromWriteWLBusy()) {
+    if (pIdx) {
+      *pIdx = wlIdxNxtWr;
+    }
+    return EEPROM_WL_BUSY;
+  }
+
   if (-1 == wlIdxNxtWr) {
     status = wlFindLast();
   }
