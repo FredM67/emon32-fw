@@ -618,15 +618,19 @@ eepromWrStatus_t eepromWriteWLAsync(const void *pPktWr, int *pIdx) {
     wlFindLast();
   }
 
+  /* Copy data to static buffer to ensure it doesn't change during async write
+   */
+  memcpy(wlData, pPktWr, wlData_n);
+
   /* Prepare the header */
   wlAsyncCtx.header.res0        = 0;
   wlAsyncCtx.header.valid       = wlCurrentValid;
-  wlAsyncCtx.header.crc16_ccitt = calcCRC16_ccitt(pPktWr, wlData_n);
+  wlAsyncCtx.header.crc16_ccitt = calcCRC16_ccitt(wlData, wlData_n);
 
   /* Store the context */
   wlAsyncCtx.idx     = wlIdxNxtWr;
   wlAsyncCtx.addrWr  = EEPROM_WL_OFFSET + (wlIdxNxtWr * wlBlkSize);
-  wlAsyncCtx.pData   = (const uint8_t *)pPktWr;
+  wlAsyncCtx.pData   = wlData;
   wlAsyncCtx.dataLen = wlData_n;
 
   if (pIdx) {

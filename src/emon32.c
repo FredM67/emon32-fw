@@ -655,16 +655,8 @@ int main(void) {
 
       /* Configuration request to store accumulator values to NVM on demand. */
       if (evtPending(EVT_STORE_ACCUM)) {
-        int idx;
-        for (unsigned int idxCT = 0; idxCT < NUM_CT; idxCT++) {
-          nvmCumulative.wattHour[idxCT] = dataset.pECM->CT[idxCT].wattHour;
-        }
-        for (unsigned int idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
-          nvmCumulative.pulseCnt[idxPulse] = dataset.pulseCnt[idxPulse];
-        }
-        (void)eepromWriteWL(&nvmCumulative, &idx);
-        totalEnergy(&dataset, &lastStoredEP);
-        printf_("> Stored [%d]\r\n", idx);
+        cumulativeNVMStore(&nvmCumulative, &dataset, false);
+        printf_("> Storing...\r\n");
         emon32EventClr(EVT_STORE_ACCUM);
       }
 
