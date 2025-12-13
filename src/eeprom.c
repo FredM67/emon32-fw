@@ -607,6 +607,11 @@ static void eepromWLAsyncCallback(void) {
  */
 bool eepromWriteWLBusy(void) { return (wlAsyncCtx.state != WL_ASYNC_IDLE); }
 
+/*! @brief Get the current async write state (for debugging)
+ *  @return current state value (0=IDLE, 1=WRITING_HEADER, etc.)
+ */
+int eepromWriteWLState(void) { return (int)wlAsyncCtx.state; }
+
 /*! @brief Start an asynchronous wear-leveled write operation
  *  @param [in] pPktWr : pointer to write packet
  *  @param [out] pIdx : pointer to the value of the index to write to (optional)
