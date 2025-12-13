@@ -495,8 +495,13 @@ static void eepromWLAsyncCallback(void) {
       }
     } else if (status == EEPROM_WR_COMPLETE) {
       /* Header write completed immediately (small write), start data write */
-      wlAsyncCtx.state = WL_ASYNC_WRITING_DATA;
-      if (!timerScheduleCallback(eepromWLAsyncCallback, 0)) {
+      wlAsyncCtx.state = WL_ASYNC_START_DATA_WRITE;
+      if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
+        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+      }
+    } else if (status == EEPROM_WR_TOO_SOON || status == EEPROM_WR_BUSY) {
+      /* Not ready yet, retry after delay - stay in same state */
+      if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
         wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
       }
     } else if (status == EEPROM_WR_FAIL) {
@@ -525,11 +530,11 @@ static void eepromWLAsyncCallback(void) {
     break;
 
   case WL_ASYNC_START_DATA_WRITE:
-    /* Attempt to start data write - may return TOO_SOON */
+    /* Attempt to start data write - may return TOO_SOON or BUSY */
     status = eepromWrite(wlAsyncCtx.addrWr + sizeof(WLHeader_t),
                          wlAsyncCtx.pData, wlAsyncCtx.dataLen);
-    if (status == EEPROM_WR_TOO_SOON) {
-      /* Too soon since last write, reschedule after EEPROM_WR_TIME */
+    if (status == EEPROM_WR_TOO_SOON || status == EEPROM_WR_BUSY) {
+      /* Not ready yet, reschedule after EEPROM_WR_TIME */
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
         wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
       }

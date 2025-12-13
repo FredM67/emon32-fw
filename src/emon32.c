@@ -189,14 +189,8 @@ static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
    * for storage threshold. */
   deltaPulse = ep.P - lastStoredEP.P;
   deltaWh    = ep.E - lastStoredEP.E;
+
   if ((deltaWh >= epDeltaStore) || (deltaPulse >= epDeltaStore) || epOverflow) {
-    /* TESTING: Async EEPROM writes enabled with fixed implementation.
-     * Fixes applied:
-     * - No busy-waits in callbacks (TOO_SOON status, eeprom.c:400-402)
-     * - Callback queue increased 4→8 (driver_TIME.c:23)
-     * - Error handling with debug output (below)
-     * Monitor debug serial for "EEPROM async write" messages.
-     */
     cumulativeNVMStore(pPkt, pData, false);
     lastStoredEP.E = ep.E;
     lastStoredEP.P = ep.P;
