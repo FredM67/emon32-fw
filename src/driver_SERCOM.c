@@ -301,6 +301,53 @@ uint32_t uartInterruptStatus(const Sercom *sercom) {
  * I2C Functions
  * =====================================
  */
+
+void i2cBusRecovery(Sercom *sercom, unsigned int grp, unsigned int sdaPin,
+                    unsigned int sclPin, unsigned int pmux) {
+  /* Disable I2C peripheral */
+  sercom->I2CM.CTRLA.reg &= ~SERCOM_I2CM_CTRLA_ENABLE;
+  while (sercom->I2CM.SYNCBUSY.reg & SERCOM_I2CM_SYNCBUSY_ENABLE)
+    ;
+
+  /* Clear pin mux - make them GPIO */
+  portPinMuxClear(grp, sdaPin);
+  portPinMuxClear(grp, sclPin);
+
+  /* Configure SCL as output (high), SDA as input */
+  portPinDir(grp, sclPin, PIN_DIR_OUT);
+  portPinDrv(grp, sclPin, PIN_DRV_SET);
+  portPinDir(grp, sdaPin, PIN_DIR_IN);
+  portPinCfg(grp, sdaPin, PORT_PINCFG_INEN | PORT_PINCFG_PULLEN, PIN_CFG_SET);
+  portPinDrv(grp, sdaPin, PIN_DRV_SET); /* Enable pull-up */
+
+  /* Toggle SCL up to 9 times to release stuck slave */
+  for (int i = 0; i < 9; i++) {
+    if (portPinValue(grp, sdaPin)) {
+      break; /* SDA released, we're done */
+    }
+    portPinDrv(grp, sclPin, PIN_DRV_CLR);
+    timerDelay_us(5);
+    portPinDrv(grp, sclPin, PIN_DRV_SET);
+    timerDelay_us(5);
+  }
+
+  /* Generate STOP condition: SDA low->high while SCL high */
+  portPinDir(grp, sdaPin, PIN_DIR_OUT);
+  portPinDrv(grp, sdaPin, PIN_DRV_CLR);
+  timerDelay_us(5);
+  portPinDrv(grp, sclPin, PIN_DRV_SET);
+  timerDelay_us(5);
+  portPinDrv(grp, sdaPin, PIN_DRV_SET);
+  timerDelay_us(5);
+
+  /* Reconfigure pins for I2C */
+  portPinMux(grp, sdaPin, pmux);
+  portPinMux(grp, sclPin, pmux);
+
+  /* Reinitialize I2C peripheral */
+  i2cmCommon(sercom);
+}
+
 I2CM_Status_t i2cActivate(Sercom *sercom, uint8_t addr) {
   unsigned int  t = timerMicros();
   I2CM_Status_t s = I2CM_SUCCESS;

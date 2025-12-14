@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <string.h>
 
 #ifndef HOSTED
@@ -68,7 +69,10 @@ typedef struct wlAsyncCtx_ {
   unsigned int     dataLen;
   int              idx;
   eepromWrStatus_t lastStatus;
+  int              busyRetries; /* Counter for BUSY retries */
 } wlAsyncCtx_t;
+
+#define MAX_BUSY_RETRIES 10
 
 /* FUNCTIONS */
 static Address_t        calcAddress(const unsigned int addrFull);
@@ -388,7 +392,17 @@ eepromWLStatus_t eepromReadWL(void *pPktRd, int *pIdx) {
   eepromRead(addrRd, pPktRd, wlData_n);
   crcData = calcCRC16_ccitt(pPktRd, sizeof(Emon32Cumulative_t));
 
+  /* Retry once on CRC mismatch - I2C reads can occasionally be corrupted */
   if (crcData != header.crc16_ccitt) {
+    printf_("EEPROM CRC retry: hdr=0x%04X data=0x%04X\r\n", header.crc16_ccitt,
+            crcData);
+    eepromRead(addrRd, pPktRd, wlData_n);
+    crcData = calcCRC16_ccitt(pPktRd, sizeof(Emon32Cumulative_t));
+  }
+
+  if (crcData != header.crc16_ccitt) {
+    printf_("EEPROM CRC FAIL: hdr=0x%04X data=0x%04X valid=0x%02X\r\n",
+            header.crc16_ccitt, crcData, header.valid);
     status = EEPROM_WL_CRC_BAD;
   }
 
@@ -424,6 +438,12 @@ eepromWrStatus_t eepromWrite(unsigned int addr, const void *pSrc,
   /* Make byte count and address static to allow re-entrant writes */
   static wrLocal_t    wrLocal;
   static unsigned int tLastWrite_us;
+
+  /* Special reset call: addr=UINT_MAX clears residual state */
+  if (addr == UINT_MAX) {
+    wrLocal.n_residual = 0;
+    return EEPROM_WR_COMPLETE;
+  }
 
   /* If all parameters are 0, then this is a continuation from ISR */
   const bool continueBlock = (0 == addr) && (0 == pSrc) && (0 == n);
@@ -480,11 +500,23 @@ eepromWrStatus_t eepromWrite(unsigned int addr, const void *pSrc,
 
 eepromWrStatus_t eepromWriteContinue(void) { return eepromWrite(0, 0, 0); }
 
+/*! @brief Perform I2C bus recovery for internal EEPROM bus */
+static void eepromBusRecovery(void) {
+  printf_("I2C RECOVERY\r\n");
+  /* Reset software state (clear n_residual) */
+  eepromWrite(UINT_MAX, 0, 0);
+  /* Recover I2C bus hardware */
+  i2cBusRecovery(SERCOM_I2CM, GRP_SERCOM_I2C_INT, PIN_I2C_INT_SDA,
+                 PIN_I2C_INT_SCL, PMUX_I2CM_INT);
+}
+
 /* Asynchronous wear-leveled write implementation using timer callbacks */
 
 /*! @brief State machine callback for async EEPROM write */
 static void eepromWLAsyncCallback(void) {
   eepromWrStatus_t status;
+
+  printf_("CB:%d ", wlAsyncCtx.state);
 
   switch (wlAsyncCtx.state) {
   case WL_ASYNC_IDLE:
@@ -492,28 +524,57 @@ static void eepromWLAsyncCallback(void) {
     return;
 
   case WL_ASYNC_WRITING_HEADER:
-    /* Initiate header write */
+    /* Initiate header write - retry on FAIL with bus recovery */
     status = eepromWrite(wlAsyncCtx.addrWr, (const void *)&wlAsyncCtx.header,
                          sizeof(wlAsyncCtx.header));
+    if (status == EEPROM_WR_FAIL) {
+      /* I2C failed - perform bus recovery and retry once */
+      eepromBusRecovery();
+      status = eepromWrite(wlAsyncCtx.addrWr, (const void *)&wlAsyncCtx.header,
+                           sizeof(wlAsyncCtx.header));
+      printf_("retry s=%d ", status);
+    } else {
+      printf_("s=%d ", status);
+    }
     if (status == EEPROM_WR_PEND) {
-      wlAsyncCtx.state = WL_ASYNC_WAITING_HEADER;
+      wlAsyncCtx.busyRetries = 0; /* Reset on success */
+      wlAsyncCtx.state       = WL_ASYNC_WAITING_HEADER;
       /* Schedule next callback after EEPROM_WR_TIME */
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+        printf_("EEPROM CB FAIL!\r\n");
+        /* Drain the lower-level write to prevent stuck state */
+        while (eepromWrite(0, 0, 0) != EEPROM_WR_COMPLETE) {
+          timerDelay_us(EEPROM_WR_TIME);
+        }
+        wlAsyncCtx.state = WL_ASYNC_IDLE;
       }
     } else if (status == EEPROM_WR_COMPLETE) {
       /* Header write completed immediately (small write), start data write */
-      wlAsyncCtx.state = WL_ASYNC_START_DATA_WRITE;
+      wlAsyncCtx.busyRetries = 0; /* Reset on success */
+      wlAsyncCtx.state       = WL_ASYNC_START_DATA_WRITE;
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+        printf_("EEPROM CB FAIL!\r\n");
+        wlAsyncCtx.state = WL_ASYNC_IDLE;
       }
     } else if (status == EEPROM_WR_TOO_SOON || status == EEPROM_WR_BUSY) {
       /* Not ready yet, retry after delay - stay in same state */
-      if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+      wlAsyncCtx.busyRetries++;
+      if (wlAsyncCtx.busyRetries > MAX_BUSY_RETRIES) {
+        /* Stuck in BUSY - perform recovery */
+        printf_("BUSY STUCK!\r\n");
+        eepromBusRecovery();
+        wlAsyncCtx.busyRetries = 0;
+        wlAsyncCtx.state       = WL_ASYNC_IDLE;
+      } else if (!timerScheduleCallback(eepromWLAsyncCallback,
+                                        EEPROM_WR_TIME)) {
+        printf_("EEPROM CB FAIL!\r\n");
+        wlAsyncCtx.state = WL_ASYNC_IDLE;
       }
     } else if (status == EEPROM_WR_FAIL) {
-      wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+      printf_("WR FAIL!\r\n");
+      eepromBusRecovery();
+      wlAsyncCtx.busyRetries = 0;
+      wlAsyncCtx.state       = WL_ASYNC_IDLE;
     }
     break;
 
@@ -525,15 +586,23 @@ static void eepromWLAsyncCallback(void) {
       wlAsyncCtx.state = WL_ASYNC_START_DATA_WRITE;
       /* Schedule callback immediately to attempt data write start */
       if (!timerScheduleCallback(eepromWLAsyncCallback, 0)) {
-        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+        printf_("EEPROM CB FAIL!\r\n");
+        wlAsyncCtx.state = WL_ASYNC_IDLE;
       }
     } else if (status == EEPROM_WR_PEND) {
       /* Still pending, schedule next callback */
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+        printf_("EEPROM CB FAIL!\r\n");
+        /* Drain the lower-level write to prevent stuck state */
+        while (eepromWrite(0, 0, 0) != EEPROM_WR_COMPLETE) {
+          timerDelay_us(EEPROM_WR_TIME);
+        }
+        wlAsyncCtx.state = WL_ASYNC_IDLE;
       }
     } else if (status == EEPROM_WR_FAIL) {
-      wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+      printf_("WR FAIL!\r\n");
+      eepromBusRecovery();
+      wlAsyncCtx.state = WL_ASYNC_IDLE;
     }
     break;
 
@@ -544,23 +613,32 @@ static void eepromWLAsyncCallback(void) {
     if (status == EEPROM_WR_TOO_SOON || status == EEPROM_WR_BUSY) {
       /* Not ready yet, reschedule after EEPROM_WR_TIME */
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+        printf_("EEPROM CB FAIL!\r\n");
+        wlAsyncCtx.state = WL_ASYNC_IDLE;
       }
       /* Stay in START_DATA_WRITE state to retry */
     } else if (status == EEPROM_WR_PEND) {
       /* Data write started, transition to WAITING_DATA */
       wlAsyncCtx.state = WL_ASYNC_WAITING_DATA;
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+        printf_("EEPROM CB FAIL!\r\n");
+        /* Drain the lower-level write to prevent stuck state */
+        while (eepromWrite(0, 0, 0) != EEPROM_WR_COMPLETE) {
+          timerDelay_us(EEPROM_WR_TIME);
+        }
+        wlAsyncCtx.state = WL_ASYNC_IDLE;
       }
     } else if (status == EEPROM_WR_COMPLETE) {
       /* Data write completed immediately (shouldn't happen but handle it) */
       wlAsyncCtx.state = WL_ASYNC_WAITING_DATA;
       if (!timerScheduleCallback(eepromWLAsyncCallback, 0)) {
-        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+        printf_("EEPROM CB FAIL!\r\n");
+        wlAsyncCtx.state = WL_ASYNC_IDLE;
       }
     } else if (status == EEPROM_WR_FAIL) {
-      wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+      printf_("WR FAIL!\r\n");
+      eepromBusRecovery();
+      wlAsyncCtx.state = WL_ASYNC_IDLE;
     }
     break;
 
@@ -568,7 +646,12 @@ static void eepromWLAsyncCallback(void) {
     /* Should transition immediately to WAITING_DATA */
     wlAsyncCtx.state = WL_ASYNC_WAITING_DATA;
     if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-      wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, ready for retry */
+      printf_("EEPROM CB FAIL!\r\n");
+      /* Drain the lower-level write to prevent stuck state */
+      while (eepromWrite(0, 0, 0) != EEPROM_WR_COMPLETE) {
+        timerDelay_us(EEPROM_WR_TIME);
+      }
+      wlAsyncCtx.state = WL_ASYNC_IDLE;
     }
     break;
 
@@ -588,15 +671,23 @@ static void eepromWLAsyncCallback(void) {
         wlCurrentValid = nextValidByte(validByte);
         idxWr          = 0;
       }
+      printf_("EEPROM WR DONE: idx=%d->%d\r\n", wlAsyncCtx.idx, idxWr);
       wlIdxNxtWr       = idxWr;
       wlAsyncCtx.state = WL_ASYNC_IDLE; /* Ready for next write */
     } else if (status == EEPROM_WR_PEND) {
       /* Still pending, schedule next callback */
       if (!timerScheduleCallback(eepromWLAsyncCallback, EEPROM_WR_TIME)) {
-        wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, but ready for retry */
+        printf_("EEPROM CB FAIL!\r\n");
+        /* Drain the lower-level write to prevent stuck state */
+        while (eepromWrite(0, 0, 0) != EEPROM_WR_COMPLETE) {
+          timerDelay_us(EEPROM_WR_TIME);
+        }
+        wlAsyncCtx.state = WL_ASYNC_IDLE;
       }
     } else if (status == EEPROM_WR_FAIL) {
-      wlAsyncCtx.state = WL_ASYNC_IDLE; /* Error, but ready for retry */
+      printf_("WR FAIL!\r\n");
+      eepromBusRecovery();
+      wlAsyncCtx.state = WL_ASYNC_IDLE;
     }
     break;
   }
@@ -644,6 +735,8 @@ eepromWrStatus_t eepromWriteWLAsync(const void *pPktWr, int *pIdx) {
   wlAsyncCtx.header.res0        = 0;
   wlAsyncCtx.header.valid       = wlCurrentValid;
   wlAsyncCtx.header.crc16_ccitt = calcCRC16_ccitt(wlData, wlData_n);
+  printf_("EEPROM WR: idx=%d CRC=0x%04X valid=0x%02X\r\n", wlIdxNxtWr,
+          wlAsyncCtx.header.crc16_ccitt, wlCurrentValid);
 
   /* Store the context */
   wlAsyncCtx.idx     = wlIdxNxtWr;
