@@ -107,8 +107,3 @@ eepromWrStatus_t eepromWriteWLAsync(const void *pPktWr, int *pIdx);
  *  @return true if write is in progress, false otherwise
  */
 bool eepromWriteWLBusy(void);
-
-/*! @brief Get the current async write state (for debugging)
- *  @return current state value (0=IDLE, 1=WRITING_HEADER, etc.)
- */
-int eepromWriteWLState(void);

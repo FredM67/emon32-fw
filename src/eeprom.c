@@ -516,8 +516,6 @@ static void eepromBusRecovery(void) {
 static void eepromWLAsyncCallback(void) {
   eepromWrStatus_t status;
 
-  printf_("CB:%d ", wlAsyncCtx.state);
-
   switch (wlAsyncCtx.state) {
   case WL_ASYNC_IDLE:
     /* Should not be called in idle state */
@@ -532,9 +530,6 @@ static void eepromWLAsyncCallback(void) {
       eepromBusRecovery();
       status = eepromWrite(wlAsyncCtx.addrWr, (const void *)&wlAsyncCtx.header,
                            sizeof(wlAsyncCtx.header));
-      printf_("retry s=%d ", status);
-    } else {
-      printf_("s=%d ", status);
     }
     if (status == EEPROM_WR_PEND) {
       wlAsyncCtx.busyRetries = 0; /* Reset on success */
@@ -671,7 +666,6 @@ static void eepromWLAsyncCallback(void) {
         wlCurrentValid = nextValidByte(validByte);
         idxWr          = 0;
       }
-      printf_("EEPROM WR DONE: idx=%d->%d\r\n", wlAsyncCtx.idx, idxWr);
       wlIdxNxtWr       = idxWr;
       wlAsyncCtx.state = WL_ASYNC_IDLE; /* Ready for next write */
     } else if (status == EEPROM_WR_PEND) {
@@ -697,11 +691,6 @@ static void eepromWLAsyncCallback(void) {
  *  @return true if write is in progress, false otherwise
  */
 bool eepromWriteWLBusy(void) { return (wlAsyncCtx.state != WL_ASYNC_IDLE); }
-
-/*! @brief Get the current async write state (for debugging)
- *  @return current state value (0=IDLE, 1=WRITING_HEADER, etc.)
- */
-int eepromWriteWLState(void) { return (int)wlAsyncCtx.state; }
 
 /*! @brief Start an asynchronous wear-leveled write operation
  *  @param [in] pPktWr : pointer to write packet
@@ -735,8 +724,6 @@ eepromWrStatus_t eepromWriteWLAsync(const void *pPktWr, int *pIdx) {
   wlAsyncCtx.header.res0        = 0;
   wlAsyncCtx.header.valid       = wlCurrentValid;
   wlAsyncCtx.header.crc16_ccitt = calcCRC16_ccitt(wlData, wlData_n);
-  printf_("EEPROM WR: idx=%d CRC=0x%04X valid=0x%02X\r\n", wlIdxNxtWr,
-          wlAsyncCtx.header.crc16_ccitt, wlCurrentValid);
 
   /* Store the context */
   wlAsyncCtx.idx     = wlIdxNxtWr;
