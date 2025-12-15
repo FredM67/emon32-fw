@@ -1390,10 +1390,13 @@ void SERCOM_UART_INTERACTIVE_HANDLER {
    */
   if (uartGetcReady(SERCOM_UART_INTERACTIVE)) {
     uint8_t rx_char = uartGetc(SERCOM_UART_INTERACTIVE);
-    configCmdChar(rx_char);
 
-    if (utilCharPrintable(rx_char) && !cmdPending) {
-      uartPutcBlocking(SERCOM_UART_INTERACTIVE, rx_char);
+    if (!configHandleConfirmation(rx_char)) {
+      configCmdChar(rx_char);
+
+      if (utilCharPrintable(rx_char) && !cmdPending) {
+        uartPutcBlocking(SERCOM_UART_INTERACTIVE, rx_char);
+      }
     }
   }
 
