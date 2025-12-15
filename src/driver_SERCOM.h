@@ -59,6 +59,16 @@ bool sercomExtIntfEnabled(void);
 /*! @brief configure the serial communication modules. */
 void sercomSetup(void);
 
+/*! @brief Recover I2C bus from stuck state
+ *  @param [in] sercom : SERCOM instance
+ *  @param [in] grp : GPIO group for SDA/SCL pins
+ *  @param [in] sdaPin : SDA pin number
+ *  @param [in] sclPin : SCL pin number
+ *  @param [in] pmux : Pin mux value for I2C function
+ */
+void i2cBusRecovery(Sercom *sercom, unsigned int grp, unsigned int sdaPin,
+                    unsigned int sclPin, unsigned int pmux);
+
 /*! @brief Set I2C address. If dma is 1, then a packet of len bytes is sent
  *         or received.
  *  @param [in] sercom : SERCOM instance

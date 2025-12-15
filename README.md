@@ -42,7 +42,7 @@ The following default values are set out of the box.
 
 | Parameter           | Value     | Comment                                   |
 |---------------------|-----------|-------------------------------------------|
-| DELTA_WH_STORE_DEF  | 200       | Minimum accumulation in Wh before saving  |
+| DELTA_EP_STORE_DEF  | 200       | Minimum accumulation in Wh before saving  |
 | NODE_ID_DEF         | 17        | Node ID used.                             |
 | GROUP_ID_DEF        | 210       | Fixed for OpenEnergyMonitor               |
 | MAINS_FREQ_DEF      | 50        | Mains frequency in Hz                     |
