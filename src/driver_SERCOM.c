@@ -21,17 +21,20 @@ static void uartSetup(const UART_Cfg_t *pCfg);
 static volatile bool extIntfEnabled = true;
 
 static void i2cmCommon(Sercom *pSercom) {
-  /* For 400 kHz I2C, SCL T_high >= 0.6 us, T_low >= 1.3 us, with
-   * (T_high + T_low) <= 2.5 us, and T_low / T_high ~ 1.8.
-   * From I2C->Clock generation (28.6.2.4.1):
-   * BAUD.BAUDLOW = (T_low * f_clk) - 5 (1.625 us -> 8 @ 8 MHz)
-   * BAUD.BAUD = (T_high * f_clk) - 5 (0.875 us -> 2 @ 8 MHz)
+  /* For 400 kHz I2C (fast mode) with asymmetric timing:
+   * At 8 MHz (125 ns/tick):
+   *   T_LOW  = (BAUDLOW + 5) * 125 = (8 + 5) * 125 = 1625 ns
+   *   T_HIGH = (BAUD + 5) * 125    = (2 + 5) * 125 =  875 ns
+   * Resulting f_SCL ~ 357 kHz
    */
   pSercom->I2CM.BAUD.reg =
       SERCOM_I2CM_BAUD_BAUDLOW(8u) | SERCOM_I2CM_BAUD_BAUD(2u);
 
-  pSercom->I2CM.CTRLA.reg =
-      SERCOM_I2CM_CTRLA_MODE_I2C_MASTER | SERCOM_I2CM_CTRLA_ENABLE;
+  /* SDAHOLD(3): Extended hold time for marginal timing (SMBus requirement)
+   */
+  pSercom->I2CM.CTRLA.reg = SERCOM_I2CM_CTRLA_MODE_I2C_MASTER |
+                            SERCOM_I2CM_CTRLA_SDAHOLD(3u) |
+                            SERCOM_I2CM_CTRLA_ENABLE;
   while (pSercom->I2CM.SYNCBUSY.reg & SERCOM_I2CM_SYNCBUSY_SYSOP)
     ;
 
