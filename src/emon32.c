@@ -311,10 +311,11 @@ static void evtKiloHertz(void) {
   pulseUpdate();
 
   /* Blink LED red for TX_INDICATE_T before going back to green */
-  if (txBlink.txIndicate &&
-      (timerMillisDelta(txBlink.timeBlink) > TX_INDICATE_T)) {
-    txBlink.txIndicate = false;
-
+  if (txBlink.txIndicate) {
+    if (timerMillisDelta(txBlink.timeBlink) > TX_INDICATE_T) {
+      txBlink.txIndicate = false;
+    }
+  } else {
     if (configUnsavedChanges()) {
       uiLedColour(LED_YELLOW);
     } else {
@@ -365,8 +366,8 @@ static void pulseConfigure(void) {
   }
 }
 
-/*! @brief Allows the printf function to print to the debug console. If the USB
- *         CDC is connected, characters should be routed there.
+/*! @brief Allows the printf function to print to the debug console. If the
+ * USB CDC is connected, characters should be routed there.
  */
 void putchar_(char c) {
   if (usbCDCIsConnected()) {
@@ -573,8 +574,8 @@ int main(void) {
   waitWithUSB(100);
   spiConfigureExt();
 
-  /* If the system is booted while it is connected to an active Pi, do not write
-   * to the OLED or setup the RFM module. */
+  /* If the system is booted while it is connected to an active Pi, do not
+   * write to the OLED or setup the RFM module. */
   if (sercomExtIntfEnabled()) {
     ssd1306Setup();
   }
@@ -600,9 +601,9 @@ int main(void) {
   pulseConfigure();
   numTempSensors = tempSetup(&dataset);
 
-  /* Wait 1s to allow USB to enumerate as serial. Not always possible, but gives
-   * the possibility. The board information can be accessed through the serial
-   * console later. */
+  /* Wait 1s to allow USB to enumerate as serial. Not always possible, but
+   * gives the possibility. The board information can be accessed through the
+   * serial console later. */
   waitWithUSB(1000);
   configFirmwareBoardInfo();
 
@@ -647,17 +648,18 @@ int main(void) {
         emon32EventClr(EVT_TICK_1kHz);
       }
 
-      /* Configuration request to store accumulator values to NVM on demand. */
+      /* Configuration request to store accumulator values to NVM on demand.
+       */
       if (evtPending(EVT_STORE_ACCUM)) {
         cumulativeNVMStore(&nvmCumulative, &dataset, false);
         printf_("> Storing...\r\n");
         emon32EventClr(EVT_STORE_ACCUM);
       }
 
-      /* Configuration request to clear all accumulator values (energy and pulse
-       * count). The NVM is overwritten with 0s and the index of the next
-       * read/write is reset. Clear the running counters in the main loop, any
-       * residual energy in the dataset, and all pulse counters.
+      /* Configuration request to clear all accumulator values (energy and
+       * pulse count). The NVM is overwritten with 0s and the index of the
+       * next read/write is reset. Clear the running counters in the main
+       * loop, any residual energy in the dataset, and all pulse counters.
        */
       if (evtPending(EVT_CLEAR_ACCUM)) {
         lastStoredEP.E = 0;
@@ -760,7 +762,6 @@ int main(void) {
         emon32EventClr(EVT_CONFIG_CHANGED);
       }
       if (evtPending(EVT_CONFIG_SAVED)) {
-        uiLedColour(LED_GREEN);
         emon32EventClr(EVT_CONFIG_SAVED);
       }
 
