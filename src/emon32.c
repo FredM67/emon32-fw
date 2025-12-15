@@ -760,6 +760,7 @@ int main(void) {
         emon32EventClr(EVT_CONFIG_CHANGED);
       }
       if (evtPending(EVT_CONFIG_SAVED)) {
+        uiLedColour(LED_GREEN);
         emon32EventClr(EVT_CONFIG_SAVED);
       }
 
