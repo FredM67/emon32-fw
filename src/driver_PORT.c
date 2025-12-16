@@ -79,7 +79,15 @@ void portSetup(void) {
 
   /* GPIO inputs - all inputs currently need pull ups, so default enable */
   for (unsigned int i = 0; pinsGPIO_In[i][0] != 0xFF; i++) {
-    input(pinsGPIO_In[i][0], pinsGPIO_In[i][1], true);
+    if (GRP_OPA == pinsGPIO_In[i][0]) {
+      uint8_t p = pinsGPIO_In[i][1];
+      if ((PIN_OPA1 == p) || (PIN_OPA2 == p) || (PIN_OPA1_PU == p) ||
+          (PIN_OPA2_PU == p)) {
+        input(pinsGPIO_In[i][0], pinsGPIO_In[i][1], false);
+      }
+    } else {
+      input(pinsGPIO_In[i][0], pinsGPIO_In[i][1], true);
+    }
   }
 
   /* External interface disable is idle low, invert pull */

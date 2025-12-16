@@ -34,6 +34,7 @@ void pulseInit(const unsigned int index) {
   } else {
     portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_IN);
     portPinCfg(GRP_OPA, opaPUs[index], PORT_PINCFG_PULLEN, PIN_CFG_CLR);
+    portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_CLR);
   }
   pinValue[index] = (unsigned int)portPinValue(GRP_OPA, pin);
 
