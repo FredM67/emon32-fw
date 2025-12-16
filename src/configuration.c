@@ -83,7 +83,7 @@ static void     handleConfirmation(char c);
 /* static char     waitForChar(void); - Removed, NVM corruption now auto-loads
  * defaults */
 /* static bool     restoreDefaults(void); - Removed pending OEM decision */
-static bool     zeroAccumulators(void);
+static void     zeroAccumulators(void);
 
 /*************************************
  * Local variables
@@ -1070,10 +1070,8 @@ void configCheckConfirmationTimeout(void) {
  * }
  */
 
-/*! @brief Zero the accumulator portion of the NVM (async)
- *  @return always returns true (async operation initiated)
- */
-static bool zeroAccumulators(void) {
+/*! @brief Zero the accumulator portion of the NVM (async confirmation) */
+static void zeroAccumulators(void) {
   /* Set confirmation state and prompt user
    * Response will be handled asynchronously by handleConfirmation() */
   serialPuts(
@@ -1082,7 +1080,6 @@ static bool zeroAccumulators(void) {
   confirmStartTime_ms = timerMillis();
   confirmState        = CONFIRM_ZERO_ACCUM;
   __enable_irq();
-  return true; /* Async operation started */
 }
 
 void configCmdChar(const uint8_t c) {
@@ -1359,9 +1356,8 @@ void configProcessCmd(void) {
     }
     break;
   case 'z':
-    if (zeroAccumulators()) {
-      emon32EventSet(EVT_CLEAR_ACCUM);
-    }
+    /* Async confirmation - EVT_CLEAR_ACCUM set in handleConfirmation() */
+    zeroAccumulators();
     break;
   }
 
