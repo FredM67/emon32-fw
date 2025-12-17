@@ -3,6 +3,7 @@
 #include "driver_PORT.h"
 #include "driver_TIME.h"
 #include "emon32.h"
+#include "emon32_samd.h"
 
 typedef enum PulseLvl_ { PULSE_LVL_LOW, PULSE_LVL_HIGH } PulseLvl_t;
 
@@ -30,6 +31,10 @@ void pulseInit(const unsigned int index) {
     portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_OUT);
     portPinDrv(GRP_OPA, opaPUs[index], PIN_DRV_SET);
     timerDelay_ms(1);
+  } else {
+    portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_IN);
+    portPinCfg(GRP_OPA, opaPUs[index], PORT_PINCFG_PULLEN, PIN_CFG_CLR);
+    portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_CLR);
   }
   pinValue[index] = (unsigned int)portPinValue(GRP_OPA, pin);
 
