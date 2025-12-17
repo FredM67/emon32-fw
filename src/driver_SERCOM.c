@@ -21,19 +21,18 @@ static void uartSetup(const UART_Cfg_t *pCfg);
 static volatile bool extIntfEnabled = true;
 
 static void i2cmCommon(Sercom *pSercom) {
-  /* For I2C with symmetric timing:
-   * At 8 MHz: f_SCL = f_GCLK / (10 + 2*BAUD)
-   *   BAUD=5  -> 400 kHz
-   *   BAUD=35 -> 100 kHz
-   * BAUDLOW=0 for symmetric timing (BAUD used for both high and low)
-   * 24FC08 EEPROM supports up to 1 MHz.
+  /* For I2C with symmetric ~400kHz timing:
+   * At 8 MHz with BAUDLOW=9, BAUD=9:
+   *   t_LOW  = (BAUDLOW + 1) / f_GCLK = 10/8MHz = 1.25us
+   *   t_HIGH = (BAUD + 1) / f_GCLK = 10/8MHz = 1.25us
+   *   Period = 2.5us -> 400kHz
    */
   pSercom->I2CM.BAUD.reg =
-      SERCOM_I2CM_BAUD_BAUDLOW(0u) | SERCOM_I2CM_BAUD_BAUD(5u);
+      SERCOM_I2CM_BAUD_BAUDLOW(9u) | SERCOM_I2CM_BAUD_BAUD(9u);
 
-  /* SDAHOLD(1): 50-100ns hold time */
+  /* SDAHOLD(3): 450-600ns hold time (100% success in testing) */
   pSercom->I2CM.CTRLA.reg = SERCOM_I2CM_CTRLA_MODE_I2C_MASTER |
-                            SERCOM_I2CM_CTRLA_SDAHOLD(1u) |
+                            SERCOM_I2CM_CTRLA_SDAHOLD(3u) |
                             SERCOM_I2CM_CTRLA_ENABLE;
   while (pSercom->I2CM.SYNCBUSY.reg & SERCOM_I2CM_SYNCBUSY_SYSOP)
     ;
@@ -391,8 +390,6 @@ void i2cDataWrite(Sercom *sercom, uint8_t data) {
   sercom->I2CM.DATA.reg = data;
   while (!(sercom->I2CM.INTFLAG.reg & SERCOM_I2CM_INTFLAG_MB))
     ;
-  /* Explicitly clear MB flag (normally cleared implicitly by next operation) */
-  sercom->I2CM.INTFLAG.reg = SERCOM_I2CM_INTFLAG_MB;
 }
 
 uint8_t i2cDataRead(Sercom *sercom) {
