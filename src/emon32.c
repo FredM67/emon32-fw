@@ -640,6 +640,12 @@ int main(void) {
         /* Process any timer callbacks that are ready */
         timerProcessPendingCallbacks();
 
+        /* Check for I2C error interrupt and print diagnostics */
+        if (i2cCheckErrorPending()) {
+          printf_("I2C ERR! cnt=%" PRIu32 " status=0x%04X\r\n",
+                  i2cGetErrorCount(), i2cGetLastStatus());
+        }
+
         /* Check for confirmation timeout (30s) */
         configCheckConfirmationTimeout();
 
