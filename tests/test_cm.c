@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) {
 
   srandom(time(NULL));
   /* Copy and fold the half band coefficients */
-  const int lutDepth = (numCoeffUnique - 1) * 2;
+  const int lutDepth = (COEFF_UNIQUE_NUM - 1) * 2;
   int16_t  *coeffLut = malloc(lutDepth * sizeof(int16_t));
   assert(coeffLut);
 
@@ -243,8 +243,13 @@ int main(int argc, char *argv[]) {
   pEcmCfg->correction.offset = 0;
   pEcmCfg->correction.gain   = (1 << 11);
 
+  /* Remapping for analog CT inputs. This maps the 0-indexed CT physical pin to
+   * the logical pin. For example, physical CT1 is the 4th CT sampled so:
+   * ainRemap[0] = 3. */
+  const int_fast8_t ainRemap[NUM_CT] = {3, 4, 7, 1, 2, 11, 5, 6, 8, 9, 10, 0};
+
   for (int i = 0; i < NUM_CT; i++) {
-    pEcmCfg->mapCTLog[i] = i;
+    pEcmCfg->mapCTLog[i] = ainRemap[i];
   }
 
   ecmConfigInit();

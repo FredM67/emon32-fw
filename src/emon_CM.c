@@ -490,7 +490,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
     /* For an ODD number of taps, take the unique middle value to start. As
      * the filter is symmetric, this is the final element in the array.
      */
-    const q15_t  coeffMid = firCoeffs[numCoeffUnique - 1u];
+    const q15_t  coeffMid = firCoeffs[COEFF_UNIQUE_NUM - 1u];
     uint_fast8_t idxMid   = idxInj + (downsampleTaps / 2) + 1u;
     if (idxMid >= downsampleTaps)
       idxMid -= downsampleTaps;
@@ -498,7 +498,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
     /* Loop over the FIR coefficients, sub loop through channels. The filter
      * is folded so the symmetric FIR coefficients are used for both samples.
      */
-    uint_fast8_t idxSmp[numCoeffUnique - 1][2];
+    uint_fast8_t idxSmp[COEFF_UNIQUE_NUM - 1][2];
     uint_fast8_t idxSmpStart = idxInj;
     uint_fast8_t idxSmpEnd =
         ((downsampleTaps - 1u) == idxInj) ? 0 : (idxInj + 1u);
@@ -510,7 +510,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
 
     /* Build a table of indices for the samples and coeffecietns. Converge
      * toward the middle, checking for over/underflow */
-    for (int_fast8_t i = 1; i < (numCoeffUnique - 1); i++) {
+    for (size_t i = 1; i < (COEFF_UNIQUE_NUM - 1); i++) {
       idxSmpStart -= 2u;
       if (idxSmpStart > downsampleTaps)
         idxSmpStart += downsampleTaps;
@@ -531,7 +531,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
       if (active) {
         int32_t intRes = coeffMid * dspBuffer[idxMid].smp[ch];
 
-        for (int fir = 0; fir < (numCoeffUnique - 1); fir++) {
+        for (size_t fir = 0; fir < (COEFF_UNIQUE_NUM - 1); fir++) {
           const q15_t coeff = firCoeffs[fir];
           intRes += coeff * (dspBuffer[idxSmp[fir][0]].smp[ch] +
                              dspBuffer[idxSmp[fir][1]].smp[ch]);
