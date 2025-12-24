@@ -319,7 +319,7 @@ static RAMFUNC q15_t applyCorrection(q15_t smp) {
 
 static void accumSwapClear(void) {
   swapPtr((void **)&accumCollecting, (void **)&accumProcessing);
-  memset((void *)accumCollecting, 0, sizeof(*accumCollecting));
+  (void)memset((void *)accumCollecting, 0, sizeof(*accumCollecting));
 }
 
 /*! @brief Zero crossing detection, software
@@ -442,9 +442,9 @@ void ecmPhaseCalibrate(AutoPhaseRes_t *pDst) {
 void ecmFlush(void) {
   discardCycles = EQUIL_CYCLES;
 
-  memset(accumBuffer, 0, (2 * sizeof(*accumBuffer)));
-  memset(dspBuffer, 0, (DOWNSAMPLE_TAPS * sizeof(*dspBuffer)));
-  memset(&residualEnergy, 0, (sizeof(*residualEnergy) * NUM_CT));
+  (void)memset(accumBuffer, 0, (2 * sizeof(*accumBuffer)));
+  (void)memset(dspBuffer, 0, (DOWNSAMPLE_TAPS * sizeof(*dspBuffer)));
+  (void)memset(&residualEnergy, 0, (sizeof(*residualEnergy) * NUM_CT));
   t_ZClast = 0;
 }
 
@@ -508,7 +508,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
     idxSmp[0][0] = idxSmpStart;
     idxSmp[0][1] = idxSmpEnd;
 
-    /* Build a table of indices for the samples and coeffecietns. Converge
+    /* Build a table of indices for the samples and coefficients. Converge
      * toward the middle, checking for over/underflow */
     for (size_t i = 1; i < (COEFF_UNIQUE_NUM - 1); i++) {
       idxSmpStart -= 2u;
@@ -713,7 +713,7 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
 
 ECMPerformance_t *ecmPerformance(void) {
   swapPtr((void **)&perfActive, (void **)&perfIdle);
-  memset(perfActive, 0, sizeof(*perfActive));
+  (void)memset(perfActive, 0, sizeof(*perfActive));
 
   return perfIdle;
 }
@@ -866,7 +866,7 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
 
     } else {
       /* Zero all values otherwise */
-      memset(&datasetProc.CT[idxCT], 0, sizeof(*datasetProc.CT));
+      (void)memset(&datasetProc.CT[idxCT], 0, sizeof(*datasetProc.CT));
     }
   }
 

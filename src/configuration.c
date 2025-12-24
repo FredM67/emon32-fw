@@ -104,6 +104,8 @@ static bool                    unsavedChange       = false;
 
 /*! @brief Set all configuration values to defaults */
 static void configDefault(void) {
+  (void)memset(&config, 0, sizeof(config));
+
   config.key = CONFIG_NVM_KEY;
 
   /* Single phase, 50 Hz, 240 VAC, 10 s report period */
@@ -118,11 +120,9 @@ static void configDefault(void) {
   config.baseCfg.logToSerial  = true;
   config.baseCfg.useJson      = false;
   config.baseCfg.debugSerial  = false;
-  (void)memset(config.baseCfg.res0, 0, sizeof(config.baseCfg.res0));
-  config.dataTxCfg.useRFM  = true;
-  config.dataTxCfg.rfmPwr  = RFM_PALEVEL_DEF;
-  config.dataTxCfg.rfmFreq = RFM_FREQ_DEF;
-  config.dataTxCfg.res0    = 0;
+  config.dataTxCfg.useRFM     = true;
+  config.dataTxCfg.rfmPwr     = RFM_PALEVEL_DEF;
+  config.dataTxCfg.rfmFreq    = RFM_FREQ_DEF;
 
   for (int idxV = 0u; idxV < NUM_V; idxV++) {
     config.voltageCfg[idxV].voltageCal = 100.0f;
@@ -132,7 +132,7 @@ static void configDefault(void) {
   /* 4.2 degree shift @ 50 Hz. Initialize ALL slots including reserved. */
   for (int idxCT = 0u; idxCT < (NUM_CT + CT_RES); idxCT++) {
     config.ctCfg[idxCT].ctCal    = 100.0f;
-    config.ctCfg[idxCT].phase    = 4.2f;
+    config.ctCfg[idxCT].phase    = 3.2f;
     config.ctCfg[idxCT].vChan1   = 0;
     config.ctCfg[idxCT].vChan2   = 0;
     config.ctCfg[idxCT].ctActive = (idxCT < NUM_CT_ACTIVE_DEF);
@@ -165,9 +165,6 @@ static void configDefault(void) {
     config.opaCfg[idxOPA].period    = 0;
     config.opaCfg[idxOPA].puEn      = false;
   }
-
-  /* Zero all reserved bytes before CRC calculation */
-  (void)memset(config.res0, 0, sizeof(config.res0));
 
   config.crc16_ccitt = calcCRC16_ccitt(&config, (sizeof(config) - 2u));
 }
