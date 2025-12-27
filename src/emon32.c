@@ -648,8 +648,17 @@ int main(void) {
         emon32EventClr(EVT_TICK_1kHz);
       }
 
-      /* Configuration request to store accumulator values to NVM on demand.
-       */
+      /* Pending character(s) in echo queue */
+      if (evtPending(EVT_ECHO)) {
+        uint8_t c = configEchoChar();
+        while (c) {
+          uartPutcBlocking(SERCOM_UART, (char)c);
+          c = configEchoChar();
+        }
+        emon32EventClr(EVT_ECHO);
+      }
+
+      /* Configuration request to store accumulator values to NVM on demand. */
       if (evtPending(EVT_STORE_ACCUM)) {
         cumulativeNVMStore(&nvmCumulative, &dataset, false);
         printf_("> Storing...\r\n");

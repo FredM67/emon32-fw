@@ -16,9 +16,11 @@ static void spiExtPinsSetup(bool enable);
 
 static void uartConfigureDMA(void);
 static void uartInterruptEnable(Sercom *sercom, uint32_t interrupt);
+static void uartInUseClear(void);
 static void uartSetup(const UART_Cfg_t *pCfg);
 
 static volatile bool extIntfEnabled = true;
+static volatile bool uartInUse      = false;
 
 static void i2cmCommon(Sercom *pSercom) {
   /* For 400 kHz I2C (fast mode) with asymmetric timing:
@@ -229,7 +231,14 @@ static void sercomSetupSPI(void) {
  * UART Functions
  * =====================================
  */
+
+static void uartInUseClear(void) { uartInUse = false; }
+
 void uartPutcBlocking(Sercom *sercom, char c) {
+  /* Wait until any DMA transfers complete */
+  while (uartInUse)
+    ;
+
   while (!(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE))
     ;
   sercom->USART.DATA.reg    = c;
@@ -249,6 +258,8 @@ static void uartConfigureDMA(void) {
 
   dmacDesc->DSTADDR.reg  = (uint32_t)&SERCOM_UART->USART.DATA;
   dmacDesc->DESCADDR.reg = 0u;
+
+  dmacCallbackUartCmpl(&uartInUseClear);
 }
 
 void uartPutsNonBlocking(unsigned int dma_chan, const char *const s,
@@ -258,6 +269,7 @@ void uartPutsNonBlocking(unsigned int dma_chan, const char *const s,
   dmacDesc->BTCTRL.reg |= DMAC_BTCTRL_VALID;
   dmacDesc->BTCNT.reg   = len;
   dmacDesc->SRCADDR.reg = (uint32_t)s + len;
+  uartInUse             = true;
   dmacChannelEnable(dma_chan);
 }
 

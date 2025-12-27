@@ -96,6 +96,11 @@ bool configHandleConfirmation(const uint8_t c);
  */
 void configCheckConfirmationTimeout(void);
 
+/*! @brief If available, get a character from the echo queue
+ *  @return 0 -> no characters, otherwise a character
+ */
+uint8_t configEchoChar(void);
+
 /*! @brief Print the board and firmware information to serial */
 void configFirmwareBoardInfo(void);
 

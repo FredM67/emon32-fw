@@ -1,5 +1,4 @@
 #include "driver_DMAC.h"
-#include "driver_ADC.h"
 #include "emon32_samd.h"
 
 #include "emon32.h"
@@ -10,6 +9,7 @@ static volatile DmacDescriptor dmacs[NUM_CHAN_DMA];
 static DmacDescriptor          dmacs_wb[NUM_CHAN_DMA];
 
 static void (*cbBufferFill)(void);
+static void (*cbUartCmpl)(void);
 
 /* Useful ref: https://aykevl.nl/2019/09/samd21-dma */
 
@@ -32,6 +32,8 @@ volatile DmacDescriptor *dmacGetDescriptor(unsigned int ch) {
 }
 
 void dmacCallbackBufferFill(void (*cb)(void)) { cbBufferFill = cb; }
+
+void dmacCallbackUartCmpl(void (*cb)(void)) { cbUartCmpl = cb; }
 
 void dmacChannelDisable(unsigned int ch) {
   DMAC->CHID.reg = ch;
@@ -87,6 +89,7 @@ void irq_handler_dmac(void) {
   DMAC->CHID.reg = DMA_CHAN_UART;
   if (DMAC->CHINTFLAG.reg & DMAC_CHINTFLAG_TCMPL) {
     DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_TCMPL;
+    (*cbUartCmpl)();
   }
 }
 

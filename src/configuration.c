@@ -1380,6 +1380,23 @@ VersionInfo_t configVersion(void) {
  * UART Interrupt handler
  * ======================= */
 
+#define ECHO_BUF_DEPTH 16u
+#define ECHO_IDX_MASK  (ECHO_BUF_DEPTH - 1u)
+#define ECHO_FMASK     ((ECHO_IDX_MASK << 1) + 1u)
+
+static size_t  idxEchoWr               = 0;
+static size_t  idxEchoRd               = 0;
+static uint8_t echoBuf[ECHO_BUF_DEPTH] = {0};
+
+uint8_t configEchoChar(void) {
+  uint8_t c = 0;
+  if (idxEchoRd != idxEchoWr) {
+    c         = echoBuf[idxEchoRd & ECHO_IDX_MASK];
+    idxEchoRd = (idxEchoRd + 1u) & ECHO_FMASK;
+  }
+  return c;
+}
+
 void SERCOM_UART_INTERACTIVE_HANDLER {
   /* Echo the received character to the TX channel, and send to the command
    * stream.
@@ -1391,7 +1408,9 @@ void SERCOM_UART_INTERACTIVE_HANDLER {
       configCmdChar(rx_char);
 
       if (utilCharPrintable(rx_char) && !cmdPending) {
-        uartPutcBlocking(SERCOM_UART_INTERACTIVE, rx_char);
+        echoBuf[(idxEchoWr & ECHO_IDX_MASK)] = rx_char;
+        idxEchoWr                            = (idxEchoWr + 1u) & ECHO_FMASK;
+        emon32EventSet(EVT_ECHO);
       }
     }
   }

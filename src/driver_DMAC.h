@@ -20,6 +20,11 @@ volatile DmacDescriptor *dmacGetDescriptor(unsigned int ch);
  */
 void dmacCallbackBufferFill(void (*cb)(void));
 
+/*! @brief Set the callback when the DMA has completed the data write
+ *  @param [in] cb : pointer to the callback function
+ */
+void dmacCallbackUartCmpl(void (*cb)(void));
+
 /*! @brief Disable a DMAC channel
  *  @param [in] ch : channel number
  */
