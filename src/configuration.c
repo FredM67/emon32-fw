@@ -127,6 +127,7 @@ static void configDefault(void) {
   for (int idxV = 0u; idxV < NUM_V; idxV++) {
     config.voltageCfg[idxV].voltageCal = 100.0f;
     config.voltageCfg[idxV].vActive    = (0 == idxV);
+    config.voltageCfg[idxV].phase      = 0.0f;
   }
 
   /* 4.2 degree shift @ 50 Hz. Initialize ALL slots including reserved. */
@@ -136,7 +137,6 @@ static void configDefault(void) {
     config.ctCfg[idxCT].vChan1   = 0;
     config.ctCfg[idxCT].vChan2   = 0;
     config.ctCfg[idxCT].ctActive = (idxCT < NUM_CT_ACTIVE_DEF);
-    config.ctCfg[idxCT].res0     = 0;
   }
 
   /* OneWire/Pulse configuration:
@@ -236,11 +236,11 @@ static bool configureAnalog(void) {
     return false;
   }
 
-  if ((0 == posCalib) || (0 == posActive)) {
+  if ((0 == posCalib) || (0 == posActive) || (0 == posPhase)) {
     return false;
   }
   if (ch >= NUM_V) {
-    if ((0 == posPhase) || (0 == posV1) || (0 == posV2)) {
+    if ((0 == posV1) || (0 == posV2)) {
       return false;
     }
   }
@@ -260,28 +260,40 @@ static bool configureAnalog(void) {
   }
   calAmpl = convF.val;
 
+  convF = utilAtof(inBuffer + posPhase);
+  if (!convF.valid) {
+    return false;
+  }
+  calPhase = convF.val;
+
   if (NUM_V > ch) {
 
     if ((calAmpl <= 25.0f) || (calAmpl >= 150.0f)) {
       return false;
     }
 
+    bool reconfigureCT = calPhase != ecmCfg->vCfg[ch].phase;
+
     config.voltageCfg[ch].vActive    = active;
     config.voltageCfg[ch].voltageCal = calAmpl;
+    config.voltageCfg[ch].phase      = calPhase;
     ecmCfg->vCfg[ch].vActive         = active;
     ecmCfg->vCfg[ch].voltageCalRaw   = calAmpl;
+    ecmCfg->vCfg[ch].phase           = calPhase;
 
     printSettingV(ch);
 
     ecmConfigChannel(ch);
+
+    /* If the voltage phase was changed reconfigure all CTs as well */
+    if (reconfigureCT) {
+      for (size_t i = 0; i < NUM_CT; i++) {
+        ecmConfigChannel(i + NUM_V);
+      }
+    }
+
     return true;
   }
-
-  convF = utilAtof(inBuffer + posPhase);
-  if (!convF.valid) {
-    return false;
-  }
-  calPhase = convF.val;
 
   convI = utilAtoi(inBuffer + posV1, ITOA_BASE10);
   if (!convI.valid) {
@@ -771,6 +783,8 @@ static void printSettingRFFreq(void) {
 static void printSettingV(const int ch) {
   printf_("vCal%d = ", (ch + 1));
   putFloat(config.voltageCfg[ch].voltageCal, 0);
+  printf_(",vLead%d = ", (ch + 1));
+  putFloat(config.voltageCfg[ch].phase, 0);
   printf_(", vActive%d = %s\r\n", (ch + 1),
           config.voltageCfg[ch].vActive ? "1" : "0");
 }
@@ -877,7 +891,9 @@ static void printSettingsHR(void) {
     printf_("| %2d  |  V %2d   | %c      | ", (i + 1), (i + 1),
             (config.voltageCfg[i].vActive ? 'Y' : 'N'));
     putFloat(config.voltageCfg[i].voltageCal, 6);
-    serialPuts("      |         |      |      |\r\n");
+    serialPuts("| ");
+    putFloat(config.voltageCfg[i].phase, 6);
+    serialPuts("|         |      |      |\r\n");
   }
   for (int i = 0; i < NUM_CT; i++) {
     printf_("| %2d  | CT %2d   | %c      | ", (i + 1 + NUM_V), (i + 1),
@@ -1178,7 +1194,7 @@ void configProcessCmd(void) {
       "   - x:        : channel (1-3 -> V; 4... -> CT)\r\n"
       "   - a:        : channel active. a = 0: DISABLED, a = 1: ENABLED\r\n"
       "   - y.y       : V/CT calibration constant\r\n"
-      "   - z.z       : CT phase calibration value\r\n"
+      "   - z.z       : V/CT phase calibration value\r\n"
       "   - v1        : CT voltage channel 1\r\n"
       "   - v2        : CT voltage channel 2\r\n"
       " - l           : list settings\r\n"
