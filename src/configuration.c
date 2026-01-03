@@ -891,9 +891,9 @@ static void printSettingsHR(void) {
     printf_("| %2d  |  V %2d   | %c      | ", (i + 1), (i + 1),
             (config.voltageCfg[i].vActive ? 'Y' : 'N'));
     putFloat(config.voltageCfg[i].voltageCal, 6);
-    serialPuts("| ");
+    serialPuts("      |  ");
     putFloat(config.voltageCfg[i].phase, 6);
-    serialPuts("|         |      |      |\r\n");
+    serialPuts(" |      |      |\r\n");
   }
   for (int i = 0; i < NUM_CT; i++) {
     printf_("| %2d  | CT %2d   | %c      | ", (i + 1 + NUM_V), (i + 1),
