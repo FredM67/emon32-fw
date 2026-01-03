@@ -19,10 +19,10 @@
 #include "emon_CM.h"
 #include "emon_CM_coeffs.h"
 
-#define PROC_DEPTH   16 /* Voltage sample buffer depth. Must be power of 2. */
-#define ZC_HYST      2  /* Zero crossing hysteresis */
-#define ZC_HYST_AV   8  /* Zero crossing hysteresis when using assumd voltage */
-#define EQUIL_CYCLES 8  /* Number of cycles to discard at startup */
+#define PROC_DEPTH   16u /* Voltage sample buffer depth. Must be power of 2. */
+#define ZC_HYST      2   /* Zero crossing hysteresis */
+#define ZC_HYST_AV   8 /* Zero crossing hysteresis when using assumd voltage */
+#define EQUIL_CYCLES 8 /* Number of cycles to discard at startup */
 #define ZC_MIN_VPEAK                                                           \
   40 /* Minimum peak voltage to accept zero-crossings (40 counts = ~14V mains) \
       */
@@ -101,10 +101,6 @@ typedef struct RawSampleSetUnpacked {
   q15_t smp[VCT_TOTAL];
 } RawSampleSetUnpacked_t;
 
-typedef struct vSmp_ {
-  q15_t smpV[NUM_V];
-} vSmp_t;
-
 /*************************************
  * Function prototypes
  *************************************/
@@ -115,8 +111,9 @@ static float        calcRMS(CalcRMS_t *pSrc) RAMFUNC;
 static bool         zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) RAMFUNC;
 
 static void  accumSwapClear(void);
+static int   floorf_(float f);
 static float calibrationAmplitude(float cal, bool isV);
-static void  calibrationPhase(CTCfg_t *pCfg, int_fast8_t idxCT);
+static void  calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT);
 static void  configChannelV(int_fast8_t ch);
 static void  configChannelCT(int_fast8_t ch);
 static void  swapPtr(void **pIn1, void **pIn2);
@@ -126,7 +123,6 @@ static void  swapPtr(void **pIn1, void **pIn2);
  *****************************************************************************/
 
 static RawSampleSetUnpacked_t dspBuffer[DOWNSAMPLE_TAPS];
-static vSmp_t                 vSampleBuffer[PROC_DEPTH];
 
 /******************************************************************************
  * Accumulators
@@ -229,7 +225,7 @@ void configChannelCT(int_fast8_t ch) {
   ecmCfg.ctCfg[ch].ctCal =
       calibrationAmplitude(ecmCfg.ctCfg[ch].ctCalRaw, false);
 
-  calibrationPhase(&ecmCfg.ctCfg[ch], ch);
+  calibrationPhase(&ecmCfg.ctCfg[ch], ecmCfg.vCfg, ch);
 }
 
 void configChannelV(int_fast8_t ch) {
@@ -376,6 +372,48 @@ RAMFUNC bool zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) {
   return false;
 }
 
+/*! @brief Return the floor of a float
+ *  @param [in] f : float in
+ *  @return integer floor of f
+ */
+static int floorf_(float f) {
+  union {
+    float    x;
+    uint32_t ui;
+  } v;
+
+  v.x          = f;
+  uint32_t s   = v.ui >> 31;
+  int32_t  exp = ((v.ui >> 23) & 0xFF) - 127;
+
+  /* |f| < 1.0 */
+  if (0 > exp) {
+    if (s && (0.0f != f)) {
+      return -1;
+    } else {
+      return 0;
+    }
+  }
+
+  /* Already integer, or too large for fractional part */
+  if (exp >= 31) {
+    return (int)f;
+  }
+
+  uint32_t mnt   = (v.ui & 0x7FFFFFul) | 0x800000ul;
+  int      value = (23 <= exp) ? mnt << (exp - 23) : mnt >> (23 - exp);
+
+  if (s) {
+    return -value;
+  }
+
+  if (s && ((v.ui & ((1u << (23 - exp)) - 1u)) != 0)) {
+    value -= 1;
+  }
+
+  return value;
+}
+
 /*! @brief Turn an amplitude calibration value into a factor to change the
  *         abstract value into the real value, accounting for ADC width.
  *  @param [in] cal : the calibration value
@@ -395,30 +433,50 @@ static float calibrationAmplitude(float cal, bool isV) {
 
 /*! @brief Decompose a floating point CT phase into an X/Y pair for
  *         interpolation.
- *  @param [out] pPh : pointer to phase struct
+ *  @param [out] pCfgCT : pointer to CT configuration struct
+ *  @param [in] pCfgV : to pointer to array of V configuration structs
  *  @param [in] idxCT : physical index (0-based) of the CT
  */
-static void calibrationPhase(CTCfg_t *pCfg, int_fast8_t idxCT) {
-  int_fast8_t idxMapped = ecmCfg.mapCTLog[idxCT];
+static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT) {
 
-  float phaseShift_rad = qfp_fmul(pCfg->phCal, (TWO_PI / 360.0f));
+  /* Map physical CT -> logical CT inputs */
+  int idxMapped = ecmCfg.mapCTLog[idxCT];
 
-  int   phaseCorr_i   = (idxMapped + NUM_V) * ecmCfg.mainsFreq * samplePeriodus;
-  float phaseCorr_rad = qfp_fmul(qfp_int2float(phaseCorr_i), (TWO_PI / 1E6f));
+  /* Compensate for V phase */
+  float phiCT_V = qfp_fsub(pCfgCT->phCal, pCfgV[pCfgCT->vChan1].phase);
 
-  phaseShift_rad = qfp_fadd(phaseShift_rad, phaseCorr_rad);
+  /* Calculate phase change over full set */
+  float phaseShift_deg =
+      qfp_fmul((360.0f / 1E6f),
+               qfp_int2float(samplePeriodus * VCT_TOTAL * ecmCfg.mainsFreq));
+  float phaseShiftSets = qfp_fdiv(phiCT_V, phaseShift_deg);
 
-  while (phaseShift_rad > sampleIntervalRad) {
-    phaseShift_rad = qfp_fsub(phaseShift_rad, sampleIntervalRad);
-    pCfg->idxInterpolate++;
+  float phaseShiftSmpIdx =
+      qfp_fdiv(qfp_int2float(idxMapped - pCfgCT->vChan1), (float)VCT_TOTAL);
+  phaseShiftSets = qfp_fadd(phaseShiftSets, phaseShiftSmpIdx);
+
+  int floorPhaseShiftSets = floorf_(phaseShiftSets);
+
+  if (0 <= floorPhaseShiftSets) {
+    pCfgCT->idxInterpolateCT = 1 + floorPhaseShiftSets;
+    pCfgCT->idxInterpolateV  = 0;
+  } else {
+    pCfgCT->idxInterpolateCT = 0;
+    pCfgCT->idxInterpolateV  = -(1 + floorPhaseShiftSets);
   }
 
-  pCfg->phaseY =
-      qfp_fdiv(qfp_fsin(phaseShift_rad), qfp_fsin(sampleIntervalRad));
+  phaseShiftSets = qfp_fsub(phaseShiftSets, qfp_int2float(floorPhaseShiftSets));
+  pCfgCT->phaseY = phaseShiftSets;
 
-  pCfg->phaseX =
-      qfp_fsub(qfp_fcos(phaseShift_rad),
-               (qfp_fmul(pCfg->phaseY, qfp_fcos(sampleIntervalRad))));
+  float sampleRate_rad = qfp_fmul(phaseShift_deg, (TWO_PI / 360.0f));
+  float phaseShift_rad = qfp_fmul(phaseShiftSets, phaseShift_deg);
+  phaseShift_rad       = qfp_fmul(phaseShift_rad, (TWO_PI / 360.0f));
+
+  float shiftXRate =
+      qfp_fsub(1.0f, qfp_fdiv(qfp_fmul(phaseShift_rad, phaseShift_rad), 2.0f));
+  float rateSqr =
+      qfp_fsub(1.0f, qfp_fdiv(qfp_fmul(sampleRate_rad, sampleRate_rad), 2.0f));
+  pCfgCT->phaseX = qfp_fsub(shiftXRate, qfp_fmul(pCfgCT->phaseY, rateSqr));
 }
 
 void ecmClearEnergy(void) {
@@ -558,32 +616,25 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
 }
 
 RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
-  bool            pend1s      = false;
-  bool            reportReady = false;
-  SampleSet_t     smpSet      = {0};
-  static uint32_t t_RepLast   = 0;
-  uint32_t        t_start     = 0;
-  bool            zcFlag      = false;
+  bool               pend1s      = false;
+  bool               reportReady = false;
+  static SampleSet_t sampleBuffer[PROC_DEPTH];
+  static uint32_t    t_RepLast = 0;
+  uint32_t           t_start   = 0;
+  bool               zcFlag    = false;
 
-  static int_fast8_t idxInject;
-  const int_fast8_t  idxLast = (idxInject - 1) & (PROC_DEPTH - 1);
-
-  /* Hold the previous CT value for interpolation if required */
-  static q15_t smpCTLast[NUM_CT];
+  static size_t idxInject = 0;
 
   if (0 != ecmCfg.timeMicros) {
     t_start = (*ecmCfg.timeMicros)();
   }
 
-  ecmFilterSample(&smpSet);
-  for (int_fast8_t i = 0; i < NUM_V; i++) {
-    vSampleBuffer[idxInject].smpV[i] = smpSet.smpV[i];
-  }
+  ecmFilterSample(&sampleBuffer[idxInject]);
   accumCollecting->numSamples++;
 
-  for (int_fast8_t idxV = 0; idxV < NUM_V; idxV++) {
+  for (size_t idxV = 0; idxV < NUM_V; idxV++) {
     if (channelActive[idxV]) {
-      int32_t V = smpSet.smpV[idxV];
+      int32_t V = sampleBuffer[idxInject].smpV[idxV];
       accumCollecting->processV[idxV].sumV_sqr += (int64_t)(V * V);
       accumCollecting->processV[idxV].sumV_deltas += V;
     }
@@ -592,9 +643,9 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
   /* 3-phase L-L values. Conventionally, line crossings go 1->2->3, so capture
    * correct differences. */
   if (threePhase) {
-    int32_t v1   = smpSet.smpV[0];
-    int32_t v2   = smpSet.smpV[1];
-    int32_t v3   = smpSet.smpV[2];
+    int32_t v1   = sampleBuffer[idxInject].smpV[0];
+    int32_t v2   = sampleBuffer[idxInject].smpV[1];
+    int32_t v3   = sampleBuffer[idxInject].smpV[2];
     int32_t v1v2 = v1 - v2;
     int32_t v2v3 = v2 - v3;
     int32_t v3v1 = v3 - v1;
@@ -606,18 +657,22 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
     accumCollecting->processV[5].sumV_deltas += v3v1;
   }
 
-  for (int_fast8_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
+  for (size_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
     if (channelActive[idxCT + NUM_V]) {
+      size_t thisCTidx = (idxInject - ecmCfg.ctCfg[idxCT].idxInterpolateCT) &
+                         (PROC_DEPTH - 1u);
 
-      int32_t thisCT   = (0 == ecmCfg.ctCfg[idxCT].idxInterpolate)
-                             ? smpSet.smpCT[idxCT]
-                             : smpCTLast[idxCT];
-      smpCTLast[idxCT] = smpSet.smpCT[idxCT];
+      size_t thisVidx =
+          (idxInject - ecmCfg.ctCfg[idxCT].idxInterpolateV) & (PROC_DEPTH - 1u);
 
-      int_fast8_t v1    = ecmCfg.ctCfg[idxCT].vChan1;
-      int_fast8_t v2    = ecmCfg.ctCfg[idxCT].vChan2;
-      int32_t     thisV = vSampleBuffer[idxInject].smpV[v1];
-      int32_t     lastV = vSampleBuffer[idxLast].smpV[v1];
+      size_t lastVidx = (idxInject - 1u) & (PROC_DEPTH - 1u);
+
+      int32_t thisCT = sampleBuffer[thisCTidx].smpCT[idxCT];
+
+      size_t  v1    = ecmCfg.ctCfg[idxCT].vChan1;
+      size_t  v2    = ecmCfg.ctCfg[idxCT].vChan2;
+      int32_t thisV = sampleBuffer[thisVidx].smpV[v1];
+      int32_t lastV = sampleBuffer[lastVidx].smpV[v1];
 
       accumCollecting->processCT[idxCT].sumPA[0] += (int64_t)(thisCT * lastV);
       accumCollecting->processCT[idxCT].sumPB[0] += (int64_t)(thisCT * thisV);
@@ -626,8 +681,8 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
 
       /* L-L load */
       if (v1 != v2) {
-        thisV = vSampleBuffer[idxInject].smpV[v2];
-        lastV = vSampleBuffer[idxLast].smpV[v2];
+        thisV = sampleBuffer[thisVidx].smpV[v2];
+        lastV = sampleBuffer[lastVidx].smpV[v2];
         accumCollecting->processCT[idxCT].sumPA[1] += (int64_t)(thisCT * lastV);
         accumCollecting->processCT[idxCT].sumPB[1] += (int64_t)(thisCT * thisV);
       }
@@ -638,7 +693,7 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
    * zero-crossing, swap buffers and pend event.
    */
   uint32_t timeNow_us = (ecmCfg.timeMicros != 0) ? (*ecmCfg.timeMicros)() : 0;
-  if (zeroCrossingSW(smpSet.smpV[0], timeNow_us)) {
+  if (zeroCrossingSW(sampleBuffer[idxInject].smpV[0], timeNow_us)) {
 
     zcFlag   = true;
     t_ZClast = timeNow_us;
@@ -656,7 +711,7 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
 
   /* If no zero-crossing has been detected in 100 ms, fall back to assumed
    * Vrms (or time-based reporting if assumedVrms not configured) */
-  if ((*ecmCfg.timeMicrosDelta)(t_ZClast) > 100000) {
+  if ((*ecmCfg.timeMicrosDelta)(t_ZClast) > 100000u) {
     useAssumedV = true;
     /* Force discard phase to complete if stuck waiting for valid crossings */
     if (discardCycles > 0) {
@@ -674,7 +729,7 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
    * sample. For example, DS18B20 requires 750 ms to sample.
    */
   bool pend1sNoVAC =
-      useAssumedV && (tRepLastDelta > ecmCfg.reportTime_us - 1E6);
+      useAssumedV && (tRepLastDelta > (ecmCfg.reportTime_us - 1000000u));
   bool pend1sCycles =
       accumCollecting->cycles == (ecmCfg.reportCycles - ecmCfg.mainsFreq);
 
