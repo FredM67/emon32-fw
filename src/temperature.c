@@ -31,6 +31,20 @@ unsigned int tempInitSensors(const TEMP_INTF_t intf, const void *pParams) {
   return 0;
 }
 
+void tempMapDevices(const TEMP_INTF_t intf, const void *pAddr) {
+  if (TEMP_INTF_ONEWIRE == intf) {
+    ds18b20MapSensors((uint64_t *)pAddr);
+  }
+}
+
+unsigned int tempMapToLogical(const TEMP_INTF_t intf, const uint8_t dev) {
+  if (TEMP_INTF_ONEWIRE == intf) {
+    return ds18b20MapToLogical(dev);
+  }
+
+  return 0;
+}
+
 TempRead_t tempReadSample(const TEMP_INTF_t intf, const uint8_t dev) {
   TempRead_t res = {TEMP_FAILED, INT16_MIN};
 

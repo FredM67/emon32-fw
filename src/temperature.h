@@ -48,6 +48,17 @@ float tempAsFloat(const TEMP_INTF_t intf, const int16_t tFixed);
  */
 unsigned int tempInitSensors(const TEMP_INTF_t intf, const void *pParams);
 
+/*! @brief Generate a mapping of physical to logical sensors
+ *  @param [in] pAddr : pointer to array of logical sensors
+ */
+void tempMapDevices(const TEMP_INTF_t intf, const void *pAddr);
+
+/*! @brief Get the map index for this sensor
+ *  @param [in] dev : physical device index
+ *  @return logical device index
+ */
+unsigned int tempMapToLogical(const TEMP_INTF_t intf, const uint8_t dev);
+
 /*! @brief Read an existing temperature sample
  *  @param [in] intf : interface type
  *  @param [in] dev : device index

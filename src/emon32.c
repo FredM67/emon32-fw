@@ -78,7 +78,7 @@ static void serialPutsNonBlocking(const char *const s, uint16_t len);
 static void rfmConfigure(void);
 static void ssd1306Setup(void);
 static void tempReadEvt(Emon32Dataset_t *pData, const unsigned int numT);
-static uint32_t tempSetup(Emon32Dataset_t *pData);
+static uint32_t tempSetup(Emon32Dataset_t *pData, Emon32Config_t *pCfg);
 static void     totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc);
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
                          char *txBuffer);
@@ -430,14 +430,15 @@ static void tempReadEvt(Emon32Dataset_t *pData, const unsigned int numT) {
   static unsigned int tempRdCount;
 
   if (numT > 0) {
-    TempRead_t tempValue = tempReadSample(TEMP_INTF_ONEWIRE, tempRdCount);
+    TempRead_t tempValue  = tempReadSample(TEMP_INTF_ONEWIRE, tempRdCount);
+    size_t     mapLogical = tempMapToLogical(TEMP_INTF_ONEWIRE, tempRdCount);
 
     if (TEMP_OK == tempValue.status) {
-      pData->temp[tempRdCount] = tempValue.temp;
+      pData->temp[mapLogical] = tempValue.temp;
     } else if (TEMP_OUT_OF_RANGE == tempValue.status) {
-      pData->temp[tempRdCount] = 4832; /* 302°C */
+      pData->temp[mapLogical] = 4832; /* 302°C */
     } else {
-      pData->temp[tempRdCount] = 4864; /* 304°C */
+      pData->temp[mapLogical] = 4864; /* 304°C */
     }
 
     tempRdCount++;
@@ -452,9 +453,10 @@ static void tempReadEvt(Emon32Dataset_t *pData, const unsigned int numT) {
 
 /*! @brief Initialises the temperature sensors
  *  @param [in] pData : pointer to dataset to initialise
+ *  @param [in] pCfg : pointer to configuration struct
  *  @return number of temperature sensors found
  */
-static uint32_t tempSetup(Emon32Dataset_t *pData) {
+static uint32_t tempSetup(Emon32Dataset_t *pData, Emon32Config_t *pCfg) {
   const uint8_t opaPins[NUM_OPA] = {PIN_OPA1, PIN_OPA2};
   const uint8_t opaPUs[NUM_OPA]  = {PIN_OPA1_PU, PIN_OPA2_PU};
 
@@ -480,6 +482,8 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
       }
     }
   }
+
+  tempMapDevices(TEMP_INTF_ONEWIRE, &pCfg->oneWireAddr);
 
   /* Set all unused temperature slots to 300°C (4800 as Q4 fixed point) */
   for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
@@ -608,7 +612,7 @@ int main(void) {
 
   /* Set up pulse and temperature sensors, if present. */
   pulseConfigure();
-  numTempSensors = tempSetup(&dataset);
+  numTempSensors = tempSetup(&dataset, pConfig);
 
   /* Wait 1s to allow USB to enumerate as serial. Not always possible, but
    * gives the possibility. The board information can be accessed through the

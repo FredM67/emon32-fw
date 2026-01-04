@@ -36,8 +36,8 @@ _Static_assert(9 == sizeof(Scratch_t), "Scratch_t is not 9 bytes.");
 static DS18B20_conf_t cfg[NUM_OPA];
 
 /* Device address table */
-static OneWireT_t   devTable[TEMP_MAX_ONEWIRE];
-static unsigned int addressRemap[TEMP_MAX_ONEWIRE];
+static OneWireT_t devTable[TEMP_MAX_ONEWIRE] = {0};
+static uint8_t    devRemap[TEMP_MAX_ONEWIRE] = {0};
 
 /* OneWire functions & state variables */
 static uint8_t      calcCRC8(const uint8_t crc, const uint8_t value);
@@ -317,13 +317,25 @@ unsigned int ds18b20InitSensors(const DS18B20_conf_t *pCfg) {
     searchResult = oneWireNext(opaIdx);
   }
 
-  /* REVISIT : populate remapping table from saved sensors */
-  for (unsigned int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
-    addressRemap[i] = i;
-  }
-
   return deviceCount;
 }
+
+void ds18b20MapSensors(const uint64_t *pAddr) {
+  /* Default to physical == logical index. If a matching saved address is found,
+   * then swap the remapping indices */
+  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+    devRemap[i] = i;
+    for (int j = 0; j < TEMP_MAX_ONEWIRE; j++) {
+      if (devTable[i].address == pAddr[j]) {
+        devRemap[j] = devRemap[i];
+        devRemap[i] = j;
+        break;
+      }
+    }
+  }
+}
+
+uint8_t ds18b20MapToLogical(const unsigned int dev) { return devRemap[dev]; }
 
 bool ds18b20StartSample(const int opaIdx) {
   const uint8_t CMD_SKIP_ROM  = 0xCC;
