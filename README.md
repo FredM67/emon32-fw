@@ -129,7 +129,7 @@ When a full report is ready, the following actions take place:
 
 ### Script to compile and upload
 
-A script [flash-emonpi3.sh](./flash-emonpi3.sh) is provided to compile and upload new firmware via the USB-C port.
+A script [flash-emontx6.sh](./scripts/flash-emontx6.sh) is provided to compile and upload new firmware via the USB-C port.
 
 #### Script Requirements
 
