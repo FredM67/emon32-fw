@@ -464,11 +464,20 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
   dsCfg.t_wait_us               = 5;
 
   for (int i = 0; i < NUM_OPA; i++) {
-    if (('o' == pConfig->opaCfg[i].func) && pConfig->opaCfg[i].opaActive) {
-      dsCfg.opaIdx = i;
-      dsCfg.pin    = opaPins[i];
-      dsCfg.pinPU  = opaPUs[i];
-      numTempSensors += tempInitSensors(TEMP_INTF_ONEWIRE, &dsCfg);
+    if (('o' == pConfig->opaCfg[i].func)) {
+
+      /* If configured as OneWire device always enable the PU even if inactive
+       * as an external device may be handling the port */
+      portPinDrv(GRP_OPA, opaPUs[i], PIN_DRV_SET);
+      portPinDir(GRP_OPA, opaPUs[i], PIN_DIR_OUT);
+      portPinDrv(GRP_OPA, opaPins[i], PIN_DRV_CLR);
+
+      if (pConfig->opaCfg[i].opaActive) {
+        dsCfg.opaIdx = i;
+        dsCfg.pin    = opaPins[i];
+        dsCfg.pinPU  = opaPUs[i];
+        numTempSensors += tempInitSensors(TEMP_INTF_ONEWIRE, &dsCfg);
+      }
     }
   }
 
