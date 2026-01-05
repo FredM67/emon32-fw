@@ -86,14 +86,16 @@ void i2cAck(Sercom *sercom, I2CM_Ack_t ack, I2CM_AckCmd_t cmd);
 /*! @brief Write to completer
  *  @param [in] sercom : SERCOM instance
  *  @param [in] data : data byte
+ *  @return I2CM_SUCCESS, I2CM_TIMEOUT, I2CM_NOACK, or I2CM_ERROR
  */
-void i2cDataWrite(Sercom *sercom, uint8_t data);
+I2CM_Status_t i2cDataWrite(Sercom *sercom, uint8_t data);
 
 /*! @brief Read byte from I2C completer
  *  @param [in] sercom : SERCOM instance
- *  @return read data
+ *  @param [out] pData : pointer to store read data
+ *  @return I2CM_SUCCESS, I2CM_TIMEOUT, or I2CM_ERROR
  */
-uint8_t i2cDataRead(Sercom *sercom);
+I2CM_Status_t i2cDataRead(Sercom *sercom, uint8_t *pData);
 
 /*! @brief Configure the external interface */
 void spiConfigureExt(void);
