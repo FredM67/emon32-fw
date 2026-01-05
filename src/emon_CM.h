@@ -136,6 +136,11 @@ typedef struct AutoPhaseRes_ {
 /*! @brief Clear accumulated energy in dataset */
 void ecmClearEnergy(void);
 
+/*! @brief Clear accumulated energy for a single channel
+ *  @param [in] idx : channel index (0 to NUM_CT-1)
+ */
+void ecmClearEnergyChannel(int idx);
+
 /*! @brief Get the pointer to the configuration struct
  *  @return pointer to Emon CM configuration struct
  */

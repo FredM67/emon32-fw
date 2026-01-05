@@ -15,6 +15,7 @@
 #include "emon32_build_info.h"
 #include "emon_CM.h"
 #include "periph_rfm69.h"
+#include "pulse.h"
 #include "util.h"
 
 #include "printf.h"
@@ -1007,13 +1008,15 @@ static void handleConfirmation(char c) {
         /* Clear the specific accumulator */
         if (clearAccumIdx < NUM_CT) {
           cumulative.wattHour[clearAccumIdx] = 0;
+          ecmClearEnergyChannel(clearAccumIdx);
           printf_("    - Accumulator E%d cleared.\r\n", clearAccumIdx + 1);
         } else {
           cumulative.pulseCnt[clearAccumIdx - NUM_CT] = 0;
+          pulseSetCount(clearAccumIdx - NUM_CT, 0);
           printf_("    - Accumulator pulse%d cleared.\r\n",
                   clearAccumIdx - NUM_CT + 1);
         }
-        /* Write back to NVM - runtime counters continue accumulating */
+        /* Write back to NVM */
         eepromWriteWLAsync(&cumulative, &idx);
       } else {
         serialPuts("    - Failed to read NVM.\r\n");
