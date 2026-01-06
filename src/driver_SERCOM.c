@@ -269,8 +269,12 @@ void uartPutsNonBlocking(unsigned int dma_chan, const char *const s,
   dmacDesc->BTCTRL.reg |= DMAC_BTCTRL_VALID;
   dmacDesc->BTCNT.reg   = len;
   dmacDesc->SRCADDR.reg = (uint32_t)s + len;
-  uartInUse             = true;
+
+  /* Ensure no interrupt between flag set and DMA start */
+  __disable_irq();
+  uartInUse = true;
   dmacChannelEnable(dma_chan);
+  __enable_irq();
 }
 
 void uartEnableRx(Sercom *sercom, const uint32_t irqn) {
