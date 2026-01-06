@@ -11,6 +11,8 @@ static bool tempSampled               = false;
 static int  numSensors                = 0;
 static int  millisLastSample[NUM_OPA] = {0};
 
+uint64_t *tempAddress1WGet(void) { return ds18b20AddressGet(); }
+
 float tempAsFloat(const TEMP_INTF_t intf, const int16_t tFixed) {
   float ret = -1000.0;
   if (TEMP_INTF_ONEWIRE == intf) {
@@ -18,6 +20,8 @@ float tempAsFloat(const TEMP_INTF_t intf, const int16_t tFixed) {
   }
   return ret;
 }
+
+void tempInitClear(void) { numSensors = 0; }
 
 unsigned int tempInitSensors(const TEMP_INTF_t intf, const void *pParams) {
   EMON32_ASSERT(pParams);

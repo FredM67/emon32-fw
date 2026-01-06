@@ -465,6 +465,8 @@ static uint32_t tempSetup(Emon32Dataset_t *pData, Emon32Config_t *pCfg) {
   dsCfg.grp                     = GRP_OPA;
   dsCfg.t_wait_us               = 5;
 
+  tempInitClear();
+
   for (int i = 0; i < NUM_OPA; i++) {
     if (('o' == pConfig->opaCfg[i].func)) {
 
@@ -779,6 +781,11 @@ int main(void) {
       if (evtPending(EVT_PROCESS_CMD)) {
         configProcessCmd();
         emon32EventClr(EVT_PROCESS_CMD);
+      }
+      if (evtPending(EVT_OPA_INIT)) {
+        pulseConfigure();
+        numTempSensors = tempSetup(&dataset, pConfig);
+        emon32EventClr(EVT_OPA_INIT);
       }
       if (evtPending(EVT_CONFIG_CHANGED)) {
         emon32EventClr(EVT_CONFIG_CHANGED);

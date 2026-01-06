@@ -13,6 +13,11 @@ typedef struct DS18B20_conf_ {
   uint8_t opaIdx;
 } DS18B20_conf_t;
 
+/*! @brief Get the table of found device addresses
+ *  @return : pointer to address table
+ */
+uint64_t *ds18b20AddressGet(void);
+
 /*! @brief Configure the OneWire port and find sensors
  *  @param [in] pCfg: pointer to the configuration struct
  *  @return number of sensors found

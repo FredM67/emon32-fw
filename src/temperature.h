@@ -34,12 +34,20 @@ typedef struct TempRead_ {
   int16_t      temp;
 } TempRead_t;
 
+/*! @brief Populate the table of OneWire devices
+ *  @return pointer to the address table
+ */
+uint64_t *tempAddress1WGet(void);
+
 /*! @brief Return the temperature as a float
  *  @param [in] intf : interface type
  *  @param [in] tFixed : fixed point temperature
  *  @return the temperature as a float
  */
 float tempAsFloat(const TEMP_INTF_t intf, const int16_t tFixed);
+
+/*! @brief Clear any saved temperature settings */
+void tempInitClear(void);
 
 /*! @brief Find and initialise sensors
  *  @param [in] intf : interface type
