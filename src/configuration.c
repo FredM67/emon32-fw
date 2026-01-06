@@ -111,6 +111,8 @@ static bool                    unsavedChange       = false;
 
 /*! @brief Set all configuration values to defaults */
 static void configDefault(void) {
+
+  (void)memset(&config, 0, sizeof(config));
   config.key = CONFIG_NVM_KEY;
 
   /* Single phase, 50 Hz, 240 VAC, 10 s report period */
@@ -125,11 +127,9 @@ static void configDefault(void) {
   config.baseCfg.logToSerial  = true;
   config.baseCfg.useJson      = false;
   config.baseCfg.debugSerial  = false;
-  (void)memset(config.baseCfg.res0, 0, sizeof(config.baseCfg.res0));
-  config.dataTxCfg.useRFM  = true;
-  config.dataTxCfg.rfmPwr  = RFM_PALEVEL_DEF;
-  config.dataTxCfg.rfmFreq = RFM_FREQ_DEF;
-  config.dataTxCfg.res0    = 0;
+  config.dataTxCfg.useRFM     = true;
+  config.dataTxCfg.rfmPwr     = RFM_PALEVEL_DEF;
+  config.dataTxCfg.rfmFreq    = RFM_FREQ_DEF;
 
   for (int idxV = 0u; idxV < NUM_V; idxV++) {
     config.voltageCfg[idxV].voltageCal = 100.0f;
@@ -143,7 +143,6 @@ static void configDefault(void) {
     config.ctCfg[idxCT].vChan1   = 0;
     config.ctCfg[idxCT].vChan2   = 0;
     config.ctCfg[idxCT].ctActive = (idxCT < NUM_CT_ACTIVE_DEF);
-    config.ctCfg[idxCT].res0     = 0;
   }
 
   /* OneWire/Pulse configuration:
@@ -172,9 +171,6 @@ static void configDefault(void) {
     config.opaCfg[idxOPA].period    = 0;
     config.opaCfg[idxOPA].puEn      = false;
   }
-
-  /* Zero all reserved bytes before CRC calculation */
-  (void)memset(config.res0, 0, sizeof(config.res0));
 
   config.crc16_ccitt = calcCRC16_ccitt(&config, (sizeof(config) - 2u));
 }
@@ -511,8 +507,13 @@ static void configure1WList(void) {
 }
 
 static bool configure1WSave(void) {
-  uint32_t numTok = inBufferTok();
-  size_t   ch;
+
+  uint8_t pos[8];
+  size_t  ch;
+
+  if (8 != inBufferTok()) {
+    return false;
+  }
 
   ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
   if (!convI.valid) {
@@ -522,17 +523,34 @@ static bool configure1WSave(void) {
   if ((convI.val < 1) || (convI.val > (TEMP_MAX_ONEWIRE))) {
     return false;
   }
+  ch = convI.val - 1u;
+
+  /* Find the position of the bytes in the string */
+  size_t tcnt = 0;
+  for (size_t i = 0; (i < IN_BUFFER_W) && (tcnt != 8u); i++) {
+    if ('\0' == inBuffer[i]) {
+      pos[tcnt++] = i + 1u;
+    }
+  }
 
   uint64_t addr = 0;
-  ch            = convI.val - 1u;
-
-  for (size_t i = 0; i < numTok; i++) {
-    convI = utilAtoi(inBuffer + (3 * (i + 1)), ITOA_BASE16);
+  for (size_t i = 0; i < 8; i++) {
+    convI = utilAtoi(&inBuffer[pos[i]], ITOA_BASE16);
     if (!convI.valid) {
       return false;
     }
-    addr |= ((uint64_t)convI.val << (8 * i));
+    addr |= ((uint64_t)convI.val << (8u * i));
   }
+
+  /* If this is an existing address, then zero the previous one */
+  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+    uint64_t as; /* Ensure 8byte alignment */
+    memcpy(&as, &config.oneWireAddr.addr[i], sizeof(as));
+    if (as == addr) {
+      config.oneWireAddr.addr[i] = 0;
+    }
+  }
+
   config.oneWireAddr.addr[ch] = addr;
 
   return true;
@@ -776,7 +794,7 @@ static size_t inBufferTok(void) {
   /* Form a group of null-terminated strings */
   size_t tokCount = 0;
   for (int i = 0; i < IN_BUFFER_W; i++) {
-    if (0 == inBuffer[i]) {
+    if ('\0' == inBuffer[i]) {
       break;
     }
     if (' ' == inBuffer[i]) {

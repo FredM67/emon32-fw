@@ -63,7 +63,7 @@ typedef struct __attribute__((__packed__)) Emon32Config_ {
   CTCfgPacked_t      ctCfg[NUM_CT + CT_RES];
   OpaCfgPacked_t     opaCfg[NUM_OPA + PULSE_RES];
   OneWireAddr_t      oneWireAddr;
-  uint8_t            res0[17];
+  uint8_t            res0[16];
   uint16_t           crc16_ccitt;
 } Emon32Config_t;
 

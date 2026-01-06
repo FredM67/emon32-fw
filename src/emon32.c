@@ -78,7 +78,7 @@ static void serialPutsNonBlocking(const char *const s, uint16_t len);
 static void rfmConfigure(void);
 static void ssd1306Setup(void);
 static void tempReadEvt(Emon32Dataset_t *pData, const unsigned int numT);
-static uint32_t tempSetup(Emon32Dataset_t *pData, Emon32Config_t *pCfg);
+static uint32_t tempSetup(Emon32Dataset_t *pData);
 static void     totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc);
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
                          char *txBuffer);
@@ -453,10 +453,9 @@ static void tempReadEvt(Emon32Dataset_t *pData, const unsigned int numT) {
 
 /*! @brief Initialises the temperature sensors
  *  @param [in] pData : pointer to dataset to initialise
- *  @param [in] pCfg : pointer to configuration struct
  *  @return number of temperature sensors found
  */
-static uint32_t tempSetup(Emon32Dataset_t *pData, Emon32Config_t *pCfg) {
+static uint32_t tempSetup(Emon32Dataset_t *pData) {
   const uint8_t opaPins[NUM_OPA] = {PIN_OPA1, PIN_OPA2};
   const uint8_t opaPUs[NUM_OPA]  = {PIN_OPA1_PU, PIN_OPA2_PU};
 
@@ -485,7 +484,12 @@ static uint32_t tempSetup(Emon32Dataset_t *pData, Emon32Config_t *pCfg) {
     }
   }
 
-  tempMapDevices(TEMP_INTF_ONEWIRE, &pCfg->oneWireAddr);
+  /* 64 bit values must be 8byte aligned, not guaranteed from a packed struct */
+  uint64_t addrAlign8[TEMP_MAX_ONEWIRE];
+  memcpy(addrAlign8, pConfig->oneWireAddr.addr,
+         sizeof(pConfig->oneWireAddr.addr));
+
+  tempMapDevices(TEMP_INTF_ONEWIRE, addrAlign8);
 
   /* Set all unused temperature slots to 300°C (4800 as Q4 fixed point) */
   for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
@@ -614,7 +618,7 @@ int main(void) {
 
   /* Set up pulse and temperature sensors, if present. */
   pulseConfigure();
-  numTempSensors = tempSetup(&dataset, pConfig);
+  numTempSensors = tempSetup(&dataset);
 
   /* Wait 1s to allow USB to enumerate as serial. Not always possible, but
    * gives the possibility. The board information can be accessed through the
@@ -784,7 +788,7 @@ int main(void) {
       }
       if (evtPending(EVT_OPA_INIT)) {
         pulseConfigure();
-        numTempSensors = tempSetup(&dataset, pConfig);
+        numTempSensors = tempSetup(&dataset);
         emon32EventClr(EVT_OPA_INIT);
       }
       if (evtPending(EVT_CONFIG_CHANGED)) {
