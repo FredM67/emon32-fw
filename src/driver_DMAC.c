@@ -3,8 +3,6 @@
 
 #include "emon32.h"
 
-static void irqHandlerADCCommon(void);
-
 static volatile DmacDescriptor dmacs[NUM_CHAN_DMA];
 static DmacDescriptor          dmacs_wb[NUM_CHAN_DMA];
 
@@ -65,8 +63,6 @@ void dmacChannelConfigure(unsigned int ch, const DMACCfgCh_t *pCfg) {
   DMAC->CHCTRLB.reg = pCfg->ctrlb;
 }
 
-static void irqHandlerADCCommon(void) { (*cbBufferFill)(); }
-
 void irq_handler_dmac(void) {
   /* Check which channel has triggered the interrupt, set the event, and
    * clear the interrupt source
@@ -75,15 +71,7 @@ void irq_handler_dmac(void) {
   if (DMAC->CHINTFLAG.reg & DMAC_CHINTFLAG_TCMPL) {
     DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_TCMPL;
     dmacChannelEnable(DMA_CHAN_ADC0);
-    irqHandlerADCCommon();
-  }
-
-  /* REVISIT : is this branch hit? Should all be in channel 0 */
-  DMAC->CHID.reg = DMA_CHAN_ADC1;
-  if (DMAC->CHINTFLAG.reg & DMAC_CHINTFLAG_TCMPL) {
-    DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_TCMPL;
-    dmacChannelEnable(DMA_CHAN_ADC1);
-    irqHandlerADCCommon();
+    (*cbBufferFill)();
   }
 
   DMAC->CHID.reg = DMA_CHAN_UART;
