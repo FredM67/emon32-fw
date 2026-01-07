@@ -86,6 +86,7 @@ static void     handleConfirmation(char c);
  * defaults */
 /* static bool     restoreDefaults(void); - Removed pending OEM decision */
 static void     zeroAccumulators(void);
+static void     echoQueueString(const char *s);
 
 /*************************************
  * Local variables
@@ -1179,12 +1180,12 @@ static void parseAndZeroAccumulator(void) {
 void configCmdChar(const uint8_t c) {
   if (('\r' == c) || ('\n' == c)) {
     if (!cmdPending) {
-      serialPuts("\r\n");
+      echoQueueString("\r\n");
       cmdPending = true;
       emon32EventSet(EVT_PROCESS_CMD);
     }
   } else if ('\b' == c) {
-    serialPuts("\b \b");
+    echoQueueString("\b \b");
     if (0 != inBufferIdx) {
       inBufferIdx--;
       inBuffer[inBufferIdx] = 0;
@@ -1193,7 +1194,7 @@ void configCmdChar(const uint8_t c) {
     inBuffer[inBufferIdx++] = c;
   } else {
     inBufferClear(IN_BUFFER_W);
-    serialPuts("\r\n");
+    echoQueueString("\r\n");
   }
 }
 
@@ -1490,6 +1491,14 @@ uint8_t configEchoChar(void) {
     idxEchoRd = (idxEchoRd + 1u) & ECHO_FMASK;
   }
   return c;
+}
+
+static void echoQueueString(const char *s) {
+  while (*s) {
+    echoBuf[(idxEchoWr & ECHO_IDX_MASK)] = *s++;
+    idxEchoWr                            = (idxEchoWr + 1u) & ECHO_FMASK;
+  }
+  emon32EventSet(EVT_ECHO);
 }
 
 void SERCOM_UART_INTERACTIVE_HANDLER {
