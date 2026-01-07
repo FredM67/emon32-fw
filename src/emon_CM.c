@@ -486,6 +486,13 @@ void ecmClearEnergy(void) {
   }
 }
 
+void ecmClearEnergyChannel(int idx) {
+  if (idx >= 0 && idx < NUM_CT) {
+    datasetProc.CT[idx].wattHour = 0;
+    residualEnergy[idx]          = 0.0f;
+  }
+}
+
 void ecmPhaseCalibrate(AutoPhaseRes_t *pDst) {
   pDst->success = false;
   if (!(channelActive[pDst->idxCt + NUM_V])) {
