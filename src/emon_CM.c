@@ -116,7 +116,7 @@ typedef struct vSmp_ {
 
 static inline q15_t __STRUNCATE(int32_t val) RAMFUNC;
 static q15_t        applyCorrection(q15_t smp) RAMFUNC;
-static float        calcRMS(CalcRMS_t *pSrc) RAMFUNC;
+static float        calcRMS(const CalcRMS_t *pSrc) RAMFUNC;
 static bool         zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) RAMFUNC;
 
 static void  accumSwapClear(void);
@@ -160,7 +160,7 @@ static uint32_t t_ZClast = 0;
  */
 static RAMFUNC inline q15_t __STRUNCATE(int32_t val) {
   int32_t roundUp = 0;
-  if (0 != (val & (1u << 14))) {
+  if (0 != (val & (1 << 14))) {
     roundUp = 1;
   }
   return (q15_t)((val >> 15) + roundUp);
@@ -168,7 +168,7 @@ static RAMFUNC inline q15_t __STRUNCATE(int32_t val) {
 
 /***** END FIXED POINT FUNCIONS *****/
 
-static RAMFUNC float calcRMS(CalcRMS_t *pSrc) {
+static RAMFUNC float calcRMS(const CalcRMS_t *pSrc) {
   int64_t numSamplesSqr = (int64_t)pSrc->numSamples * pSrc->numSamples;
   float   vcal          = pSrc->cal;
 

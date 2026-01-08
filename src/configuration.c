@@ -68,7 +68,7 @@ static bool     configureSerialLog(void);
 static void     enterBootloader(void);
 static uint32_t getBoardRevision(void);
 static char    *getLastReset(void);
-static void     inBufferClear(int32_t n);
+static void     inBufferClear(size_t n);
 static void     printSettingCT(const int32_t ch);
 static void     printSettingDatalog(void);
 static void     printSettingJSON(void);
@@ -704,7 +704,7 @@ uint32_t getUniqueID(int32_t idx) {
   return *(volatile uint32_t *)id_addr_lut[idx];
 }
 
-static void inBufferClear(int32_t n) {
+static void inBufferClear(size_t n) {
   inBufferIdx = 0;
   (void)memset(inBuffer, 0, n);
 }
@@ -785,7 +785,7 @@ static void printAccumulators(void) {
   Emon32Cumulative_t cumulative;
   eepromWLStatus_t   status;
   bool               eepromOK;
-  int32_t            idx;
+  uint32_t           idx;
 
   status   = eepromReadWL(&cumulative, &idx);
   eepromOK = (EEPROM_WL_OK == status);
@@ -796,7 +796,7 @@ static void printAccumulators(void) {
   } else if (!eepromOK) {
     serialPuts(" (no valid NVM data)");
   }
-  printf_(" [%d]:\r\n", idx);
+  printf_(" [%lu]:\r\n", idx);
 
   for (uint32_t i = 0; i < NUM_CT; i++) {
     uint32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
@@ -1002,7 +1002,7 @@ static void handleConfirmation(char c) {
   case CONFIRM_ZERO_ACCUM_INDIVIDUAL:
     if ('y' == c) {
       Emon32Cumulative_t cumulative;
-      int32_t            idx;
+      uint32_t           idx;
       /* Read current NVM data */
       if (EEPROM_WL_OK == eepromReadWL(&cumulative, &idx)) {
         /* Clear the specific accumulator */

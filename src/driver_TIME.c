@@ -9,7 +9,7 @@
 /*! @brief Common setup for 1 us resolution timer
  *  @param [in] delay : delay in us
  */
-static void commonSetup(uint32_t delay);
+static void commonSetup(const uint32_t delay);
 static void timerSync(Tc *tc);
 
 static volatile uint32_t timeMillisCounter  = 0;
@@ -35,7 +35,7 @@ static volatile TimerCallbackEntry_t callbackQueue[TIMER_CALLBACK_QUEUE_SIZE] =
     {0};
 static volatile uint32_t nextScheduledEvent_us = UINT32_MAX;
 
-static void commonSetup(uint32_t delay) {
+static void commonSetup(const uint32_t delay) {
   /* Unmask match interrrupt, zero counter, set compare value */
   TIMER_DELAY->COUNT32.INTENSET.reg = TC_INTENSET_MC0;
   TIMER_DELAY->COUNT32.COUNT.reg    = 0u;

@@ -79,7 +79,7 @@ void irq_handler_dmac(void) {
   }
 }
 
-uint16_t calcCRC16_ccitt(const void *pSrc, uint32_t n) {
+uint16_t calcCRC16_ccitt(const void *pSrc, size_t n) {
   const uint8_t *pData = (uint8_t *)pSrc;
 
   /* CCITT is 0xFFFF initial value */

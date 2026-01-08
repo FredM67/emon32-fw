@@ -2,16 +2,17 @@
 #include "board_def.h"
 #include "emon32_samd.h"
 
-static void input(uint32_t grp, uint32_t pin, bool high);
+static void input(const uint32_t grp, const uint32_t pin, const bool high);
 
-static void input(uint32_t grp, uint32_t pin, bool high) {
+static void input(const uint32_t grp, const uint32_t pin, const bool high) {
   portPinDir(grp, pin, PIN_DIR_IN);
   portPinCfg(grp, pin, PORT_PINCFG_PULLEN, PIN_CFG_SET);
   portPinDrv(grp, pin, (high ? PIN_DRV_SET : PIN_DRV_CLR));
   portPinCfg(grp, pin, PORT_PINCFG_INEN, PIN_CFG_SET);
 }
 
-void portPinCfg(uint32_t grp, uint32_t pin, uint32_t cfg, PINCFG_t cs) {
+void portPinCfg(const uint32_t grp, const uint32_t pin, const uint32_t cfg,
+                const PINCFG_t cs) {
   if (PIN_CFG_SET == cs) {
     PORT->Group[grp].PINCFG[pin].reg |= cfg;
   } else {
@@ -19,7 +20,7 @@ void portPinCfg(uint32_t grp, uint32_t pin, uint32_t cfg, PINCFG_t cs) {
   }
 }
 
-void portPinDir(uint32_t grp, uint32_t pin, PINDIR_t mode) {
+void portPinDir(const uint32_t grp, const uint32_t pin, const PINDIR_t mode) {
   if (PIN_DIR_IN == mode) {
     PORT->Group[grp].DIRCLR.reg = (1u << pin);
   } else {
@@ -28,7 +29,7 @@ void portPinDir(uint32_t grp, uint32_t pin, PINDIR_t mode) {
   PORT->Group[grp].PINCFG[pin].reg |= PORT_PINCFG_INEN;
 }
 
-void portPinDrv(uint32_t grp, uint32_t pin, PINDRV_t drv) {
+void portPinDrv(const uint32_t grp, const uint32_t pin, const PINDRV_t drv) {
   switch (drv) {
   case PIN_DRV_CLR:
     PORT->Group[grp].OUTCLR.reg = (1u << pin);
@@ -42,7 +43,7 @@ void portPinDrv(uint32_t grp, uint32_t pin, PINDRV_t drv) {
   }
 }
 
-void portPinMux(uint32_t grp, uint32_t pin, uint32_t mux) {
+void portPinMux(const uint32_t grp, const uint32_t pin, const uint32_t mux) {
   PORT->Group[grp].PINCFG[pin].reg |= PORT_PINCFG_PMUXEN;
   if (pin & 1u) {
     PORT->Group[grp].PMUX[pin >> 1].bit.PMUXO = mux;
@@ -51,11 +52,11 @@ void portPinMux(uint32_t grp, uint32_t pin, uint32_t mux) {
   }
 }
 
-void portPinMuxClear(uint32_t grp, uint32_t pin) {
+void portPinMuxClear(const uint32_t grp, const uint32_t pin) {
   PORT->Group[grp].PINCFG[pin].reg &= ~PORT_PINCFG_PMUXEN;
 }
 
-bool portPinValue(uint32_t grp, uint32_t pin) {
+bool portPinValue(const uint32_t grp, const uint32_t pin) {
   return (0u == (PORT->Group[grp].IN.reg & (1u << pin))) ? false : true;
 }
 

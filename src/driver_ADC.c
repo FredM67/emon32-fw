@@ -13,7 +13,7 @@ static int16_t correctionOffset;
 static bool    correctionValid;
 
 static void    adcCalibrate(void);
-static int16_t adcCalibrateSmp(int32_t pin);
+static int16_t adcCalibrateSmp(const int32_t pin);
 static void    adcConfigureDMAC(void);
 static void    adcSync(void);
 
@@ -87,7 +87,7 @@ static void adcCalibrate(void) {
   correctionValid  = true;
 }
 
-static int16_t adcCalibrateSmp(int32_t pin) {
+static int16_t adcCalibrateSmp(const int32_t pin) {
   ADC->INPUTCTRL.reg = ADC_INPUTCTRL_MUXNEG_PIN0 | pin;
   ADC->INTFLAG.reg   = ADC_INTFLAG_RESRDY;
   ADC->SWTRIG.reg    = ADC_SWTRIG_START;

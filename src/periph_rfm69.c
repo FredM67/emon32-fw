@@ -31,7 +31,7 @@ static void      rfmReset(void);
 static void      rfmRxBegin(void); /* LPL: receiveBegin */
 static bool      rfmRxDone(void);  /* LPL: receiveDone */
 static RFMSend_t rfmSendWithRetry(uint8_t n, const uint8_t retries,
-                                  int32_t *pRetryCount);
+                                  uint8_t *pRetryCount);
 static void      rfmSetMode(RFMMode_t mode);
 static bool      rfmTxAvailable(void); /* LPL: canSend */
 static void      rfmWriteReg(const uint32_t addr, const uint8_t data);
@@ -244,9 +244,9 @@ static bool rfmRxDone(void) {
  *  @return status of sending the packet
  */
 static RFMSend_t rfmSendWithRetry(uint8_t n, const uint8_t retries,
-                                  int32_t *pRetryCount) {
+                                  uint8_t *pRetryCount) {
 
-  for (int32_t r = 0; r < retries; r++) {
+  for (uint8_t r = 0; r < retries; r++) {
     uint32_t tNow;
     uint32_t tSent;
 
@@ -412,8 +412,8 @@ bool rfmInit(const RFMOpt_t *pOpt) {
   return true;
 }
 
-RFMSend_t rfmSendBuffer(const int_fast8_t n, const uint8_t retries,
-                        int32_t *pRetryCount) {
+RFMSend_t rfmSendBuffer(const uint8_t n, const uint8_t retries,
+                        uint8_t *pRetryCount) {
   if (n > 61) {
     return RFM_N_TOO_LARGE;
   }

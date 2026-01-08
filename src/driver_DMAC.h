@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stddef.h>
+
 #include "emon32_samd.h"
 
 typedef struct DMACCfgCh {
@@ -61,4 +63,4 @@ void dmacClearChannelInterrupt(uint32_t ch);
  *  @param [in] n : number of bytes in data
  *  @return CRC16 value
  */
-uint16_t calcCRC16_ccitt(const void *pSrc, uint32_t n);
+uint16_t calcCRC16_ccitt(const void *pSrc, size_t n);
