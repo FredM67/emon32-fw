@@ -69,15 +69,15 @@ typedef struct VCfg_ {
 } VCfg_t;
 
 typedef struct CTCfgUnpacked_ {
-  float phaseX;
-  float phaseY;
-  float phCal;
-  float ctCal;
-  float ctCalRaw;
-  bool  active;
-  int   vChan1;
-  int   vChan2;
-  int   wattHourInit;
+  float   phaseX;
+  float   phaseY;
+  float   phCal;
+  float   ctCal;
+  float   ctCalRaw;
+  bool    active;
+  int32_t vChan1;
+  int32_t vChan2;
+  int32_t wattHourInit;
 } CTCfg_t;
 
 typedef struct ECMCfg_ {
@@ -85,9 +85,9 @@ typedef struct ECMCfg_ {
   uint32_t (*timeMicrosDelta)(uint32_t); /* Time delta in microseconds */
 
   bool     downsample;    /* DSP enabled */
-  int      reportCycles;  /* Number of cycles before reporting */
-  int      mainsFreq;     /* Mains frequency */
-  int      samplePeriod;  /* Sampling period for each sample */
+  int32_t  reportCycles;  /* Number of cycles before reporting */
+  int32_t  mainsFreq;     /* Mains frequency */
+  int32_t  samplePeriod;  /* Sampling period for each sample */
   uint32_t reportTime_us; /* Report time in microseconds */
   float    assumedVrms;   /* Assume RMS voltage if not found */
 
@@ -100,11 +100,11 @@ typedef struct ECMCfg_ {
 } ECMCfg_t;
 
 typedef struct DataCT_ {
-  float rmsI;
-  float pf;
-  int   realPower;
-  int   apparentPower;
-  int   wattHour;
+  float   rmsI;
+  float   pf;
+  int32_t realPower;
+  int32_t apparentPower;
+  int32_t wattHour;
 } DataCT_t;
 
 typedef struct ECMDataset_ {
@@ -115,18 +115,18 @@ typedef struct ECMDataset_ {
 } ECMDataset_t;
 
 typedef struct ECMPerformance_ {
-  int numSlices;
-  int microsSlices;
-  int numCycles;
-  int microsCycles;
-  int numDatasets;
-  int microsDatasets;
+  int32_t numSlices;
+  int32_t microsSlices;
+  int32_t numCycles;
+  int32_t microsCycles;
+  int32_t numDatasets;
+  int32_t microsDatasets;
 } ECMPerformance_t;
 
 typedef struct AutoPhaseRes_ {
-  int   idxCt;
-  float phase;
-  bool  success;
+  int32_t idxCt;
+  float   phase;
+  bool    success;
 } AutoPhaseRes_t;
 
 /******************************************************************************
@@ -139,7 +139,7 @@ void ecmClearEnergy(void);
 /*! @brief Clear accumulated energy for a single channel
  *  @param [in] idx : channel index (0 to NUM_CT-1)
  */
-void ecmClearEnergyChannel(int idx);
+void ecmClearEnergyChannel(int32_t idx);
 
 /*! @brief Get the pointer to the configuration struct
  *  @return pointer to Emon CM configuration struct
@@ -159,7 +159,7 @@ void ecmConfigInit(void);
 /*! @brief Set cycles between reports
  *  @param [in] reportCycles : cycles between reports
  */
-void ecmConfigReportCycles(int reportCycles);
+void ecmConfigReportCycles(int32_t reportCycles);
 
 /*! @brief Returns a pointer to the ADC data buffer
  *  @return pointer to the active ADC data buffer.

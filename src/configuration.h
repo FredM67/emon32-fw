@@ -126,4 +126,4 @@ VersionInfo_t configVersion(void);
  *  @param[in] idx : index of the word to fetch
  *  @return word idx from the unique ID
  */
-uint32_t getUniqueID(int idx);
+uint32_t getUniqueID(int32_t idx);

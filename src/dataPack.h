@@ -21,7 +21,8 @@ typedef enum PackedRange_ {
  *  @param [in] json : false -> K:V; true -> JSON
  *  @return the number of the characters that would be packed
  */
-int dataPackSerial(const Emon32Dataset_t *pData, char *pDst, int m, bool json);
+int32_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, int32_t m,
+                       bool json);
 
 /*! @brief Pack the voltage, power, energy, temperature, and pulse data into a
  *         packed structure for transmission over RFM link.

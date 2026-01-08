@@ -36,25 +36,25 @@ _Static_assert(9 == sizeof(Scratch_t), "Scratch_t is not 9 bytes.");
 static DS18B20_conf_t cfg[NUM_OPA];
 
 /* Device address table */
-static OneWireT_t   devTable[TEMP_MAX_ONEWIRE];
-static unsigned int addressRemap[TEMP_MAX_ONEWIRE];
+static OneWireT_t devTable[TEMP_MAX_ONEWIRE];
+static uint32_t   addressRemap[TEMP_MAX_ONEWIRE];
 
 /* OneWire functions & state variables */
-static uint8_t      calcCRC8(const uint8_t crc, const uint8_t value);
-static bool         oneWireFirst(const int opaIdx);
-static bool         oneWireNext(const int opaIdx);
-static unsigned int oneWireReadBit(const int opaIdx);
-static void oneWireReadBytes(void *pDst, const uint8_t n, const int opaIdx);
-static bool oneWireReset(const int opaIdx);
-static bool oneWireSearch(const int opaIdx);
-static void oneWireWriteBit(unsigned int bit, const int opaIdx);
+static uint8_t  calcCRC8(const uint8_t crc, const uint8_t value);
+static bool     oneWireFirst(const int32_t opaIdx);
+static bool     oneWireNext(const int32_t opaIdx);
+static uint32_t oneWireReadBit(const int32_t opaIdx);
+static void oneWireReadBytes(void *pDst, const uint8_t n, const int32_t opaIdx);
+static bool oneWireReset(const int32_t opaIdx);
+static bool oneWireSearch(const int32_t opaIdx);
+static void oneWireWriteBit(uint32_t bit, const int32_t opaIdx);
 static void oneWireWriteBytes(const void *pSrc, const uint8_t n,
-                              const int opaIdx);
+                              const int32_t opaIdx);
 
 uint64_t ROM_NO                = 0;
-int      lastDiscrepancy       = 0;
-int      lastFamilyDiscrepancy = 0;
-int      lastDeviceFlag        = 0;
+int32_t  lastDiscrepancy       = 0;
+int32_t  lastFamilyDiscrepancy = 0;
+int32_t  lastDeviceFlag        = 0;
 
 static uint8_t calcCRC8(const uint8_t crc, const uint8_t value) {
   const uint8_t dscrc_table[] = {
@@ -83,7 +83,7 @@ static uint8_t calcCRC8(const uint8_t crc, const uint8_t value) {
 /*! @brief: Find the first device on the 1-Wire bus
  *  @return true if device found, ROM number in ROM_NO buffer; false otherwise
  */
-static bool oneWireFirst(const int opaIdx) {
+static bool oneWireFirst(const int32_t opaIdx) {
   /* Reset the search state */
   lastDiscrepancy       = 0;
   lastDeviceFlag        = 0;
@@ -95,10 +95,10 @@ static bool oneWireFirst(const int opaIdx) {
 /*! @brief: Find the next device on the 1-Wire bus
  *  @return true if device found, ROM number in ROM_NO buffer; false otherwise
  */
-static bool oneWireNext(const int opaIdx) { return oneWireSearch(opaIdx); }
+static bool oneWireNext(const int32_t opaIdx) { return oneWireSearch(opaIdx); }
 
-static unsigned int oneWireReadBit(const int opaIdx) {
-  unsigned int result = 0;
+static uint32_t oneWireReadBit(const int32_t opaIdx) {
+  uint32_t result = 0;
 
   __disable_irq();
   portPinDir(cfg[opaIdx].grp, cfg[opaIdx].pin, PIN_DIR_OUT);
@@ -115,7 +115,8 @@ static unsigned int oneWireReadBit(const int opaIdx) {
   return result;
 }
 
-static void oneWireReadBytes(void *pDst, const uint8_t n, const int opaIdx) {
+static void oneWireReadBytes(void *pDst, const uint8_t n,
+                             const int32_t opaIdx) {
   EMON32_ASSERT(pDst);
 
   uint8_t *pData = (uint8_t *)pDst;
@@ -129,7 +130,7 @@ static void oneWireReadBytes(void *pDst, const uint8_t n, const int opaIdx) {
   }
 }
 
-static bool oneWireReset(const int opaIdx) {
+static bool oneWireReset(const int32_t opaIdx) {
   /* t_RSTL (min) = 480 us
    * t_RSTH (min) = 480 us
    * t_PDHIGH (max) = 60 us
@@ -159,16 +160,16 @@ static bool oneWireReset(const int opaIdx) {
   return presence;
 }
 
-static bool oneWireSearch(const int opaIdx) {
+static bool oneWireSearch(const int32_t opaIdx) {
   /* Initialise for search */
   const uint8_t CMD_SEARCH_ROM  = 0xF0u;
-  int           searchDirection = 0;
-  int           idBitNumber     = 1;
-  int           lastZero        = 0;
+  int32_t       searchDirection = 0;
+  int32_t       idBitNumber     = 1;
+  int32_t       lastZero        = 0;
   uint8_t       romByteMask     = 1;
   bool          searchResult    = false;
-  int           idBit           = 0;
-  int           cmpidBit        = 0;
+  int32_t       idBit           = 0;
+  int32_t       cmpidBit        = 0;
   uint8_t       crc8            = 0;
   uint8_t      *romBuffer       = (uint8_t *)&ROM_NO;
 
@@ -187,7 +188,7 @@ static bool oneWireSearch(const int opaIdx) {
     oneWireWriteBytes(&CMD_SEARCH_ROM, 1, opaIdx);
 
     /* ...and commence the search! */
-    for (unsigned int i = 0; i < 64; i++) {
+    for (uint32_t i = 0; i < 64; i++) {
       idBit    = oneWireReadBit(opaIdx);
       cmpidBit = oneWireReadBit(opaIdx);
 
@@ -251,7 +252,7 @@ static bool oneWireSearch(const int opaIdx) {
   return searchResult;
 }
 
-static void oneWireWriteBit(unsigned int bit, const int opaIdx) {
+static void oneWireWriteBit(uint32_t bit, const int32_t opaIdx) {
   /* See timing diagrams in Figure 16. Interrupts are disabled in sections
    * where too long would break the OneWire protocol. At the end of a bit
    * transmission, a pending interrupt may be serviced, but this will only
@@ -271,7 +272,7 @@ static void oneWireWriteBit(unsigned int bit, const int opaIdx) {
 }
 
 static void oneWireWriteBytes(const void *pSrc, const uint8_t n,
-                              const int opaIdx) {
+                              const int32_t opaIdx) {
   EMON32_ASSERT(pSrc);
 
   uint8_t *pData = (uint8_t *)pSrc;
@@ -284,14 +285,14 @@ static void oneWireWriteBytes(const void *pSrc, const uint8_t n,
   }
 }
 
-unsigned int ds18b20InitSensors(const DS18B20_conf_t *pCfg) {
+uint32_t ds18b20InitSensors(const DS18B20_conf_t *pCfg) {
   EMON32_ASSERT(pCfg);
 
   const uint8_t DS18B_FAMILY_CODE = 0x28;
 
-  uint8_t      opaIdx       = pCfg->opaIdx;
-  unsigned int deviceCount  = 0;
-  bool         searchResult = false;
+  uint8_t  opaIdx       = pCfg->opaIdx;
+  uint32_t deviceCount  = 0;
+  bool     searchResult = false;
 
   cfg[opaIdx].grp       = pCfg->grp;
   cfg[opaIdx].pin       = pCfg->pin;
@@ -318,14 +319,14 @@ unsigned int ds18b20InitSensors(const DS18B20_conf_t *pCfg) {
   }
 
   /* REVISIT : populate remapping table from saved sensors */
-  for (unsigned int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (uint32_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
     addressRemap[i] = i;
   }
 
   return deviceCount;
 }
 
-bool ds18b20StartSample(const int opaIdx) {
+bool ds18b20StartSample(const int32_t opaIdx) {
   const uint8_t CMD_SKIP_ROM  = 0xCC;
   const uint8_t CMD_CONVERT_T = 0x44;
   const uint8_t cmds[2]       = {CMD_SKIP_ROM, CMD_CONVERT_T};
@@ -339,7 +340,7 @@ bool ds18b20StartSample(const int opaIdx) {
   return true;
 }
 
-TempRead_t ds18b20ReadSample(const unsigned int dev) {
+TempRead_t ds18b20ReadSample(const uint32_t dev) {
   const uint8_t CMD_MATCH_ROM    = 0x55;
   const uint8_t CMD_READ_SCRATCH = 0xBE;
   const int16_t DS_T85DEG        = 1360;
@@ -364,7 +365,7 @@ TempRead_t ds18b20ReadSample(const unsigned int dev) {
   oneWireReadBytes(&scratch, 9, devTable[dev].opaIdx);
 
   /* Check CRC for received data */
-  for (int i = 0; i < 8; i++) {
+  for (int32_t i = 0; i < 8; i++) {
     calcCRC8(crcDS, pScratch[i]);
   }
   if (crcDS != scratch.crc) {
@@ -396,7 +397,7 @@ TempRead_t ds18b20ReadSample(const unsigned int dev) {
   return tempRes;
 }
 
-TempDev_t ds18b20ReadSerial(const unsigned int dev) {
+TempDev_t ds18b20ReadSerial(const uint32_t dev) {
   TempDev_t device;
 
   device.id   = devTable[dev].address;

@@ -46,7 +46,7 @@ float tempAsFloat(const TEMP_INTF_t intf, const int16_t tFixed);
  *  @param [in] pParams : parameters for given interface type
  *  @return number of sensors found
  */
-unsigned int tempInitSensors(const TEMP_INTF_t intf, const void *pParams);
+uint32_t tempInitSensors(const TEMP_INTF_t intf, const void *pParams);
 
 /*! @brief Read an existing temperature sample
  *  @param [in] intf : interface type
