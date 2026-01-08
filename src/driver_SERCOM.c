@@ -7,7 +7,8 @@
 #include "driver_TIME.h"
 #include "emon32.h"
 
-#define I2CM_ACTIVATE_TIMEOUT_US 200u /* Time to wait for I2C bus */
+#define I2CM_ACTIVATE_TIMEOUT_US 200u /* Time to wait for I2C address phase */
+#define I2CM_DATA_TIMEOUT_US     200u /* Time to wait for I2C data byte */
 
 static void i2cmCommon(Sercom *pSercom);
 static void i2cmExtPinsSetup(void);
@@ -384,6 +385,12 @@ I2CM_Status_t i2cActivate(Sercom *sercom, uint8_t addr) {
     }
   }
 
+  /* Check for bus errors (BUSERR, ARBLOST) */
+  if (sercom->I2CM.STATUS.reg &
+      (SERCOM_I2CM_STATUS_BUSERR | SERCOM_I2CM_STATUS_ARBLOST)) {
+    return I2CM_ERROR;
+  }
+
   /* Check for NoAck response from client (28.6.2.4.2) */
   if (sercom->I2CM.STATUS.reg & SERCOM_I2CM_STATUS_RXNACK) {
     s = I2CM_NOACK;
@@ -399,17 +406,51 @@ void i2cAck(Sercom *sercom, I2CM_Ack_t ack, I2CM_AckCmd_t cmd) {
     ;
 }
 
-void i2cDataWrite(Sercom *sercom, uint8_t data) {
+I2CM_Status_t i2cDataWrite(Sercom *sercom, uint8_t data) {
+  uint32_t t = timerMicros();
+
   sercom->I2CM.DATA.reg = data;
-  while (!(sercom->I2CM.INTFLAG.reg & SERCOM_I2CM_INTFLAG_MB))
-    ;
+
+  /* Wait for MB (master on bus) flag */
+  while (!(sercom->I2CM.INTFLAG.reg & SERCOM_I2CM_INTFLAG_MB)) {
+    if (timerMicrosDelta(t) > I2CM_DATA_TIMEOUT_US) {
+      return I2CM_TIMEOUT;
+    }
+  }
+
+  /* Check for bus errors (BUSERR, ARBLOST) */
+  if (sercom->I2CM.STATUS.reg &
+      (SERCOM_I2CM_STATUS_BUSERR | SERCOM_I2CM_STATUS_ARBLOST)) {
+    return I2CM_ERROR;
+  }
+
+  /* Check for NACK from slave */
+  if (sercom->I2CM.STATUS.reg & SERCOM_I2CM_STATUS_RXNACK) {
+    return I2CM_NOACK;
+  }
+
+  return I2CM_SUCCESS;
 }
 
-uint8_t i2cDataRead(Sercom *sercom) {
+I2CM_Status_t i2cDataRead(Sercom *sercom, uint8_t *pData) {
+  uint32_t t = timerMicros();
+
+  /* Wait for SB (slave on bus) or MB (error condition) */
   while (!(sercom->I2CM.INTFLAG.reg &
-           (SERCOM_I2CM_INTFLAG_MB | SERCOM_I2CM_INTFLAG_SB)))
-    ;
-  return sercom->I2CM.DATA.reg;
+           (SERCOM_I2CM_INTFLAG_MB | SERCOM_I2CM_INTFLAG_SB))) {
+    if (timerMicrosDelta(t) > I2CM_DATA_TIMEOUT_US) {
+      return I2CM_TIMEOUT;
+    }
+  }
+
+  /* Check for bus errors (BUSERR, ARBLOST) */
+  if (sercom->I2CM.STATUS.reg &
+      (SERCOM_I2CM_STATUS_BUSERR | SERCOM_I2CM_STATUS_ARBLOST)) {
+    return I2CM_ERROR;
+  }
+
+  *pData = sercom->I2CM.DATA.reg;
+  return I2CM_SUCCESS;
 }
 
 /*

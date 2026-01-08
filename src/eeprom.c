@@ -211,9 +211,16 @@ static I2CM_Status_t writeBytes(wrLocal_t *wr, uint32_t n) {
     return i2cm_s;
   }
 
-  i2cDataWrite(SERCOM_I2CM, address.lsb);
+  i2cm_s = i2cDataWrite(SERCOM_I2CM, address.lsb);
+  if (I2CM_SUCCESS != i2cm_s) {
+    return i2cm_s;
+  }
+
   while (n--) {
-    i2cDataWrite(SERCOM_I2CM, *wr->pData++);
+    i2cm_s = i2cDataWrite(SERCOM_I2CM, *wr->pData++);
+    if (I2CM_SUCCESS != i2cm_s) {
+      return i2cm_s;
+    }
   }
   i2cAck(SERCOM_I2CM, I2CM_ACK, I2CM_ACK_CMD_STOP);
 
@@ -276,15 +283,26 @@ void eepromInitBlock(uint32_t startAddr, const uint32_t val, uint32_t n) {
   EMON32_ASSERT((n % EEPROM_PAGE_SIZE) == 0);
   EMON32_ASSERT((startAddr + n) <= EEPROM_SIZE);
 
-  Address_t address;
+  Address_t     address;
+  I2CM_Status_t i2cm_s;
 
   while (n) {
     address = calcAddress(startAddr);
-    (void)i2cActivate(SERCOM_I2CM, address.msb);
+    i2cm_s  = i2cActivate(SERCOM_I2CM, address.msb);
+    if (I2CM_SUCCESS != i2cm_s) {
+      return;
+    }
 
-    i2cDataWrite(SERCOM_I2CM, address.lsb);
+    i2cm_s = i2cDataWrite(SERCOM_I2CM, address.lsb);
+    if (I2CM_SUCCESS != i2cm_s) {
+      return;
+    }
+
     for (uint32_t i = 0; i < EEPROM_PAGE_SIZE; i++) {
-      i2cDataWrite(SERCOM_I2CM, (uint8_t)val);
+      i2cm_s = i2cDataWrite(SERCOM_I2CM, (uint8_t)val);
+      if (I2CM_SUCCESS != i2cm_s) {
+        return;
+      }
     }
     i2cAck(SERCOM_I2CM, I2CM_ACK, I2CM_ACK_CMD_STOP);
 
@@ -328,7 +346,11 @@ bool eepromRead(uint32_t addr, void *pDst, uint32_t n) {
   if (I2CM_SUCCESS != i2cm_s) {
     return false;
   }
-  i2cDataWrite(SERCOM_I2CM, address.lsb);
+
+  i2cm_s = i2cDataWrite(SERCOM_I2CM, address.lsb);
+  if (I2CM_SUCCESS != i2cm_s) {
+    return false;
+  }
 
   /* Send select with read, and then continue to read until complete. On
    * final byte, respond with NACK */
@@ -340,7 +362,10 @@ bool eepromRead(uint32_t addr, void *pDst, uint32_t n) {
   }
 
   while (n) {
-    *pData++ = i2cDataRead(SERCOM_I2CM);
+    i2cm_s = i2cDataRead(SERCOM_I2CM, pData++);
+    if (I2CM_SUCCESS != i2cm_s) {
+      return false;
+    }
     n--;
     if (n == 0) {
       /* Last byte - send NACK and STOP */
