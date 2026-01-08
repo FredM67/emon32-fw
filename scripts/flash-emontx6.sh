@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Change working directory to the parent directory of this script 
+cd "$(dirname "$0")/.."
+
 UF2_FILE="build/emon32.uf2"
 DO_BUILD=0
 

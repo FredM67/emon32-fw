@@ -3,11 +3,9 @@
 
 #include "emon32_assert.h"
 
-#include "driver_ADC.h"
 #include "driver_PORT.h"
 #include "driver_SERCOM.h"
 #include "driver_TIME.h"
-#include "driver_USB.h"
 
 #include "configuration.h"
 #include "eeprom.h"
@@ -50,6 +48,8 @@ typedef enum {
  *************************************/
 
 static void     configDefault(void);
+static void     configEchoQueueChar(const uint8_t c);
+static void     configEchoQueueStr(const char *s);
 static void     configInitialiseNVM(void);
 static int32_t  configTimeToCycles(const float time, const int32_t mainsFreq);
 static bool     configureAnalog(void);
@@ -572,7 +572,10 @@ static bool configureNodeID(void) {
   if ((convI.val < 1) || (convI.val > 60)) {
     return false;
   }
+
   config.baseCfg.nodeID = convI.val;
+  printf_("rfNode = %d\r\n", config.baseCfg.nodeID);
+
   return true;
 }
 
@@ -734,15 +737,15 @@ static void printSettingOPA(const int32_t ch) {
 
   /* OneWire */
   if ('o' == config.opaCfg[ch].func) {
-    printf_("onewire, active = %s\r\n",
+    printf_("active = %s, onewire\r\n",
             config.opaCfg[ch].opaActive ? "1" : "0");
     return;
   }
 
   /* Pulse */
-  printf_("pulse, pulsePeriod = %d, pullUp = %s, active = %s\r\n",
-          config.opaCfg[ch].period, config.opaCfg[ch].puEn ? "on" : "off",
-          config.opaCfg[ch].opaActive ? "1" : "0");
+  printf_("active %s, pulse, pullUp = %s, pulsePeriod = %d\r\n",
+          (config.opaCfg[ch].opaActive ? "1" : "0"),
+          config.opaCfg[ch].puEn ? "on" : "off", config.opaCfg[ch].period);
 }
 
 static void printSettingRF(void) {
@@ -1177,22 +1180,24 @@ static void parseAndZeroAccumulator(void) {
 void configCmdChar(const uint8_t c) {
   if (('\r' == c) || ('\n' == c)) {
     if (!cmdPending) {
-      serialPuts("\r\n");
+      configEchoQueueStr("\r\n");
       cmdPending = true;
       emon32EventSet(EVT_PROCESS_CMD);
     }
   } else if ('\b' == c) {
-    serialPuts("\b \b");
+    configEchoQueueStr("\b \b");
     if (0 != inBufferIdx) {
       inBufferIdx--;
       inBuffer[inBufferIdx] = 0;
     }
   } else if ((inBufferIdx < (IN_BUFFER_W - 1)) && utilCharPrintable(c)) {
+    configEchoQueueChar(c);
     inBuffer[inBufferIdx++] = c;
   } else {
     inBufferClear(IN_BUFFER_W);
-    serialPuts("\r\n");
+    configEchoQueueStr("\r\n");
   }
+  emon32EventSet(EVT_ECHO);
 }
 
 void configFirmwareBoardInfo(void) {
@@ -1480,6 +1485,17 @@ static size_t  idxEchoWr               = 0;
 static size_t  idxEchoRd               = 0;
 static uint8_t echoBuf[ECHO_BUF_DEPTH] = {0};
 
+static void configEchoQueueChar(const uint8_t c) {
+  echoBuf[(idxEchoWr & ECHO_IDX_MASK)] = c;
+  idxEchoWr                            = (idxEchoWr + 1u) & ECHO_FMASK;
+}
+
+static void configEchoQueueStr(const char *s) {
+  while (*s) {
+    configEchoQueueChar(*s++);
+  }
+}
+
 uint8_t configEchoChar(void) {
   uint8_t c = 0;
   if (idxEchoRd != idxEchoWr) {
@@ -1498,12 +1514,6 @@ void SERCOM_UART_INTERACTIVE_HANDLER {
 
     if (!configHandleConfirmation(rx_char)) {
       configCmdChar(rx_char);
-
-      if (utilCharPrintable(rx_char) && !cmdPending) {
-        echoBuf[(idxEchoWr & ECHO_IDX_MASK)] = rx_char;
-        idxEchoWr                            = (idxEchoWr + 1u) & ECHO_FMASK;
-        emon32EventSet(EVT_ECHO);
-      }
     }
   }
 
