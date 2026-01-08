@@ -21,7 +21,7 @@ typedef enum eepromWrStatus_ {
 /*! @brief Discover the size of the EEPROM
  *  @return size (in bytes) of the EEPROM. This should be a power-of-2.
  */
-unsigned int eepromDiscoverSize(void);
+uint32_t eepromDiscoverSize(void);
 
 /*! @brief Dump all the EEPROM data out on to the debug UART */
 void eepromDump(void);
@@ -31,14 +31,13 @@ void eepromDump(void);
  *  @param [in] val : value to write
  *  @param [in] n : number of bytes to write
  */
-void eepromInitBlock(unsigned int startAddr, const unsigned int val,
-                     unsigned int n);
+void eepromInitBlock(uint32_t startAddr, const uint32_t val, uint32_t n);
 
 /*! @brief Store values at address 0
  *  @param [in] pCfg : pointer to the data source
  *  @param [in] n : number of bytes to write
  */
-void eepromInitConfig(const void *pSrc, const unsigned int n);
+void eepromInitConfig(const void *pSrc, const uint32_t n);
 
 /*! @brief Read data from EEPROM
  *  @param [in] addr : base address of EEPROM read
@@ -46,17 +45,17 @@ void eepromInitConfig(const void *pSrc, const unsigned int n);
  *  @param [in] n : number of bytes to read
  *  @return true for success, false otherwise
  */
-bool eepromRead(unsigned int addr, void *pDst, unsigned int n);
+bool eepromRead(uint32_t addr, void *pDst, uint32_t n);
 
 /*! @brief Read data from EEPROM with wear leveling
  *  @param [out] pPktRd : pointer to read packet
  *  @param [out] pIdx : pointer to the value of index that has read
  *  @return status of the read
  */
-eepromWLStatus_t eepromReadWL(void *pPktRd, int *pIdx);
+eepromWLStatus_t eepromReadWL(void *pPktRd, int32_t *pIdx);
 
 /*! @brief Do any required setup of the EEPROM */
-void eepromSetup(const unsigned int wlOffset);
+void eepromSetup(const uint32_t wlOffset);
 
 /*! @brief Wipe all data from the wear limiting block and reset headers */
 void eepromWLClear(void);
@@ -64,7 +63,7 @@ void eepromWLClear(void);
 /*! @brief Reset the wear limited next write index
  *  @param [in] len : length (in bytes) of data in WL area
  */
-void eepromWLReset(int len);
+void eepromWLReset(int32_t len);
 
 /*! @brief Save data asynchronously to EEPROM
  *  @details All writes are contiguous from the base. The implementation should
@@ -77,8 +76,7 @@ void eepromWLReset(int len);
  *          EEPROM_WR_BUSY -> tried to send data while previous pending
  *          EEPROM_WR_COMPLETE -> tried to continue, but all data sent
  */
-eepromWrStatus_t eepromWrite(unsigned int addr, const void *pSrc,
-                             unsigned int n);
+eepromWrStatus_t eepromWrite(uint32_t addr, const void *pSrc, uint32_t n);
 
 /*! @brief Continue a multi page write to EEPROM
  *  @return status of the write
@@ -90,7 +88,7 @@ eepromWrStatus_t eepromWriteContinue(void);
  *  @param [out] pIdx : pointer to the value of the index written to
  *  @return status of the EEPROM write process
  */
-eepromWrStatus_t eepromWriteWL(const void *pPktWr, int *pIdx);
+eepromWrStatus_t eepromWriteWL(const void *pPktWr, int32_t *pIdx);
 
 /*! @brief Start an asynchronous wear-leveled write operation (non-blocking).
  *  @details Uses hardware timer callback queue for precise timing
@@ -101,7 +99,7 @@ eepromWrStatus_t eepromWriteWL(const void *pPktWr, int *pIdx);
  *  @warning The data pointed to by pPktWr must remain valid until the write
  * completes! Use eepromWriteWLBusy() to check completion.
  */
-eepromWrStatus_t eepromWriteWLAsync(const void *pPktWr, int *pIdx);
+eepromWrStatus_t eepromWriteWLAsync(const void *pPktWr, int32_t *pIdx);
 
 /*! @brief Check if an asynchronous wear-leveled write is in progress.
  *  @return true if write is in progress, false otherwise

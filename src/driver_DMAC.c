@@ -25,40 +25,38 @@ void dmacSetup(void) {
   NVIC_EnableIRQ(DMAC_IRQn);
 }
 
-volatile DmacDescriptor *dmacGetDescriptor(unsigned int ch) {
-  return &dmacs[ch];
-}
+volatile DmacDescriptor *dmacGetDescriptor(uint32_t ch) { return &dmacs[ch]; }
 
 void dmacCallbackBufferFill(void (*cb)(void)) { cbBufferFill = cb; }
 
 void dmacCallbackUartCmpl(void (*cb)(void)) { cbUartCmpl = cb; }
 
-void dmacChannelDisable(unsigned int ch) {
+void dmacChannelDisable(uint32_t ch) {
   DMAC->CHID.reg = ch;
   DMAC->CHCTRLA.reg &= ~DMAC_CHCTRLA_ENABLE;
 }
 
-void dmacChannelEnable(unsigned int ch) {
+void dmacChannelEnable(uint32_t ch) {
   DMAC->CHID.reg = ch;
   DMAC->CHCTRLA.reg |= DMAC_CHCTRLA_ENABLE;
 }
 
-void dmacEnableChannelInterrupt(unsigned int ch) {
+void dmacEnableChannelInterrupt(uint32_t ch) {
   DMAC->CHID.reg       = ch;
   DMAC->CHINTENSET.reg = DMAC_CHINTENSET_TCMPL;
 }
 
-void dmacDisableChannelInterrupt(unsigned int ch) {
+void dmacDisableChannelInterrupt(uint32_t ch) {
   DMAC->CHID.reg       = ch;
   DMAC->CHINTENCLR.reg = DMAC_CHINTENCLR_TCMPL;
 }
 
-void dmacClearChannelInterrupt(unsigned int ch) {
+void dmacClearChannelInterrupt(uint32_t ch) {
   DMAC->CHID.reg      = ch;
   DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_TCMPL;
 }
 
-void dmacChannelConfigure(unsigned int ch, const DMACCfgCh_t *pCfg) {
+void dmacChannelConfigure(uint32_t ch, const DMACCfgCh_t *pCfg) {
   DMAC->CHID.reg    = ch;
   DMAC->CHCTRLB.reg = pCfg->ctrlb;
 }
@@ -81,7 +79,7 @@ void irq_handler_dmac(void) {
   }
 }
 
-uint16_t calcCRC16_ccitt(const void *pSrc, unsigned int n) {
+uint16_t calcCRC16_ccitt(const void *pSrc, uint32_t n) {
   const uint8_t *pData = (uint8_t *)pSrc;
 
   /* CCITT is 0xFFFF initial value */

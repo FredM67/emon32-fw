@@ -39,15 +39,15 @@ _Static_assert((WL_PKT_SIZE % 16 == 0),
                "EEPROM wear level packet is not 16 byte page aligned");
 
 typedef struct Address_ {
-  unsigned int msb;
-  unsigned int lsb;
+  uint32_t msb;
+  uint32_t lsb;
 } Address_t;
 
 /* Local data for interrupt driven EEPROM write */
 typedef struct wrLocal_ {
-  unsigned int addr;
-  unsigned int n_residual;
-  uint8_t     *pData;
+  uint32_t addr;
+  uint32_t n_residual;
+  uint8_t *pData;
 } wrLocal_t;
 
 /* Asynchronous wear-leveled write state machine */
@@ -63,33 +63,33 @@ typedef enum wlAsyncState_ {
 
 typedef struct wlAsyncCtx_ {
   wlAsyncState_t   state;
-  unsigned int     addrWr;
+  uint32_t         addrWr;
   WLHeader_t       header;
   const uint8_t   *pData;
-  unsigned int     dataLen;
-  int              idx;
+  uint32_t         dataLen;
+  int32_t          idx;
   eepromWrStatus_t lastStatus;
-  int              busyRetries; /* Counter for BUSY retries */
+  int32_t          busyRetries; /* Counter for BUSY retries */
 } wlAsyncCtx_t;
 
 #define MAX_BUSY_RETRIES 10
 
 /* FUNCTIONS */
-static Address_t        calcAddress(const unsigned int addrFull);
-static int              nextValidByte(const uint8_t currentValid);
+static Address_t        calcAddress(const uint32_t addrFull);
+static int32_t          nextValidByte(const uint8_t currentValid);
 static eepromWLStatus_t wlFindLast(void);
-static I2CM_Status_t    writeBytes(wrLocal_t *wr, unsigned int n);
+static I2CM_Status_t    writeBytes(wrLocal_t *wr, uint32_t n);
 
 /* Local values */
-static int eepromSizeBytes = EEPROM_SIZE;
+static int32_t eepromSizeBytes = EEPROM_SIZE;
 
 /* Precalculate wear limiting addresses. */
-static const int wlBlkCnt  = (EEPROM_SIZE - EEPROM_WL_OFFSET) / WL_PKT_SIZE;
-static const int wlBlkSize = WL_PKT_SIZE;
+static const int32_t wlBlkCnt  = (EEPROM_SIZE - EEPROM_WL_OFFSET) / WL_PKT_SIZE;
+static const int32_t wlBlkSize = WL_PKT_SIZE;
 
-static int     wlCurrentValid = 0; /* Current valid byte for wear levelling */
-static int     wlIdxNxtWr     = 0; /* Index of the next wear levelled write */
-static int     wlData_n       = 0; /* Length of data  stored in the WL area */
+static int32_t wlCurrentValid = 0; /* Current valid byte for wear levelling */
+static int32_t wlIdxNxtWr     = 0; /* Index of the next wear levelled write */
+static int32_t wlData_n       = 0; /* Length of data  stored in the WL area */
 static uint8_t wlData[WL_PKT_SIZE];
 
 /* Async write context. Accessed from main loop only (callbacks run in main, not
@@ -102,7 +102,7 @@ static volatile wlAsyncCtx_t wlAsyncCtx = {.state = WL_ASYNC_IDLE};
  *  @param [in] addrFull : full address of the EEPROM
  *  @return Address_t struct with MSB and LSB
  */
-static Address_t calcAddress(const unsigned int addrFull) {
+static Address_t calcAddress(const uint32_t addrFull) {
   Address_t address;
 
   address.msb = EEPROM_BASE_ADDR | (addrFull >> 8);
@@ -118,7 +118,7 @@ static Address_t calcAddress(const unsigned int addrFull) {
  *  @param [in] currentValid : value of the current "valid" byte
  *  @return The next "valid" byte
  */
-static int nextValidByte(const uint8_t currentValid) {
+static int32_t nextValidByte(const uint8_t currentValid) {
   uint8_t validByte = currentValid;
 
   /* The valid byte is calculated to have even bit 0/1 writes. */
@@ -158,8 +158,8 @@ static eepromWLStatus_t wlFindLast(void) {
   wlIdxNxtWr = 0;
   eepromRead(EEPROM_WL_OFFSET, &wlHeader, 4u);
 
-  for (unsigned int idxBlk = 1u; idxBlk < wlBlkCnt; idxBlk++) {
-    int        addr = EEPROM_WL_OFFSET + (idxBlk * wlBlkSize);
+  for (uint32_t idxBlk = 1u; idxBlk < wlBlkCnt; idxBlk++) {
+    int32_t    addr = EEPROM_WL_OFFSET + (idxBlk * wlBlkSize);
     WLHeader_t headerNxt;
 
     eepromRead(addr, &headerNxt, 4u);
@@ -181,9 +181,9 @@ static eepromWLStatus_t wlFindLast(void) {
     /* Use valid byte from last written block. If lastWrittenIdx is 0, we
      * already have block 0's header in wlHeader from the initial read.
      */
-    int lastWrittenIdx = wlIdxNxtWr - 1;
+    int32_t lastWrittenIdx = wlIdxNxtWr - 1;
     if (lastWrittenIdx != 0) {
-      int lastWrittenAddr = EEPROM_WL_OFFSET + (lastWrittenIdx * wlBlkSize);
+      int32_t lastWrittenAddr = EEPROM_WL_OFFSET + (lastWrittenIdx * wlBlkSize);
       eepromRead(lastWrittenAddr, &wlHeader, 4u);
     }
     wlCurrentValid = wlHeader.valid;
@@ -197,7 +197,7 @@ static eepromWLStatus_t wlFindLast(void) {
  *  @param [in] n : number of bytes to send in this chunk
  *  @return Status from the write
  */
-static I2CM_Status_t writeBytes(wrLocal_t *wr, unsigned int n) {
+static I2CM_Status_t writeBytes(wrLocal_t *wr, uint32_t n) {
   I2CM_Status_t i2cm_s;
   Address_t     address = calcAddress(wr->addr);
 
@@ -220,16 +220,16 @@ static I2CM_Status_t writeBytes(wrLocal_t *wr, unsigned int n) {
   return i2cm_s;
 }
 
-unsigned int eepromDiscoverSize(void) {
+uint32_t eepromDiscoverSize(void) {
   /* Read the first 16 bytes as the key value, then search on each power-of-2
    * boundary for a match. Store the found value so it only has to be done
    * once. Start at index 256, minimum possible size.
    */
 
-  uint8_t      keys[16];
-  uint8_t      trial[16];
-  uint32_t     index      = 0x80; /* Shifted at least once */
-  unsigned int matchbytes = 0;
+  uint8_t  keys[16];
+  uint8_t  trial[16];
+  uint32_t index      = 0x80; /* Shifted at least once */
+  uint32_t matchbytes = 0;
 
   if (0 != eepromSizeBytes) {
     return eepromSizeBytes;
@@ -241,7 +241,7 @@ unsigned int eepromDiscoverSize(void) {
     matchbytes = 0;
     index <<= 1;
     eepromRead(index, trial, 16);
-    for (int i = 0; i < 16; i++) {
+    for (int32_t i = 0; i < 16; i++) {
       if (keys[i] == trial[i]) {
         matchbytes |= (1 << i);
       }
@@ -259,19 +259,18 @@ void eepromDump(void) {
   uint8_t eeprom[16];
 
   /* Pages */
-  for (int i = 0; i < (eepromSizeBytes / 16); i++) {
+  for (int32_t i = 0; i < (eepromSizeBytes / 16); i++) {
     /* Bytes in page */
     eepromRead((i * 16), eeprom, 16);
     printf_("%04x: ", (i * 16));
-    for (int j = 0; j < 16; j++) {
+    for (int32_t j = 0; j < 16; j++) {
       printf_("%02x ", eeprom[j]);
     }
     printf_("\r\n");
   }
 }
 
-void eepromInitBlock(unsigned int startAddr, const unsigned int val,
-                     unsigned int n) {
+void eepromInitBlock(uint32_t startAddr, const uint32_t val, uint32_t n) {
   /* Page aligned start, divisible by number of page bytes, <= EEPROM size */
   EMON32_ASSERT((startAddr % EEPROM_PAGE_SIZE) == 0);
   EMON32_ASSERT((n % EEPROM_PAGE_SIZE) == 0);
@@ -284,7 +283,7 @@ void eepromInitBlock(unsigned int startAddr, const unsigned int val,
     (void)i2cActivate(SERCOM_I2CM, address.msb);
 
     i2cDataWrite(SERCOM_I2CM, address.lsb);
-    for (unsigned int i = 0; i < EEPROM_PAGE_SIZE; i++) {
+    for (uint32_t i = 0; i < EEPROM_PAGE_SIZE; i++) {
       i2cDataWrite(SERCOM_I2CM, (uint8_t)val);
     }
     i2cAck(SERCOM_I2CM, I2CM_ACK, I2CM_ACK_CMD_STOP);
@@ -295,7 +294,7 @@ void eepromInitBlock(unsigned int startAddr, const unsigned int val,
   }
 }
 
-void eepromInitConfig(const void *pSrc, const unsigned int n) {
+void eepromInitConfig(const void *pSrc, const uint32_t n) {
   /* Write the first line and wait, then loop through until all n bytes have
    * been written.
    */
@@ -318,7 +317,7 @@ void eepromInitConfig(const void *pSrc, const unsigned int n) {
   timerDelay_us(EEPROM_WR_TIME);
 }
 
-bool eepromRead(unsigned int addr, void *pDst, unsigned int n) {
+bool eepromRead(uint32_t addr, void *pDst, uint32_t n) {
   I2CM_Status_t i2cm_s;
   uint8_t      *pData   = pDst;
   Address_t     address = calcAddress(addr);
@@ -355,12 +354,12 @@ bool eepromRead(unsigned int addr, void *pDst, unsigned int n) {
   return true;
 }
 
-eepromWLStatus_t eepromReadWL(void *pPktRd, int *pIdx) {
+eepromWLStatus_t eepromReadWL(void *pPktRd, int32_t *pIdx) {
   /* Check for correct indexing, find it not yet set. Read into struct from
    * correct location.
    */
-  int              idxRd;
-  unsigned int     addrRd;
+  int32_t          idxRd;
+  uint32_t         addrRd;
   uint16_t         crcData;
   WLHeader_t       header;
   eepromWLStatus_t status = EEPROM_WL_OK;
@@ -419,25 +418,24 @@ void eepromWLClear(void) {
   wlHeader.res0        = 0;
   wlHeader.crc16_ccitt = calcCRC16_ccitt(wlData, wlData_n);
 
-  for (int i = 0; i < wlBlkCnt; i++) {
-    int addr = EEPROM_WL_OFFSET + (i * wlBlkSize);
+  for (int32_t i = 0; i < wlBlkCnt; i++) {
+    int32_t addr = EEPROM_WL_OFFSET + (i * wlBlkSize);
     eepromWrite(addr, &wlHeader, sizeof(wlHeader));
   }
 }
 
-void eepromWLReset(int len) {
-  EMON32_ASSERT(len && (len <= (wlBlkSize - (int)sizeof(WLHeader_t))));
+void eepromWLReset(int32_t len) {
+  EMON32_ASSERT(len && (len <= (wlBlkSize - (int32_t)sizeof(WLHeader_t))));
 
   wlIdxNxtWr = -1;
   wlData_n   = len;
 }
 
-eepromWrStatus_t eepromWrite(unsigned int addr, const void *pSrc,
-                             unsigned int n) {
+eepromWrStatus_t eepromWrite(uint32_t addr, const void *pSrc, uint32_t n) {
 
   /* Make byte count and address static to allow re-entrant writes */
-  static wrLocal_t    wrLocal;
-  static unsigned int tLastWrite_us;
+  static wrLocal_t wrLocal;
+  static uint32_t  tLastWrite_us;
 
   /* Special reset call: addr=UINT_MAX clears residual state */
   if (addr == UINT_MAX) {
@@ -479,7 +477,7 @@ eepromWrStatus_t eepromWrite(unsigned int addr, const void *pSrc,
   /* Update timestamp when starting actual I2C transaction */
   tLastWrite_us = timerMicros();
 
-  unsigned int nBytes = 0;
+  uint32_t nBytes = 0;
   if (wrLocal.addr % EEPROM_PAGE_SIZE) {
     /* Any EEPROM page unaligned bytes */
     unsigned byteToBoundary =
@@ -655,9 +653,9 @@ static void eepromWLAsyncCallback(void) {
     status = eepromWrite(0, 0, 0);
     if (status == EEPROM_WR_COMPLETE) {
       /* Data write complete, update wear leveling index */
-      int idxWr = wlAsyncCtx.idx + 1u;
+      int32_t idxWr = wlAsyncCtx.idx + 1u;
       if (idxWr == wlBlkCnt) {
-        unsigned int validByte;
+        uint32_t validByte;
         if (!eepromRead(wlAsyncCtx.addrWr, &validByte, 1u)) {
           /* Read failed - cannot update valid byte, treat as error */
           wlAsyncCtx.state = WL_ASYNC_IDLE;
@@ -698,7 +696,7 @@ bool eepromWriteWLBusy(void) { return (wlAsyncCtx.state != WL_ASYNC_IDLE); }
  *  @return EEPROM_WR_BUSY if another write is in progress, EEPROM_WR_PEND
  * otherwise
  */
-eepromWrStatus_t eepromWriteWLAsync(const void *pPktWr, int *pIdx) {
+eepromWrStatus_t eepromWriteWLAsync(const void *pPktWr, int32_t *pIdx) {
   EMON32_ASSERT(pPktWr);
 
   /* Atomic check-and-set to prevent race condition */
@@ -745,12 +743,12 @@ eepromWrStatus_t eepromWriteWLAsync(const void *pPktWr, int *pIdx) {
   return EEPROM_WR_PEND;
 }
 
-eepromWrStatus_t eepromWriteWL(const void *pPktWr, int *pIdx) {
+eepromWrStatus_t eepromWriteWL(const void *pPktWr, int32_t *pIdx) {
   /* Check for correct indexing, find if not yet set; this is indicated by
    * wlIdxNxtWr == -1. Write output to new levelled position.
    */
-  int              idxWr;
-  unsigned int     addrWr;
+  int32_t          idxWr;
+  uint32_t         addrWr;
   WLHeader_t       header;
   eepromWrStatus_t wrStatus;
 
@@ -807,7 +805,7 @@ eepromWrStatus_t eepromWriteWL(const void *pPktWr, int *pIdx) {
    */
   idxWr = wlIdxNxtWr + 1u;
   if (idxWr == wlBlkCnt) {
-    unsigned int validByte;
+    uint32_t validByte;
     eepromRead(addrWr, &validByte, 1u);
     wlCurrentValid = nextValidByte(validByte);
     idxWr          = 0;

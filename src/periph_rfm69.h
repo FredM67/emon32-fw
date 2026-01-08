@@ -43,7 +43,7 @@ void rfmInterrupt(void);
  *  @return status of the attempt to send
  */
 RFMSend_t rfmSendBuffer(const int_fast8_t n, const uint8_t retries,
-                        int *pRetryCount);
+                        int32_t *pRetryCount);
 
 /*! @brief Sets the RFM69's address
  *  @param [in] addr : address to set the RFM69

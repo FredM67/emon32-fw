@@ -262,8 +262,7 @@ static void uartConfigureDMA(void) {
   dmacCallbackUartCmpl(&uartInUseClear);
 }
 
-void uartPutsNonBlocking(unsigned int dma_chan, const char *const s,
-                         uint16_t len) {
+void uartPutsNonBlocking(uint32_t dma_chan, const char *const s, uint16_t len) {
   volatile DmacDescriptor *dmacDesc = dmacGetDescriptor(dma_chan);
   /* Valid bit is cleared when a channel is complete */
   dmacDesc->BTCTRL.reg |= DMAC_BTCTRL_VALID;
@@ -321,8 +320,8 @@ uint32_t uartInterruptStatus(const Sercom *sercom) {
  * =====================================
  */
 
-void i2cBusRecovery(Sercom *sercom, unsigned int grp, unsigned int sdaPin,
-                    unsigned int sclPin, unsigned int pmux) {
+void i2cBusRecovery(Sercom *sercom, uint32_t grp, uint32_t sdaPin,
+                    uint32_t sclPin, uint32_t pmux) {
   /* Disable I2C peripheral */
   sercom->I2CM.CTRLA.reg &= ~SERCOM_I2CM_CTRLA_ENABLE;
   while (sercom->I2CM.SYNCBUSY.reg & SERCOM_I2CM_SYNCBUSY_ENABLE)
@@ -340,7 +339,7 @@ void i2cBusRecovery(Sercom *sercom, unsigned int grp, unsigned int sdaPin,
   portPinDrv(grp, sdaPin, PIN_DRV_SET); /* Enable pull-up */
 
   /* Toggle SCL up to 9 times to release stuck slave */
-  for (int i = 0; i < 9; i++) {
+  for (int32_t i = 0; i < 9; i++) {
     if (portPinValue(grp, sdaPin)) {
       break; /* SDA released, we're done */
     }
@@ -368,7 +367,7 @@ void i2cBusRecovery(Sercom *sercom, unsigned int grp, unsigned int sdaPin,
 }
 
 I2CM_Status_t i2cActivate(Sercom *sercom, uint8_t addr) {
-  unsigned int  t = timerMicros();
+  uint32_t      t = timerMicros();
   I2CM_Status_t s = I2CM_SUCCESS;
 
   if (!(sercom->I2CM.CTRLA.reg & SERCOM_I2CM_CTRLA_ENABLE)) {
@@ -438,7 +437,7 @@ void spiSelect(const Pin_t nSS) {
   portPinDrv(nSS.grp, nSS.pin, PIN_DRV_CLR);
 }
 
-void spiSendBuffer(Sercom *sercom, const void *pSrc, int n) {
+void spiSendBuffer(Sercom *sercom, const void *pSrc, int32_t n) {
   if (!extIntfEnabled) {
     return;
   }
