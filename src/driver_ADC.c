@@ -13,7 +13,7 @@ static int16_t correctionOffset;
 static bool    correctionValid;
 
 static void    adcCalibrate(void);
-static int16_t adcCalibrateSmp(int pin);
+static int16_t adcCalibrateSmp(int32_t pin);
 static void    adcConfigureDMAC(void);
 static void    adcSync(void);
 
@@ -32,8 +32,8 @@ static void adcCalibrate(void) {
   int32_t offset_inter[2];
   int32_t offset;
 
-  float gain_fp;
-  int   gain;
+  float   gain_fp;
+  int32_t gain;
 
   /* Set up ADC for maximum sampling length and averaging. This results in a
    * 16 bit signed value in RESULT.
@@ -87,7 +87,7 @@ static void adcCalibrate(void) {
   correctionValid  = true;
 }
 
-static int16_t adcCalibrateSmp(int pin) {
+static int16_t adcCalibrateSmp(int32_t pin) {
   ADC->INPUTCTRL.reg = ADC_INPUTCTRL_MUXNEG_PIN0 | pin;
   ADC->INTFLAG.reg   = ADC_INTFLAG_RESRDY;
   ADC->SWTRIG.reg    = ADC_SWTRIG_START;
@@ -99,7 +99,7 @@ static int16_t adcCalibrateSmp(int pin) {
 static void adcConfigureDMAC(void) {
   DMACCfgCh_t              dmacConfig;
   volatile DmacDescriptor *dmacDesc[2];
-  unsigned int             dmaChan[2] = {DMA_CHAN_ADC0, DMA_CHAN_ADC1};
+  uint32_t                 dmaChan[2] = {DMA_CHAN_ADC0, DMA_CHAN_ADC1};
 
   volatile RawSampleSetPacked_t *adcBuffer[2];
 
@@ -111,7 +111,7 @@ static void adcConfigureDMAC(void) {
                      DMAC_CHCTRLB_TRIGSRC(ADC_DMAC_ID_RESRDY) |
                      DMAC_CHCTRLB_TRIGACT_BEAT;
 
-  for (unsigned int i = 0; i < 2; i++) {
+  for (uint32_t i = 0; i < 2; i++) {
     dmacDesc[i] = dmacGetDescriptor(dmaChan[i]);
 
     /* DSTADDR is the last address, rather than first! */
@@ -154,7 +154,7 @@ void adcDMACStop(void) { dmacChannelDisable(DMA_CHAN_ADC0); }
 void adcSetup(void) {
   extern uint8_t pinsADC[][2];
 
-  for (unsigned int i = 0; pinsADC[i][0] != 0xFF; i++) {
+  for (uint32_t i = 0; pinsADC[i][0] != 0xFF; i++) {
     portPinMux(pinsADC[i][0], pinsADC[i][1], PORT_PMUX_PMUXE_B_Val);
   }
 
