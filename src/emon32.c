@@ -652,7 +652,7 @@ int main(void) {
       if (evtPending(EVT_ECHO)) {
         uint8_t c = configEchoChar();
         while (c) {
-          uartPutcBlocking(SERCOM_UART, (char)c);
+          putchar_((char)c);
           c = configEchoChar();
         }
         emon32EventClr(EVT_ECHO);
