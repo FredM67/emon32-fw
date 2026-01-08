@@ -37,16 +37,16 @@ typedef enum UART_BAUD_ {
 typedef struct UART_Cfg_ {
   Sercom     *sercom;
   UART_BAUD_t baud;
-  int32_t     apbc_mask;
-  int32_t     gclk_id;
-  int32_t     gclk_gen;
-  int32_t     pad_tx;
-  int32_t     pad_rx;
-  int32_t     port_grp;
-  int32_t     pin_tx;
-  int32_t     pin_rx;
-  int32_t     pmux;
-  int32_t     dmaChannel;
+  uint32_t    apbc_mask;
+  uint8_t     gclk_id;
+  uint8_t     gclk_gen;
+  uint8_t     pad_tx;
+  uint8_t     pad_rx;
+  uint8_t     port_grp;
+  uint8_t     pin_tx;
+  uint8_t     pin_rx;
+  uint8_t     pmux;
+  uint8_t     dmaChannel;
   DMACCfgCh_t dmaCfg;
 } UART_Cfg_t;
 
@@ -66,8 +66,8 @@ void sercomSetup(void);
  *  @param [in] sclPin : SCL pin number
  *  @param [in] pmux : Pin mux value for I2C function
  */
-void i2cBusRecovery(Sercom *sercom, const uint32_t grp, const uint32_t sdaPin,
-                    const uint32_t sclPin, const uint32_t pmux);
+void i2cBusRecovery(Sercom *sercom, const uint8_t grp, const uint8_t sdaPin,
+                    const uint8_t sclPin, const uint8_t pmux);
 
 /*! @brief Set I2C address. If dma is 1, then a packet of len bytes is sent
  *         or received.
@@ -166,5 +166,5 @@ void uartPutsBlocking(Sercom *sercom, const char *s);
  *  @param [in] s : Pointer to the string
  *  @param [in] len : Length of the string (not including NULL)
  */
-void uartPutsNonBlocking(uint32_t dma_chan, const char *const s,
-                         const size_t len);
+void uartPutsNonBlocking(uint8_t dma_chan, const char *const s,
+                         const uint16_t len);

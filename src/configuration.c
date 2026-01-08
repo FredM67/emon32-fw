@@ -350,10 +350,9 @@ static void configureBackup(void) {
   serialPuts("{");
   /* {board_info} dict */
   serialPuts("\"board_info\":{");
-  printf_("\"revision\":%d,", (int32_t)getBoardRevision());
-  printf_("\"serial\":\"0x%02x%02x%02x%02x\",", (uint32_t)getUniqueID(0),
-          (uint32_t)getUniqueID(1), (uint32_t)getUniqueID(2),
-          (uint32_t)getUniqueID(3));
+  printf_("\"revision\":%ld,", getBoardRevision());
+  printf_("\"serial\":\"0x%02lx%02lx%02lx%02lx\",", getUniqueID(0),
+          getUniqueID(1), getUniqueID(2), getUniqueID(3));
   printf_("\"fw\":\"%d.%d.%d\"},", VERSION_FW_MAJ, VERSION_FW_MIN,
           VERSION_FW_REV);
 
@@ -425,7 +424,7 @@ static bool configureGroupID(void) {
   }
 
   config.baseCfg.dataGrp = convI.val;
-  printf_("rfGroup = %d\r\n", (int32_t)convI.val);
+  printf_("rfGroup = %ld\r\n", convI.val);
   return true;
 }
 
@@ -625,7 +624,7 @@ static bool configureRFPower(void) {
   }
 
   config.dataTxCfg.rfmPwr = convI.val;
-  printf_("rfPower = %d\r\n", (int32_t)convI.val);
+  printf_("rfPower = %ld\r\n", convI.val);
   return true;
 }
 
@@ -710,12 +709,12 @@ static void inBufferClear(size_t n) {
 }
 
 static void printSettingCT(const int32_t ch) {
-  printf_("iCal%d = ", (ch + 1));
+  printf_("iCal%ld = ", (ch + 1));
   putFloat(config.ctCfg[ch].ctCal, 0);
-  printf_(", iLead%d = ", (ch + 1));
+  printf_(", iLead%ld = ", (ch + 1));
   putFloat(config.ctCfg[ch].phase, 0);
-  printf_(", iActive%d = %s", (ch + 1), config.ctCfg[ch].ctActive ? "1" : "0");
-  printf_(", v1Chan%d = %d, v2Chan%d = %d\r\n", (ch + 1),
+  printf_(", iActive%ld = %s", (ch + 1), config.ctCfg[ch].ctActive ? "1" : "0");
+  printf_(", v1Chan%ld = %d, v2Chan%ld = %d\r\n", (ch + 1),
           (config.ctCfg[ch].vChan1 + 1), (ch + 1),
           (config.ctCfg[ch].vChan2 + 1));
 }
@@ -731,7 +730,7 @@ static void printSettingJSON(void) {
 }
 
 static void printSettingOPA(const int32_t ch) {
-  printf_("opa%d = ", (ch + 1));
+  printf_("opa%ld = ", (ch + 1));
 
   /* OneWire */
   if ('o' == config.opaCfg[ch].func) {
@@ -775,9 +774,9 @@ static void printSettingRFFreq(void) {
 }
 
 static void printSettingV(const int32_t ch) {
-  printf_("vCal%d = ", (ch + 1));
+  printf_("vCal%ld = ", (ch + 1));
   putFloat(config.voltageCfg[ch].voltageCal, 0);
-  printf_(", vActive%d = %s\r\n", (ch + 1),
+  printf_(", vActive%ld = %s\r\n", (ch + 1),
           config.voltageCfg[ch].vActive ? "1" : "0");
 }
 
@@ -800,11 +799,11 @@ static void printAccumulators(void) {
 
   for (uint32_t i = 0; i < NUM_CT; i++) {
     uint32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
-    printf_("  E%d = %" PRIu32 " Wh\r\n", (i + 1), wh);
+    printf_("  E%lu = %lu Wh\r\n", (i + 1), wh);
   }
   for (uint32_t i = 0; i < NUM_OPA; i++) {
     uint32_t pulse = eepromOK ? cumulative.pulseCnt[i] : 0;
-    printf_("  pulse%d = %" PRIu32 "\r\n", (i + 1), pulse);
+    printf_("  pulse%lu = %lu\r\n", (i + 1), pulse);
   }
   serialPuts("\r\n");
 }
@@ -846,7 +845,7 @@ static void printSettingsHR(void) {
 
   for (uint32_t i = 0; i < NUM_OPA; i++) {
     bool enabled = config.opaCfg[i].opaActive;
-    printf_("OPA %d (%sactive)\r\n", (i + 1), enabled ? "" : "in");
+    printf_("OPA %lu (%sactive)\r\n", (i + 1), enabled ? "" : "in");
     if ('o' == config.opaCfg[i].func) {
       serialPuts("  - OneWire interface\r\n");
     } else {
@@ -880,13 +879,13 @@ static void printSettingsHR(void) {
   serialPuts(
       "+=====+=========+========+=============+=========+======+======+\r\n");
   for (int32_t i = 0; i < NUM_V; i++) {
-    printf_("| %2d  |  V %2d   | %c      | ", (i + 1), (i + 1),
+    printf_("| %2ld  |  V %2ld   | %c      | ", (i + 1), (i + 1),
             (config.voltageCfg[i].vActive ? 'Y' : 'N'));
     putFloat(config.voltageCfg[i].voltageCal, 6);
     serialPuts("      |         |      |      |\r\n");
   }
   for (int32_t i = 0; i < NUM_CT; i++) {
-    printf_("| %2d  | CT %2d   | %c      | ", (i + 1 + NUM_V), (i + 1),
+    printf_("| %2ld  | CT %2ld   | %c      | ", (i + 1 + NUM_V), (i + 1),
             (config.ctCfg[i].ctActive ? 'Y' : 'N'));
     putFloat(config.ctCfg[i].ctCal, 6);
     serialPuts("      |  ");
@@ -899,7 +898,7 @@ static void printSettingsHR(void) {
 
 static void printSettingsKV(void) {
   serialPuts("hardware = emonPi3\r\n");
-  printf_("hardware_rev = %" PRIu32 "\r\n", getBoardRevision());
+  printf_("hardware_rev = %lu\r\n", getBoardRevision());
   printf_("version = %d.%d.%d\r\n", VERSION_FW_MAJ, VERSION_FW_MIN,
           VERSION_FW_REV);
   printf_("commit = %s\r\n", emon32_build_info().revision);
@@ -945,8 +944,7 @@ static void printUptime(void) {
   tMinutes = tMinutes % 60;
   tHours   = tHours % 24;
 
-  printf_("%" PRIu32 "d %" PRIu32 "h %" PRIu32 "m %" PRIu32 "s\r\n", tDays,
-          tHours, tMinutes, tSeconds);
+  printf_("%lud %luh %lum %lus\r\n", tDays, tHours, tMinutes, tSeconds);
 }
 
 /*! @brief Check if waiting for confirmation and handle if yes
@@ -1201,11 +1199,10 @@ void configFirmwareBoardInfo(void) {
   serialPuts("\033c==== emonPi3 | emonTx6 ====\r\n\r\n");
 
   serialPuts("> Board:\r\n");
-  printf_("  - emonPi3/emonTx6 (arch. rev. %" PRIu32 ")\r\n",
-          getBoardRevision());
-  printf_("  - Serial    : 0x%02x%02x%02x%02x\r\n", (uint32_t)getUniqueID(0),
-          (uint32_t)getUniqueID(1), (uint32_t)getUniqueID(2),
-          (uint32_t)getUniqueID(3));
+  printf_("  - emonPi3/emonTx6 (arch. rev. %lu)\r\n", getBoardRevision());
+  printf_("  - Serial    : 0x%02lx%02lx%02lx%02lx\r\n",
+          (uint32_t)getUniqueID(0), (uint32_t)getUniqueID(1),
+          (uint32_t)getUniqueID(2), (uint32_t)getUniqueID(3));
   printf_("  - Last reset: %s\r\n", getLastReset());
   serialPuts("  - Uptime    : ");
   printUptime();

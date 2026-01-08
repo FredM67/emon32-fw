@@ -32,5 +32,5 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
  *  @param [in] range : select the packing range when packet size > buffer
  *  @return number of bytes in the packet
  */
-int_fast8_t dataPackPacked(const Emon32Dataset_t *restrict pData,
-                           void *restrict pPacked, const PackedRange_t range);
+int8_t dataPackPacked(const Emon32Dataset_t *restrict pData,
+                      void *restrict pPacked, const PackedRange_t range);
