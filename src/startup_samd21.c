@@ -49,14 +49,14 @@ DUMMY void irq_handler_dac(void);
 DUMMY void irq_handler_ptc(void);
 DUMMY void irq_handler_i2s(void);
 
-extern int main(void);
+extern int32_t main(void);
 
-extern void         _stack_top(void);
-extern unsigned int _etext;
-extern unsigned int _data;
-extern unsigned int _edata;
-extern unsigned int _bss;
-extern unsigned int _ebss;
+extern void     _stack_top(void);
+extern uint32_t _etext;
+extern uint32_t _data;
+extern uint32_t _edata;
+extern uint32_t _bss;
+extern uint32_t _ebss;
 
 //-----------------------------------------------------------------------------
 __attribute__((used, section(".vectors"))) void (*const vectors[])(void) = {
@@ -112,7 +112,7 @@ __attribute__((used, section(".vectors"))) void (*const vectors[])(void) = {
 
 //-----------------------------------------------------------------------------
 void irq_handler_reset(void) {
-  unsigned int *src, *dst;
+  uint32_t *src, *dst;
 
   src = &_etext;
   dst = &_data;
@@ -152,7 +152,7 @@ void irq_handler_dummy(void) {
 }
 
 //-----------------------------------------------------------------------------
-void _exit(int status) {
+void _exit(int32_t status) {
   (void)status;
   while (1)
     ;

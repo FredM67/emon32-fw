@@ -43,8 +43,8 @@ typedef struct TransmitOpt_ {
 } TransmitOpt_t;
 
 typedef struct TxBlink_ {
-  bool         txIndicate; /* Tx in progress */
-  unsigned int timeBlink;  /* Time to blink LED for */
+  bool     txIndicate; /* Tx in progress */
+  uint32_t timeBlink;  /* Time to blink LED for */
 } TxBlink_t;
 
 /*************************************
@@ -66,7 +66,7 @@ static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
                                const Emon32Dataset_t *pData, bool blocking);
 static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
                               const Emon32Dataset_t *pData,
-                              const unsigned int     epDeltaStore);
+                              const uint32_t         epDeltaStore);
 static void datasetAddPulse(Emon32Dataset_t *pDst);
 static void ecmConfigure(void);
 static void ecmDmaCallback(void);
@@ -77,7 +77,7 @@ void        putchar_(char c);
 static void serialPutsNonBlocking(const char *const s, uint16_t len);
 static void rfmConfigure(void);
 static void ssd1306Setup(void);
-static void tempReadEvt(Emon32Dataset_t *pData, const unsigned int numT);
+static void tempReadEvt(Emon32Dataset_t *pData, const uint32_t numT);
 static uint32_t tempSetup(Emon32Dataset_t *pData);
 static void     totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc);
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
@@ -107,14 +107,14 @@ static void cumulativeNVMLoad(Emon32Cumulative_t *pPkt,
   eepromWLReset(sizeof(*pPkt));
   eepromOK = (EEPROM_WL_OK == eepromReadWL(pPkt, 0));
 
-  for (unsigned int idxCT = 0; idxCT < NUM_CT; idxCT++) {
+  for (uint32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
     uint32_t wh = eepromOK ? pPkt->wattHour[idxCT] : 0;
 
     ecmCfg->ctCfg[idxCT].wattHourInit = wh;
     totalWh += wh;
   }
 
-  for (unsigned int idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
+  for (uint32_t idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
     uint32_t pulse = eepromOK ? pPkt->pulseCnt[idxPulse] : 0;
 
     pData->pulseCnt[idxPulse] = pulse;
@@ -134,11 +134,11 @@ static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
   EMON32_ASSERT(pPkt);
   EMON32_ASSERT(pData);
 
-  for (unsigned int idxCT = 0; idxCT < NUM_CT; idxCT++) {
+  for (uint32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
     pPkt->wattHour[idxCT] = pData->pECM->CT[idxCT].wattHour;
   }
 
-  for (unsigned int idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
+  for (uint32_t idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
     pPkt->pulseCnt[idxPulse] = pData->pulseCnt[idxPulse];
   }
 
@@ -168,7 +168,7 @@ static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
  */
 static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
                               const Emon32Dataset_t *pData,
-                              const unsigned int     epDeltaStore) {
+                              const uint32_t         epDeltaStore) {
   EMON32_ASSERT(pPkt);
   EMON32_ASSERT(pData);
 
@@ -202,7 +202,7 @@ static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
  */
 static void datasetAddPulse(Emon32Dataset_t *pDst) {
   EMON32_ASSERT(pDst);
-  for (unsigned int i = 0; i < NUM_OPA; i++) {
+  for (uint32_t i = 0; i < NUM_OPA; i++) {
     pDst->pulseCnt[i] = pulseGetCount(i);
   }
 }
@@ -247,12 +247,12 @@ void ecmConfigure(void) {
     ecmCfg->correction.valid = false;
   }
 
-  for (unsigned int i = 0; i < NUM_V; i++) {
+  for (uint32_t i = 0; i < NUM_V; i++) {
     ecmCfg->vCfg[i].voltageCalRaw = pConfig->voltageCfg[i].voltageCal;
     ecmCfg->vCfg[i].vActive       = pConfig->voltageCfg[i].vActive;
   }
 
-  for (unsigned int i = 0; i < NUM_CT; i++) {
+  for (uint32_t i = 0; i < NUM_CT; i++) {
     ecmCfg->ctCfg[i].phCal    = pConfig->ctCfg[i].phase;
     ecmCfg->ctCfg[i].ctCalRaw = pConfig->ctCfg[i].ctCal;
     ecmCfg->ctCfg[i].active   = pConfig->ctCfg[i].ctActive;
@@ -260,7 +260,7 @@ void ecmConfigure(void) {
     ecmCfg->ctCfg[i].vChan2   = pConfig->ctCfg[i].vChan2;
   }
 
-  for (int i = 0; i < NUM_CT; i++) {
+  for (int32_t i = 0; i < NUM_CT; i++) {
     ecmCfg->mapCTLog[i] = ainRemap[i];
   }
 
@@ -349,7 +349,7 @@ static void pulseConfigure(void) {
 
   uint8_t pinsPulse[][2] = {{GRP_OPA, PIN_OPA1}, {GRP_OPA, PIN_OPA2}};
 
-  for (unsigned int i = 0; i < NUM_OPA; i++) {
+  for (uint32_t i = 0; i < NUM_OPA; i++) {
     PulseCfg_t *pulseCfg = pulseGetCfg(i);
 
     if ((0 != pulseCfg) && ('o' != pConfig->opaCfg[i].func) &&
@@ -409,7 +409,7 @@ static void ssd1306Setup(void) {
 
   if (SSD1306_SUCCESS == ssd1306Init(SERCOM_I2CM_EXT)) {
     VersionInfo_t vInfo  = configVersion();
-    int           offset = 0;
+    int32_t       offset = 0;
     for (size_t i = 0; i < strlen(vInfo.revision); i++) {
       if ('-' == vInfo.revision[i]) {
         offset = -20;
@@ -426,8 +426,8 @@ static void ssd1306Setup(void) {
   }
 }
 
-static void tempReadEvt(Emon32Dataset_t *pData, const unsigned int numT) {
-  static unsigned int tempRdCount;
+static void tempReadEvt(Emon32Dataset_t *pData, const uint32_t numT) {
+  static uint32_t tempRdCount;
 
   if (numT > 0) {
     TempRead_t tempValue = tempReadSample(TEMP_INTF_ONEWIRE, tempRdCount);
@@ -458,12 +458,12 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
   const uint8_t opaPins[NUM_OPA] = {PIN_OPA1, PIN_OPA2};
   const uint8_t opaPUs[NUM_OPA]  = {PIN_OPA1_PU, PIN_OPA2_PU};
 
-  unsigned int   numTempSensors = 0;
+  uint32_t       numTempSensors = 0;
   DS18B20_conf_t dsCfg          = {0};
   dsCfg.grp                     = GRP_OPA;
   dsCfg.t_wait_us               = 5;
 
-  for (int i = 0; i < NUM_OPA; i++) {
+  for (int32_t i = 0; i < NUM_OPA; i++) {
     if (('o' == pConfig->opaCfg[i].func) && pConfig->opaCfg[i].opaActive) {
       dsCfg.opaIdx = i;
       dsCfg.pin    = opaPins[i];
@@ -473,7 +473,7 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
   }
 
   /* Set all unused temperature slots to 300°C (4800 as Q4 fixed point) */
-  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (int32_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
     pData->temp[i] = 4800;
   }
 
@@ -491,10 +491,10 @@ static void totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc) {
   pAcc->E = 0;
   pAcc->P = 0;
 
-  for (unsigned int idxCT = 0; idxCT < NUM_CT; idxCT++) {
+  for (uint32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
     pAcc->E += pData->pECM->CT[idxCT].wattHour;
   }
-  for (unsigned int idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
+  for (uint32_t idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
     pAcc->P += pData->pulseCnt[idxPulse];
   }
 }
@@ -502,7 +502,7 @@ static void totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc) {
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
                          char *txBuffer) {
 
-  int nSerial = dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
+  int32_t nSerial = dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
 
   if (pOpt->useRFM) {
 
@@ -511,7 +511,7 @@ static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
     }
 
     if (sercomExtIntfEnabled()) {
-      int         retryCount = 0;
+      int32_t     retryCount = 0;
       RFMSend_t   rfmResult;
       int_fast8_t nPacked = dataPackPacked(pSrc, rfmGetBuffer(), PACKED_LOWER);
 
@@ -563,7 +563,7 @@ static void waitWithUSB(uint32_t t_ms) {
 int main(void) {
 
   Emon32Dataset_t    dataset               = {0};
-  unsigned int       numTempSensors        = 0;
+  uint32_t           numTempSensors        = 0;
   Emon32Cumulative_t nvmCumulative         = {0};
   char               txBuffer[TX_BUFFER_W] = {0};
 
@@ -648,8 +648,17 @@ int main(void) {
         emon32EventClr(EVT_TICK_1kHz);
       }
 
-      /* Configuration request to store accumulator values to NVM on demand.
-       */
+      /* Pending character(s) in echo queue */
+      if (evtPending(EVT_ECHO)) {
+        uint8_t c = configEchoChar();
+        while (c) {
+          putchar_((char)c);
+          c = configEchoChar();
+        }
+        emon32EventClr(EVT_ECHO);
+      }
+
+      /* Configuration request to store accumulator values to NVM on demand. */
       if (evtPending(EVT_STORE_ACCUM)) {
         cumulativeNVMStore(&nvmCumulative, &dataset, false);
         printf_("> Storing...\r\n");
@@ -670,7 +679,7 @@ int main(void) {
         eepromWLClear();
         eepromWLReset(sizeof(nvmCumulative));
         ecmClearEnergy();
-        for (int i = 0; i < NUM_OPA; i++) {
+        for (int32_t i = 0; i < NUM_OPA; i++) {
           pulseSetCount(i, 0);
         }
         emon32EventClr(EVT_CLEAR_ACCUM);
@@ -682,7 +691,7 @@ int main(void) {
        */
       if (evtPending(EVT_ECM_TRIG)) {
         if (numTempSensors > 0) {
-          for (int i = 0; i < NUM_OPA; i++) {
+          for (int32_t i = 0; i < NUM_OPA; i++) {
             if (('o' == pConfig->opaCfg[i].func) &&
                 pConfig->opaCfg[i].opaActive) {
               (void)tempStartSample(TEMP_INTF_ONEWIRE, i);
@@ -696,7 +705,7 @@ int main(void) {
       /* Trigger a temperature sample 1 s before the report is due. */
       if (evtPending(EVT_ECM_PEND_1S)) {
         if (numTempSensors > 0) {
-          for (int i = 0; i < NUM_OPA; i++) {
+          for (int32_t i = 0; i < NUM_OPA; i++) {
             if (('o' == pConfig->opaCfg[i].func) &&
                 pConfig->opaCfg[i].opaActive) {
               (void)tempStartSample(TEMP_INTF_ONEWIRE, i);

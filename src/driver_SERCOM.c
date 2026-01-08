@@ -17,9 +17,11 @@ static void spiExtPinsSetup(bool enable);
 
 static void uartConfigureDMA(void);
 static void uartInterruptEnable(Sercom *sercom, uint32_t interrupt);
+static void uartInUseClear(void);
 static void uartSetup(const UART_Cfg_t *pCfg);
 
 static volatile bool extIntfEnabled = true;
+static volatile bool uartInUse      = false;
 
 static void i2cmCommon(Sercom *pSercom) {
   /* For 400 kHz I2C (fast mode) with asymmetric timing:
@@ -230,7 +232,14 @@ static void sercomSetupSPI(void) {
  * UART Functions
  * =====================================
  */
+
+static void uartInUseClear(void) { uartInUse = false; }
+
 void uartPutcBlocking(Sercom *sercom, char c) {
+  /* Wait until any DMA transfers complete */
+  while (uartInUse)
+    ;
+
   while (!(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE))
     ;
   sercom->USART.DATA.reg    = c;
@@ -250,16 +259,22 @@ static void uartConfigureDMA(void) {
 
   dmacDesc->DSTADDR.reg  = (uint32_t)&SERCOM_UART->USART.DATA;
   dmacDesc->DESCADDR.reg = 0u;
+
+  dmacCallbackUartCmpl(&uartInUseClear);
 }
 
-void uartPutsNonBlocking(unsigned int dma_chan, const char *const s,
-                         uint16_t len) {
+void uartPutsNonBlocking(uint32_t dma_chan, const char *const s, uint16_t len) {
   volatile DmacDescriptor *dmacDesc = dmacGetDescriptor(dma_chan);
   /* Valid bit is cleared when a channel is complete */
   dmacDesc->BTCTRL.reg |= DMAC_BTCTRL_VALID;
   dmacDesc->BTCNT.reg   = len;
   dmacDesc->SRCADDR.reg = (uint32_t)s + len;
+
+  /* Ensure no interrupt between flag set and DMA start */
+  __disable_irq();
+  uartInUse = true;
   dmacChannelEnable(dma_chan);
+  __enable_irq();
 }
 
 void uartEnableRx(Sercom *sercom, const uint32_t irqn) {
@@ -306,8 +321,8 @@ uint32_t uartInterruptStatus(const Sercom *sercom) {
  * =====================================
  */
 
-void i2cBusRecovery(Sercom *sercom, unsigned int grp, unsigned int sdaPin,
-                    unsigned int sclPin, unsigned int pmux) {
+void i2cBusRecovery(Sercom *sercom, uint32_t grp, uint32_t sdaPin,
+                    uint32_t sclPin, uint32_t pmux) {
   /* Disable I2C peripheral */
   sercom->I2CM.CTRLA.reg &= ~SERCOM_I2CM_CTRLA_ENABLE;
   while (sercom->I2CM.SYNCBUSY.reg & SERCOM_I2CM_SYNCBUSY_ENABLE)
@@ -325,7 +340,7 @@ void i2cBusRecovery(Sercom *sercom, unsigned int grp, unsigned int sdaPin,
   portPinDrv(grp, sdaPin, PIN_DRV_SET); /* Enable pull-up */
 
   /* Toggle SCL up to 9 times to release stuck slave */
-  for (int i = 0; i < 9; i++) {
+  for (int32_t i = 0; i < 9; i++) {
     if (portPinValue(grp, sdaPin)) {
       break; /* SDA released, we're done */
     }
@@ -463,7 +478,7 @@ void spiSelect(const Pin_t nSS) {
   portPinDrv(nSS.grp, nSS.pin, PIN_DRV_CLR);
 }
 
-void spiSendBuffer(Sercom *sercom, const void *pSrc, int n) {
+void spiSendBuffer(Sercom *sercom, const void *pSrc, int32_t n) {
   if (!extIntfEnabled) {
     return;
   }

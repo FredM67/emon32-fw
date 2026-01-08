@@ -96,6 +96,11 @@ bool configHandleConfirmation(const uint8_t c);
  */
 void configCheckConfirmationTimeout(void);
 
+/*! @brief If available, get a character from the echo queue
+ *  @return 0 -> no characters, otherwise a character
+ */
+uint8_t configEchoChar(void);
+
 /*! @brief Print the board and firmware information to serial */
 void configFirmwareBoardInfo(void);
 
@@ -121,4 +126,4 @@ VersionInfo_t configVersion(void);
  *  @param[in] idx : index of the word to fetch
  *  @return word idx from the unique ID
  */
-uint32_t getUniqueID(int idx);
+uint32_t getUniqueID(int32_t idx);

@@ -89,10 +89,10 @@ uint32_t board_button_read(void);
 TU_ATTR_WEAK size_t board_get_unique_id(uint8_t id[], size_t max_len);
 
 // Get characters from UART. Return number of read bytes
-int board_uart_read(uint8_t *buf, int len);
+int32_t board_uart_read(uint8_t *buf, int32_t len);
 
 // Send characters to UART. Return number of sent bytes
-int board_uart_write(void const *buf, int len);
+int32_t board_uart_write(void const *buf, int32_t len);
 
 #if CFG_TUSB_OS == OPT_OS_NONE
 // Get current milliseconds, must be implemented when no RTOS is used
@@ -174,7 +174,7 @@ static inline void board_delay(uint32_t ms) {
 }
 
 // stdio getchar() is blocking, this is non-blocking version
-int board_getchar(void);
+int32_t board_getchar(void);
 
 #ifdef __cplusplus
 }

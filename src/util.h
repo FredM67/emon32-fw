@@ -40,7 +40,7 @@ bool utilCharPrintable(const char c);
  *  @param [in] val : value to convert
  *  @return the number of characters (including NULL).
  */
-unsigned int utilFtoa(char *pBuf, float val);
+uint32_t utilFtoa(char *pBuf, float val);
 
 /*! @brief Convert integer to null terminated string.
  *  @param [in] pBuf : pointer to string buffer, at least 11 characters
@@ -48,16 +48,16 @@ unsigned int utilFtoa(char *pBuf, float val);
  *  @param [in] base : select base 10 or base 16 conversion
  *  @return the number of characters (including NULL).
  */
-unsigned int utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base);
+uint32_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base);
 
 /*! @brief Returns the number of characters up to, but not including, NULL
  *  @param [in] pBuf : pointer to the NULL terminated string buffer
  *  @param number of characters, not including NULL
  */
-unsigned int utilStrlen(const char *pBuf);
+uint32_t utilStrlen(const char *pBuf);
 
 /*! @brief Reverse an array (typically string)
  *  @param [in] pBuf : pointer to the buffer
  *  @param [in] len : length of buffer to reverse
  */
-void utilStrReverse(char *pBuf, unsigned int len);
+void utilStrReverse(char *pBuf, uint32_t len);
