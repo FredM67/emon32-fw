@@ -40,7 +40,7 @@ static inline uint32_t fastDiv10(uint32_t n) {
   q          = q + (q >> 8);
   q          = q + (q >> 16);
   q          = q >> 3;
-  uint32_t r = n - ((q << 3) + (q << 1)); /* r = n - q*10 */
+  uint32_t r = n - q * 10;
   return q + ((r + 6) >> 4);
 }
 
@@ -69,8 +69,8 @@ uint32_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
 
     while (uval != 0) {
       uint32_t q = fastDiv10(uval);
-      *--p = (char)('0' + (uval - ((q << 3) + (q << 1)))); /* uval - q*10 */
-      uval = q;
+      *--p       = (char)('0' + (uval - q * 10));
+      uval       = q;
     }
 
     if (neg) {
@@ -114,8 +114,7 @@ ConvInt_t utilAtoi(const char *pBuf, ITOA_BASE_t base) {
       if (!isnumeric(*pBuf)) {
         return conv;
       }
-      /* result = result * 10 + digit, using shifts for *10 */
-      result = (result << 3) + (result << 1) + (uint32_t)(*pBuf - '0');
+      result = result * 10 + (uint32_t)(*pBuf - '0');
       pBuf++;
     }
   } else {
@@ -171,9 +170,9 @@ uint32_t utilFtoa(char *pBuf, float val) {
 
   /* Write decimals (always 2 digits) using fast division */
   uint32_t q = fastDiv10(decimals);
-  *--p = (char)('0' + (decimals - ((q << 3) + (q << 1)))); /* decimals % 10 */
-  *--p = (char)('0' + q);                                  /* tens digit */
-  *--p = '.';
+  *--p       = (char)('0' + (decimals - q * 10));
+  *--p       = (char)('0' + q);
+  *--p       = '.';
 
   /* Write integer part */
   if (units == 0) {
@@ -181,7 +180,7 @@ uint32_t utilFtoa(char *pBuf, float val) {
   } else {
     while (units != 0) {
       q     = fastDiv10(units);
-      *--p  = (char)('0' + (units - ((q << 3) + (q << 1)))); /* units % 10 */
+      *--p  = (char)('0' + (units - q * 10));
       units = q;
     }
   }
@@ -223,12 +222,10 @@ ConvFloat_t utilAtof(const char *pBuf) {
     } else if (isnumeric(c)) {
       uint32_t digit = (uint32_t)(c - '0');
       if (inFraction) {
-        /* fracPart = fracPart * 10 + digit */
-        fracPart = (fracPart << 3) + (fracPart << 1) + digit;
-        fracDiv  = (fracDiv << 3) + (fracDiv << 1);
+        fracPart = fracPart * 10 + digit;
+        fracDiv  = fracDiv * 10;
       } else {
-        /* intPart = intPart * 10 + digit */
-        intPart = (intPart << 3) + (intPart << 1) + digit;
+        intPart = intPart * 10 + digit;
       }
     } else {
       /* Invalid character found */
