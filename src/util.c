@@ -98,7 +98,7 @@ uint32_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
   return len + 1u;
 }
 
-ConvInt_t utilAtoi(char *pBuf, ITOA_BASE_t base) {
+ConvInt_t utilAtoi(const char *pBuf, ITOA_BASE_t base) {
   bool      isNegative = false;
   uint32_t  result     = 0;
   ConvInt_t conv       = {false, 0};
@@ -202,7 +202,7 @@ uint32_t utilFtoa(char *pBuf, float val) {
   return len + 1u;
 }
 
-ConvFloat_t utilAtof(char *pBuf) {
+ConvFloat_t utilAtof(const char *pBuf) {
   bool        isNegative = false;
   uint32_t    intPart    = 0;
   uint32_t    fracPart   = 0;
