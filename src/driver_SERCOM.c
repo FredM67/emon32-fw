@@ -44,7 +44,7 @@ static void i2cmCommon(Sercom *pSercom) {
   /* After enabling the I2C SERCOM, the bus state is UNKNOWN (Table 28-13)
    * Force into IDLE state, with sync
    */
-  pSercom->I2CM.STATUS.bit.BUSSTATE = 1;
+  pSercom->I2CM.STATUS.reg |= SERCOM_I2CM_STATUS_BUSSTATE(0x1u);
   while (pSercom->I2CM.SYNCBUSY.reg & SERCOM_I2CM_SYNCBUSY_SYSOP)
     ;
 
