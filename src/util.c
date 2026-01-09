@@ -14,6 +14,8 @@ static bool isnumeric(const char c) {
   return false;
 }
 
+uint32_t utilAbs(const int32_t x) { return (x < 0) ? -x : x; }
+
 void utilStrReverse(char *pBuf, uint32_t len) {
   char     tmp;
   uint32_t idxEnd = len - 1u;

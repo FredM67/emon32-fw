@@ -48,7 +48,7 @@ typedef struct Emon32Dataset_ {
 } Emon32Dataset_t;
 
 typedef struct __attribute__((__packed__)) Emon32Cumulative_ {
-  uint32_t wattHour[NUM_CT];
+  int32_t  wattHour[NUM_CT];
   uint32_t pulseCnt[NUM_OPA];
 } Emon32Cumulative_t;
 

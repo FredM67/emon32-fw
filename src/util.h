@@ -15,6 +15,12 @@ typedef struct ConvInt_ {
   int32_t val;   /* converted integer value */
 } ConvInt_t;
 
+/*! @brief Return the absolute value of an integer
+ *  @param [in] x : integer to convert
+ *  @return absolute value of x
+ */
+uint32_t utilAbs(const int32_t x);
+
 /*! @brief Convert null terminated string to float, returns the value.
  *  @param [in] pBuf : pointer to string buffer
  *  @return converted float and status

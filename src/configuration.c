@@ -802,8 +802,8 @@ static void printAccumulators(void) {
   printf_(" [%d]:\r\n", idx);
 
   for (uint32_t i = 0; i < NUM_CT; i++) {
-    uint32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
-    printf_("  E%d = %" PRIu32 " Wh\r\n", (i + 1), wh);
+    int32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
+    printf_("  E%ld = %ld Wh\r\n", (i + 1), wh);
   }
   for (uint32_t i = 0; i < NUM_OPA; i++) {
     uint32_t pulse = eepromOK ? cumulative.pulseCnt[i] : 0;

@@ -31,7 +31,7 @@
 #include "qfplib-m0-full.h"
 
 typedef struct EPAccum_ {
-  uint32_t E; /* Energy */
+  int32_t  E; /* Energy */
   uint32_t P; /* Pulse */
 } EPAccum_t;
 
@@ -172,24 +172,24 @@ static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
   EMON32_ASSERT(pPkt);
   EMON32_ASSERT(pData);
 
-  uint32_t  deltaPulse = 0;
-  uint32_t  deltaWh    = 0;
-  EPAccum_t ep         = {0};
-  bool      epOverflow = false;
-
-  /* Store cumulative values if over threshold */
+  EPAccum_t ep = {0};
   totalEnergy(pData, &ep);
 
-  /* Catch overflow of energy. This corresponds to ~4 MWh(!), so unlikely to
+  /* Catch overflow of energy. This corresponds to ~2 GWh(!), so unlikely to
    * but handle safely.
    */
-  epOverflow = (ep.E < lastStoredEP.E) || (ep.P < lastStoredEP.P);
+  const uint32_t absE     = utilAbs(ep.E);
+  const uint32_t absELast = utilAbs(lastStoredEP.E);
+
+  const bool epOverflow =
+      ((absE + absELast) > INT32_MAX) || (ep.P < lastStoredEP.P);
 
   /* Treat 1 pulse == 1 Wh; not true in general case but reasonable criterion
    * for storage threshold. */
-  deltaPulse = ep.P - lastStoredEP.P;
-  deltaWh    = ep.E - lastStoredEP.E;
+  const uint32_t deltaPulse = ep.P - lastStoredEP.P;
+  const uint32_t deltaWh    = absE - absELast;
 
+  /* Store cumulative values if over thresholds or overflow */
   if ((deltaWh >= epDeltaStore) || (deltaPulse >= epDeltaStore) || epOverflow) {
     cumulativeNVMStore(pPkt, pData, false);
     lastStoredEP.E = ep.E;
