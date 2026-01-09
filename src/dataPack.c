@@ -33,13 +33,11 @@ typedef struct StrN {
 static void    catId(StrN_t *strD, int32_t id, int32_t field, bool json);
 static void    catMsg(StrN_t *strD, int32_t msg, bool json);
 static void    initFields(StrN_t *pD, char *pS, const int32_t m);
-static int32_t strnFtoa(StrN_t *strD, const float v);
-static int32_t strnItoa(StrN_t *strD, const int32_t v);
 static int32_t strnCat(StrN_t *strD, const StrN_t *strS);
-static int32_t strnLen(StrN_t *str);
+static int32_t strnCatFloat(StrN_t *strD, float v);
+static int32_t strnCatInt(StrN_t *strD, int32_t v);
 
-static char   tmpStr[CONV_STR_W] = {0};
-static StrN_t strConv; /* Fat string for conversions */
+static char tmpStr[CONV_STR_W] = {0};
 
 /* Strings that are inserted in the transmitted message */
 const StrN_t baseStr[12] = {
@@ -62,8 +60,7 @@ static void catId(StrN_t *strD, int32_t id, int32_t field, bool json) {
     strD->n += strnCat(strD, &baseStr[STR_DQUOTE]);
   }
   strD->n += strnCat(strD, &baseStr[field]);
-  (void)strnItoa(&strConv, id);
-  strD->n += strnCat(strD, &strConv);
+  strD->n += strnCatInt(strD, id);
   if (json) {
     strD->n += strnCat(strD, &baseStr[STR_DQUOTE]);
   }
@@ -87,8 +84,7 @@ static void catMsg(StrN_t *strD, int32_t msg, bool json) {
     strD->n += strnCat(strD, &baseStr[STR_DQUOTE]);
   }
   strD->n += strnCat(strD, &baseStr[STR_COLON]);
-  (void)strnItoa(&strConv, msg);
-  strD->n += strnCat(strD, &strConv);
+  strD->n += strnCatInt(strD, msg);
 }
 
 /*! @brief Initialise a fat string
@@ -97,48 +93,38 @@ static void catMsg(StrN_t *strD, int32_t msg, bool json) {
  *  @param [in] m : maximum width of the string
  */
 static void initFields(StrN_t *pD, char *pS, const int32_t m) {
-  /* Setup destination string */
   pD->str = pS;
   pD->n   = 0;
   pD->m   = m;
   memset(pD->str, 0, m);
-
-  /* Setup conversion string */
-  strConv.str = tmpStr;
-  strConv.n   = 0;
-  strConv.m   = CONV_STR_W;
 }
 
-/*! @brief Add a float to a fat string
+/*! @brief Convert float and append to fat string
  *  @param [out] strD : pointer to destination fat string
- *  @param [in] v : value to convert
- *  @return length of the string
+ *  @param [in] v : value to convert and append
+ *  @return number of characters appended
  */
-static int32_t strnFtoa(StrN_t *strD, const float v) {
+static int32_t strnCatFloat(StrN_t *strD, float v) {
+  int32_t len    = utilFtoa(tmpStr, v) - 1; /* exclude null terminator */
+  int32_t space  = strD->m - strD->n;
+  int32_t toCopy = (len < space) ? len : space;
 
-  /* Zero the destination buffer then convert */
-  memset(strD->str, 0, strD->m);
-  utilFtoa(strD->str, v);
-  strD->n = strnLen(strD) - 1;
-
-  /* Truncate if it exceeds the length of the string */
-  if (-1 == strD->n) {
-    strD->n = strD->m;
-  }
-  return strD->n;
+  memcpy(strD->str + strD->n, tmpStr, toCopy);
+  return toCopy;
 }
 
-/*! @brief Add an integer to a fat string
+/*! @brief Convert integer and append to fat string
  *  @param [out] strD : pointer to destination fat string
- *  @param [in] v : value to convert
- *  @return length of the string
+ *  @param [in] v : value to convert and append
+ *  @return number of characters appended
  */
-static int32_t strnItoa(StrN_t *strD, const int32_t v) {
-  /* Zero the destination buffer then convert */
-  memset(strD->str, 0, strD->m);
+static int32_t strnCatInt(StrN_t *strD, int32_t v) {
+  int32_t len    = utilItoa(tmpStr, v, ITOA_BASE10) - 1; /* exclude null */
+  int32_t space  = strD->m - strD->n;
+  int32_t toCopy = (len < space) ? len : space;
 
-  strD->n = utilItoa(strD->str, v, ITOA_BASE10) - 1;
-  return strD->n;
+  memcpy(strD->str + strD->n, tmpStr, toCopy);
+  return toCopy;
 }
 
 /*! @brief Concatenate two fat strings
@@ -163,20 +149,6 @@ static int32_t strnCat(StrN_t *strD, const StrN_t *strS) {
   return bytesToCopy;
 }
 
-/*! @brief Get the length of a fat string, not including NULL
- *  @return length of string, not including NULL. -1 if exceeds buffer length
- */
-static int32_t strnLen(StrN_t *str) {
-  int32_t i = 0;
-  while (str->str[i++]) {
-    /* Terminate if exceeded the maximum length */
-    if (i >= str->m) {
-      return -1;
-    }
-  }
-  return i;
-}
-
 int32_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, int32_t m,
                        bool json) {
   EMON32_ASSERT(pData);
@@ -188,42 +160,38 @@ int32_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, int32_t m,
   catMsg(&strn, pData->msgNum, json);
 
   /* V channels; only print V2/V3 if either active */
-  int32_t numV = (pData->pECM->activeCh & 0x6) ? NUM_V : 1;
+  uint32_t numV = (pData->pECM->activeCh & 0x6) ? NUM_V : 1;
 
-  for (int32_t i = 0; i < numV; i++) {
+  for (uint32_t i = 0; i < numV; i++) {
     catId(&strn, (i + 1), STR_V, json);
-    (void)strnFtoa(&strConv, pData->pECM->rmsV[i]);
-    strn.n += strnCat(&strn, &strConv);
+    strn.n += strnCatFloat(&strn, pData->pECM->rmsV[i]);
   }
 
   /* CT channels (power and energy)
    * Only print onboard CTs 7-12 if any are present
    */
-  int32_t numCT = (pData->pECM->activeCh & (0x3f << (NUM_V + (NUM_CT / 2))))
-                      ? NUM_CT
-                      : (NUM_CT / 2);
+  uint32_t numCT = (pData->pECM->activeCh & (0x3f << (NUM_V + (NUM_CT / 2))))
+                       ? NUM_CT
+                       : (NUM_CT / 2);
 
-  for (int32_t i = 0; i < numCT; i++) {
+  for (uint32_t i = 0; i < numCT; i++) {
     catId(&strn, (i + 1), STR_P, json);
-    (void)strnItoa(&strConv, pData->pECM->CT[i].realPower);
-    strn.n += strnCat(&strn, &strConv);
+    strn.n += strnCatInt(&strn, pData->pECM->CT[i].realPower);
   }
-  for (int32_t i = 0; i < numCT; i++) {
+  for (uint32_t i = 0; i < numCT; i++) {
     catId(&strn, (i + 1), STR_E, json);
-    (void)strnItoa(&strConv, pData->pECM->CT[i].wattHour);
-    strn.n += strnCat(&strn, &strConv);
+    strn.n += strnCatInt(&strn, pData->pECM->CT[i].wattHour);
   }
 
-  for (int32_t i = 0; i < NUM_OPA; i++) {
+  for (uint32_t i = 0; i < NUM_OPA; i++) {
     catId(&strn, (i + 1), STR_PULSE, json);
-    (void)strnItoa(&strConv, pData->pulseCnt[i]);
-    strn.n += strnCat(&strn, &strConv);
+    strn.n += strnCatInt(&strn, pData->pulseCnt[i]);
   }
 
-  for (int32_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (uint32_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
     catId(&strn, (i + 1), STR_TEMP, json);
-    (void)strnFtoa(&strConv, tempAsFloat(TEMP_INTF_ONEWIRE, pData->temp[i]));
-    strn.n += strnCat(&strn, &strConv);
+    strn.n +=
+        strnCatFloat(&strn, tempAsFloat(TEMP_INTF_ONEWIRE, pData->temp[i]));
   }
 
   /* Terminate with } for JSON and \r\n */
@@ -245,24 +213,24 @@ int_fast8_t dataPackPacked(const Emon32Dataset_t *pData, void *pPacked,
   PackedDataCommon_t *pCommon = pPacked;
   pCommon->msg                = pData->msgNum;
 
-  for (int32_t v = 0; v < NUM_V; v++) {
+  for (uint32_t v = 0; v < NUM_V; v++) {
     pCommon->V[v] = qfp_float2int_z(qfp_fmul(pData->pECM->rmsV[v], 100.0f));
   }
 
-  for (int32_t i = 0; i < (NUM_CT / 2); i++) {
+  for (uint32_t i = 0; i < (NUM_CT / 2); i++) {
     pCommon->P[i] = pData->pECM->CT[i + ((NUM_CT / 2) * isUpper)].realPower;
     pCommon->E[i] = pData->pECM->CT[i + ((NUM_CT / 2) * isUpper)].wattHour;
   }
 
   if (PACKED_LOWER == range) {
     PackedDataLower6_t *pLower = pPacked;
-    for (int32_t p = 0; p < NUM_OPA; p++) {
+    for (uint32_t p = 0; p < NUM_OPA; p++) {
       pLower->pulse[p] = pData->pulseCnt[p];
     }
     return sizeof(*pLower);
   } else if (PACKED_UPPER == range) {
     PackedDataUpper6_t *pUpper = pPacked;
-    for (int32_t t = 0; t < (TEMP_MAX_ONEWIRE / 2); t++) {
+    for (uint32_t t = 0; t < (TEMP_MAX_ONEWIRE / 2); t++) {
       /* Sent as 100x the temperature value. */
       pUpper->temp[t] = (pData->temp[t] * 6) + (pData->temp[t] >> 2);
     }
