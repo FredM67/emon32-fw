@@ -23,6 +23,23 @@ static void uartSetup(const UART_Cfg_t *pCfg);
 static volatile bool extIntfEnabled = true;
 static volatile bool uartInUse      = false;
 
+static const UART_Cfg_t uart_dbg_cfg = {
+    .sercom       = SERCOM_UART,
+    .baud         = UART_BAUD,
+    .apbc_mask    = SERCOM_UART_APBCMASK,
+    .gclk_id      = SERCOM_UART_GCLK_ID,
+    .gclk_gen     = 3u,
+    .pad_tx       = UART_PAD_TX,
+    .pad_rx       = UART_PAD_RX,
+    .port_grp     = GRP_SERCOM_UART,
+    .pin_tx       = PIN_UART_TX,
+    .pin_rx       = PIN_UART_RX,
+    .pmux         = PMUX_UART,
+    .dmaChannel   = DMA_CHAN_UART,
+    .dmaCfg.ctrlb = DMAC_CHCTRLB_LVL(1u) |
+                    DMAC_CHCTRLB_TRIGSRC(SERCOM_UART_DMAC_ID_TX) |
+                    DMAC_CHCTRLB_TRIGACT_BEAT};
+
 static void i2cmCommon(Sercom *pSercom) {
   /* For 400 kHz I2C (fast mode) with asymmetric timing:
    * At 8 MHz (125 ns/tick):
@@ -88,24 +105,6 @@ void sercomSetup(void) {
    * Debug UART setup
    ******************/
 
-  UART_Cfg_t uart_dbg_cfg;
-  uart_dbg_cfg.sercom    = SERCOM_UART;
-  uart_dbg_cfg.baud      = UART_BAUD;
-  uart_dbg_cfg.apbc_mask = SERCOM_UART_APBCMASK;
-  uart_dbg_cfg.gclk_id   = SERCOM_UART_GCLK_ID;
-  uart_dbg_cfg.gclk_gen  = 3u;
-  uart_dbg_cfg.pad_tx    = UART_PAD_TX;
-  uart_dbg_cfg.pad_rx    = UART_PAD_RX;
-
-  uart_dbg_cfg.port_grp = GRP_SERCOM_UART;
-  uart_dbg_cfg.pin_tx   = PIN_UART_TX;
-  uart_dbg_cfg.pin_rx   = PIN_UART_RX;
-  uart_dbg_cfg.pmux     = PMUX_UART;
-
-  uart_dbg_cfg.dmaChannel   = DMA_CHAN_UART;
-  uart_dbg_cfg.dmaCfg.ctrlb = DMAC_CHCTRLB_LVL(1u) |
-                              DMAC_CHCTRLB_TRIGSRC(SERCOM_UART_DMAC_ID_TX) |
-                              DMAC_CHCTRLB_TRIGACT_BEAT;
   uartSetup(&uart_dbg_cfg);
 
   /* Setup DMAC for non-blocking UART (this is optional, unlike ADC) */
@@ -176,6 +175,11 @@ static void uartSetup(const UART_Cfg_t *pCfg) {
   GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(pCfg->gclk_id) |
                       GCLK_CLKCTRL_GEN(pCfg->gclk_gen) | GCLK_CLKCTRL_CLKEN;
 
+  /* Reset the USART fully to flush any state */
+  pCfg->sercom->USART.CTRLA.reg = SERCOM_USART_CTRLA_SWRST;
+  while (pCfg->sercom->USART.CTRLA.reg & SERCOM_USART_CTRLA_SWRST)
+    ;
+
   /* Configure the USART */
   pCfg->sercom->USART.CTRLA.reg = SERCOM_USART_CTRLA_DORD |
                                   SERCOM_USART_CTRLA_MODE_USART_INT_CLK |
@@ -236,12 +240,27 @@ static void sercomSetupSPI(void) {
 static void uartInUseClear(void) { uartInUse = false; }
 
 void uartPutcBlocking(Sercom *sercom, char c) {
-  /* Wait until any DMA transfers complete */
-  while (uartInUse)
-    ;
 
-  while (!(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE))
-    ;
+  /* Wait until any DMA transfers complete. At 115200 baud with 8N1, can
+   * transmit 12800 characters / s. Tx buffer is 512 characters worst case, so
+   * could take 40 ms to transfer. Set time out for 75 ms and then proceed after
+   * clearing UART in use flag. Small potential for interleaved lines, but
+   * removes possibility of deadlock. */
+
+  uint32_t t_start         = timerMillis();
+  bool     uartNotTimedOut = true;
+
+  while (!(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE) &&
+         uartNotTimedOut && uartInUse) {
+    uartNotTimedOut = (timerMillisDelta(t_start) < 75);
+  };
+
+  /* Assume at this point the UART is in error state, so reset and proceed. */
+  if (!uartNotTimedOut) {
+    uartInUse = false;
+    uartSetup(&uart_dbg_cfg);
+  }
+
   sercom->USART.DATA.reg    = c;
   sercom->USART.INTFLAG.reg = SERCOM_USART_INTFLAG_DRE;
 }
