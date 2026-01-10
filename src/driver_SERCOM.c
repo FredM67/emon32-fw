@@ -7,7 +7,8 @@
 #include "driver_TIME.h"
 #include "emon32.h"
 
-#define I2CM_ACTIVATE_TIMEOUT_US 200u /* Time to wait for I2C bus */
+#define I2CM_ACTIVATE_TIMEOUT_US 200u /* Time to wait for I2C address phase */
+#define I2CM_DATA_TIMEOUT_US     200u /* Time to wait for I2C data byte */
 
 static void i2cmCommon(Sercom *pSercom);
 static void i2cmExtPinsSetup(void);
@@ -21,6 +22,23 @@ static void uartSetup(const UART_Cfg_t *pCfg);
 
 static volatile bool extIntfEnabled = true;
 static volatile bool uartInUse      = false;
+
+static const UART_Cfg_t uart_dbg_cfg = {
+    .sercom       = SERCOM_UART,
+    .baud         = UART_BAUD,
+    .apbc_mask    = SERCOM_UART_APBCMASK,
+    .gclk_id      = SERCOM_UART_GCLK_ID,
+    .gclk_gen     = 3u,
+    .pad_tx       = UART_PAD_TX,
+    .pad_rx       = UART_PAD_RX,
+    .port_grp     = GRP_SERCOM_UART,
+    .pin_tx       = PIN_UART_TX,
+    .pin_rx       = PIN_UART_RX,
+    .pmux         = PMUX_UART,
+    .dmaChannel   = DMA_CHAN_UART,
+    .dmaCfg.ctrlb = DMAC_CHCTRLB_LVL(1u) |
+                    DMAC_CHCTRLB_TRIGSRC(SERCOM_UART_DMAC_ID_TX) |
+                    DMAC_CHCTRLB_TRIGACT_BEAT};
 
 static void i2cmCommon(Sercom *pSercom) {
   /* For 400 kHz I2C (fast mode) with asymmetric timing:
@@ -87,24 +105,6 @@ void sercomSetup(void) {
    * Debug UART setup
    ******************/
 
-  UART_Cfg_t uart_dbg_cfg;
-  uart_dbg_cfg.sercom    = SERCOM_UART;
-  uart_dbg_cfg.baud      = UART_BAUD;
-  uart_dbg_cfg.apbc_mask = SERCOM_UART_APBCMASK;
-  uart_dbg_cfg.gclk_id   = SERCOM_UART_GCLK_ID;
-  uart_dbg_cfg.gclk_gen  = 3u;
-  uart_dbg_cfg.pad_tx    = UART_PAD_TX;
-  uart_dbg_cfg.pad_rx    = UART_PAD_RX;
-
-  uart_dbg_cfg.port_grp = GRP_SERCOM_UART;
-  uart_dbg_cfg.pin_tx   = PIN_UART_TX;
-  uart_dbg_cfg.pin_rx   = PIN_UART_RX;
-  uart_dbg_cfg.pmux     = PMUX_UART;
-
-  uart_dbg_cfg.dmaChannel   = DMA_CHAN_UART;
-  uart_dbg_cfg.dmaCfg.ctrlb = DMAC_CHCTRLB_LVL(1u) |
-                              DMAC_CHCTRLB_TRIGSRC(SERCOM_UART_DMAC_ID_TX) |
-                              DMAC_CHCTRLB_TRIGACT_BEAT;
   uartSetup(&uart_dbg_cfg);
 
   /* Setup DMAC for non-blocking UART (this is optional, unlike ADC) */
@@ -175,6 +175,11 @@ static void uartSetup(const UART_Cfg_t *pCfg) {
   GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(pCfg->gclk_id) |
                       GCLK_CLKCTRL_GEN(pCfg->gclk_gen) | GCLK_CLKCTRL_CLKEN;
 
+  /* Reset the USART fully to flush any state */
+  pCfg->sercom->USART.CTRLA.reg = SERCOM_USART_CTRLA_SWRST;
+  while (pCfg->sercom->USART.CTRLA.reg & SERCOM_USART_CTRLA_SWRST)
+    ;
+
   /* Configure the USART */
   pCfg->sercom->USART.CTRLA.reg = SERCOM_USART_CTRLA_DORD |
                                   SERCOM_USART_CTRLA_MODE_USART_INT_CLK |
@@ -235,12 +240,28 @@ static void sercomSetupSPI(void) {
 static void uartInUseClear(void) { uartInUse = false; }
 
 void uartPutcBlocking(Sercom *sercom, char c) {
-  /* Wait until any DMA transfers complete */
-  while (uartInUse)
-    ;
 
-  while (!(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE))
-    ;
+  /* Wait until any DMA transfers complete. At 115200 baud with 8N1, can
+   * transmit 12800 characters / s. Tx buffer is 512 characters worst case, so
+   * could take 40 ms to transfer. Set time out for 75 ms and then proceed after
+   * clearing UART in use flag. Small potential for interleaved lines, but
+   * removes possibility of deadlock. */
+
+  uint32_t t_start         = timerMillis();
+  bool     uartNotTimedOut = true;
+
+  while (
+      (!(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE) || uartInUse) &&
+      uartNotTimedOut) {
+    uartNotTimedOut = (timerMillisDelta(t_start) < 75);
+  };
+
+  /* Assume at this point the UART is in error state, so reset and proceed. */
+  if (!uartNotTimedOut) {
+    uartInUse = false;
+    uartSetup(&uart_dbg_cfg);
+  }
+
   sercom->USART.DATA.reg    = c;
   sercom->USART.INTFLAG.reg = SERCOM_USART_INTFLAG_DRE;
 }
@@ -262,15 +283,18 @@ static void uartConfigureDMA(void) {
   dmacCallbackUartCmpl(&uartInUseClear);
 }
 
-void uartPutsNonBlocking(unsigned int dma_chan, const char *const s,
-                         uint16_t len) {
+void uartPutsNonBlocking(uint32_t dma_chan, const char *const s, uint16_t len) {
   volatile DmacDescriptor *dmacDesc = dmacGetDescriptor(dma_chan);
   /* Valid bit is cleared when a channel is complete */
   dmacDesc->BTCTRL.reg |= DMAC_BTCTRL_VALID;
   dmacDesc->BTCNT.reg   = len;
   dmacDesc->SRCADDR.reg = (uint32_t)s + len;
-  uartInUse             = true;
+
+  /* Ensure no interrupt between flag set and DMA start */
+  __disable_irq();
+  uartInUse = true;
   dmacChannelEnable(dma_chan);
+  __enable_irq();
 }
 
 void uartEnableRx(Sercom *sercom, const uint32_t irqn) {
@@ -317,8 +341,8 @@ uint32_t uartInterruptStatus(const Sercom *sercom) {
  * =====================================
  */
 
-void i2cBusRecovery(Sercom *sercom, unsigned int grp, unsigned int sdaPin,
-                    unsigned int sclPin, unsigned int pmux) {
+void i2cBusRecovery(Sercom *sercom, uint32_t grp, uint32_t sdaPin,
+                    uint32_t sclPin, uint32_t pmux) {
   /* Disable I2C peripheral */
   sercom->I2CM.CTRLA.reg &= ~SERCOM_I2CM_CTRLA_ENABLE;
   while (sercom->I2CM.SYNCBUSY.reg & SERCOM_I2CM_SYNCBUSY_ENABLE)
@@ -336,7 +360,7 @@ void i2cBusRecovery(Sercom *sercom, unsigned int grp, unsigned int sdaPin,
   portPinDrv(grp, sdaPin, PIN_DRV_SET); /* Enable pull-up */
 
   /* Toggle SCL up to 9 times to release stuck slave */
-  for (int i = 0; i < 9; i++) {
+  for (int32_t i = 0; i < 9; i++) {
     if (portPinValue(grp, sdaPin)) {
       break; /* SDA released, we're done */
     }
@@ -364,7 +388,7 @@ void i2cBusRecovery(Sercom *sercom, unsigned int grp, unsigned int sdaPin,
 }
 
 I2CM_Status_t i2cActivate(Sercom *sercom, uint8_t addr) {
-  unsigned int  t = timerMicros();
+  uint32_t      t = timerMicros();
   I2CM_Status_t s = I2CM_SUCCESS;
 
   if (!(sercom->I2CM.CTRLA.reg & SERCOM_I2CM_CTRLA_ENABLE)) {
@@ -379,6 +403,12 @@ I2CM_Status_t i2cActivate(Sercom *sercom, uint8_t addr) {
     if (timerMicrosDelta(t) > I2CM_ACTIVATE_TIMEOUT_US) {
       return I2CM_TIMEOUT;
     }
+  }
+
+  /* Check for bus errors (BUSERR, ARBLOST) */
+  if (sercom->I2CM.STATUS.reg &
+      (SERCOM_I2CM_STATUS_BUSERR | SERCOM_I2CM_STATUS_ARBLOST)) {
+    return I2CM_ERROR;
   }
 
   /* Check for NoAck response from client (28.6.2.4.2) */
@@ -396,17 +426,51 @@ void i2cAck(Sercom *sercom, I2CM_Ack_t ack, I2CM_AckCmd_t cmd) {
     ;
 }
 
-void i2cDataWrite(Sercom *sercom, uint8_t data) {
+I2CM_Status_t i2cDataWrite(Sercom *sercom, uint8_t data) {
+  uint32_t t = timerMicros();
+
   sercom->I2CM.DATA.reg = data;
-  while (!(sercom->I2CM.INTFLAG.reg & SERCOM_I2CM_INTFLAG_MB))
-    ;
+
+  /* Wait for MB (master on bus) flag */
+  while (!(sercom->I2CM.INTFLAG.reg & SERCOM_I2CM_INTFLAG_MB)) {
+    if (timerMicrosDelta(t) > I2CM_DATA_TIMEOUT_US) {
+      return I2CM_TIMEOUT;
+    }
+  }
+
+  /* Check for bus errors (BUSERR, ARBLOST) */
+  if (sercom->I2CM.STATUS.reg &
+      (SERCOM_I2CM_STATUS_BUSERR | SERCOM_I2CM_STATUS_ARBLOST)) {
+    return I2CM_ERROR;
+  }
+
+  /* Check for NACK from slave */
+  if (sercom->I2CM.STATUS.reg & SERCOM_I2CM_STATUS_RXNACK) {
+    return I2CM_NOACK;
+  }
+
+  return I2CM_SUCCESS;
 }
 
-uint8_t i2cDataRead(Sercom *sercom) {
+I2CM_Status_t i2cDataRead(Sercom *sercom, uint8_t *pData) {
+  uint32_t t = timerMicros();
+
+  /* Wait for SB (slave on bus) or MB (error condition) */
   while (!(sercom->I2CM.INTFLAG.reg &
-           (SERCOM_I2CM_INTFLAG_MB | SERCOM_I2CM_INTFLAG_SB)))
-    ;
-  return sercom->I2CM.DATA.reg;
+           (SERCOM_I2CM_INTFLAG_MB | SERCOM_I2CM_INTFLAG_SB))) {
+    if (timerMicrosDelta(t) > I2CM_DATA_TIMEOUT_US) {
+      return I2CM_TIMEOUT;
+    }
+  }
+
+  /* Check for bus errors (BUSERR, ARBLOST) */
+  if (sercom->I2CM.STATUS.reg &
+      (SERCOM_I2CM_STATUS_BUSERR | SERCOM_I2CM_STATUS_ARBLOST)) {
+    return I2CM_ERROR;
+  }
+
+  *pData = sercom->I2CM.DATA.reg;
+  return I2CM_SUCCESS;
 }
 
 /*
@@ -434,7 +498,7 @@ void spiSelect(const Pin_t nSS) {
   portPinDrv(nSS.grp, nSS.pin, PIN_DRV_CLR);
 }
 
-void spiSendBuffer(Sercom *sercom, const void *pSrc, int n) {
+void spiSendBuffer(Sercom *sercom, const void *pSrc, int32_t n) {
   if (!extIntfEnabled) {
     return;
   }

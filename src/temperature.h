@@ -54,7 +54,7 @@ void tempInitClear(void);
  *  @param [in] pParams : parameters for given interface type
  *  @return number of sensors found
  */
-unsigned int tempInitSensors(const TEMP_INTF_t intf, const void *pParams);
+uint32_t tempInitSensors(const TEMP_INTF_t intf, const void *pParams);
 
 /*! @brief Generate a mapping of physical to logical sensors
  *  @param [in] pAddr : pointer to array of logical sensors

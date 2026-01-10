@@ -238,8 +238,8 @@ bool timerScheduleCallback(TimerCallback_t callback, uint32_t delay_us) {
   __disable_irq();
 
   /* Find an empty slot in the queue */
-  int slot = -1;
-  for (int i = 0; i < TIMER_CALLBACK_QUEUE_SIZE; i++) {
+  int32_t slot = -1;
+  for (int32_t i = 0; i < TIMER_CALLBACK_QUEUE_SIZE; i++) {
     if (!callbackQueue[i].active) {
       slot                          = i;
       callbackQueue[i].callback     = callback;
@@ -278,7 +278,7 @@ bool timerCancelCallback(TimerCallback_t callback) {
 
   __disable_irq();
 
-  for (int i = 0; i < TIMER_CALLBACK_QUEUE_SIZE; i++) {
+  for (int32_t i = 0; i < TIMER_CALLBACK_QUEUE_SIZE; i++) {
     if (callbackQueue[i].active && callbackQueue[i].callback == callback) {
       callbackQueue[i].active = false;
       __enable_irq();
@@ -297,7 +297,7 @@ bool timerCallbackPending(TimerCallback_t callback) {
 
   __disable_irq();
 
-  for (int i = 0; i < TIMER_CALLBACK_QUEUE_SIZE; i++) {
+  for (int32_t i = 0; i < TIMER_CALLBACK_QUEUE_SIZE; i++) {
     if (callbackQueue[i].active && callbackQueue[i].callback == callback) {
       __enable_irq();
       return true;
@@ -316,7 +316,7 @@ static void processCallbackQueue(uint32_t current_us) {
   uint32_t next_event = UINT32_MAX;
   bool     found_next = false;
 
-  for (int i = 0; i < TIMER_CALLBACK_QUEUE_SIZE; i++) {
+  for (int32_t i = 0; i < TIMER_CALLBACK_QUEUE_SIZE; i++) {
     if (callbackQueue[i].active) {
       /* Check if this callback is due (accounting for wrap) */
       uint32_t time_until = callbackQueue[i].target_us - current_us;
@@ -363,7 +363,7 @@ static void processCallbackQueue(uint32_t current_us) {
 void timerProcessPendingCallbacks(void) {
   uint32_t current_us = timerMicros();
 
-  for (int i = 0; i < TIMER_CALLBACK_QUEUE_SIZE; i++) {
+  for (int32_t i = 0; i < TIMER_CALLBACK_QUEUE_SIZE; i++) {
     TimerCallback_t cb          = NULL;
     bool            should_exec = false;
 

@@ -14,10 +14,12 @@ static bool isnumeric(const char c) {
   return false;
 }
 
-void utilStrReverse(char *pBuf, unsigned int len) {
-  char         tmp;
-  unsigned int idxEnd = len - 1u;
-  for (unsigned int idx = 0; idx < (len / 2); idx++) {
+uint32_t utilAbs(const int32_t x) { return (x < 0) ? -x : x; }
+
+void utilStrReverse(char *pBuf, uint32_t len) {
+  char     tmp;
+  uint32_t idxEnd = len - 1u;
+  for (uint32_t idx = 0; idx < (len / 2); idx++) {
     tmp          = pBuf[idx];
     pBuf[idx]    = pBuf[idxEnd];
     pBuf[idxEnd] = tmp;
@@ -25,18 +27,18 @@ void utilStrReverse(char *pBuf, unsigned int len) {
   }
 }
 
-unsigned int utilStrlen(const char *pBuf) {
-  unsigned int charCnt = 0;
+uint32_t utilStrlen(const char *pBuf) {
+  uint32_t charCnt = 0;
   while (*pBuf++) {
     charCnt++;
   }
   return charCnt;
 }
 
-unsigned int utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
-  unsigned int charCnt    = 0;
-  bool         isNegative = false;
-  char *const  pBase      = pBuf;
+uint32_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
+  uint32_t    charCnt    = 0;
+  bool        isNegative = false;
+  char *const pBase      = pBuf;
 
   /* Handle 0 explicitly */
   if (0 == val) {
@@ -82,10 +84,10 @@ unsigned int utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
 }
 
 ConvInt_t utilAtoi(char *pBuf, ITOA_BASE_t base) {
-  bool         isNegative = false;
-  unsigned int len;
-  unsigned int mulCnt = 1;
-  ConvInt_t    conv   = {false, 0};
+  bool      isNegative = false;
+  uint32_t  len;
+  uint32_t  mulCnt = 1;
+  ConvInt_t conv   = {false, 0};
 
   if ('-' == *pBuf) {
     isNegative = true;
@@ -130,13 +132,13 @@ bool utilCharPrintable(const char c) {
   return (((c >= 32) && (c <= 126)) || ('\r' == c) || ('\n' == c));
 }
 
-unsigned int utilFtoa(char *pBuf, float val) {
-  unsigned int charCnt    = 0;
-  bool         isNegative = false;
-  char *const  pBase      = pBuf;
+uint32_t utilFtoa(char *pBuf, float val) {
+  uint32_t    charCnt    = 0;
+  bool        isNegative = false;
+  char *const pBase      = pBuf;
 
   uint16_t decimals;
-  int      units;
+  int32_t  units;
 
   if (val < 0.0f) {
     isNegative = true;
@@ -176,11 +178,11 @@ unsigned int utilFtoa(char *pBuf, float val) {
 }
 
 ConvFloat_t utilAtof(char *pBuf) {
-  bool         isNegative = false;
-  unsigned int len        = 0;
-  unsigned int mulCnt     = 1u;
-  unsigned int fraction   = 0u;
-  ConvFloat_t  conv       = {false, 0.0f};
+  bool        isNegative = false;
+  uint32_t    len        = 0;
+  uint32_t    mulCnt     = 1u;
+  uint32_t    fraction   = 0u;
+  ConvFloat_t conv       = {false, 0.0f};
 
   if ('-' == *pBuf) {
     isNegative = true;

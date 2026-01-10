@@ -3,11 +3,9 @@
 
 #include "emon32_assert.h"
 
-#include "driver_ADC.h"
 #include "driver_PORT.h"
 #include "driver_SERCOM.h"
 #include "driver_TIME.h"
-#include "driver_USB.h"
 
 #include "configuration.h"
 #include "eeprom.h"
@@ -51,8 +49,10 @@ typedef enum {
  *************************************/
 
 static void     configDefault(void);
+static void     configEchoQueueChar(const uint8_t c);
+static void     configEchoQueueStr(const char *s);
 static void     configInitialiseNVM(void);
-static int      configTimeToCycles(const float time, const int mainsFreq);
+static int32_t  configTimeToCycles(const float time, const int32_t mainsFreq);
 static bool     configureAnalog(void);
 static bool     configureAssumed(void);
 static void     configureBackup(void);
@@ -80,15 +80,15 @@ static size_t   inBufferTok(void);
 static void     printSettingCT(const int ch);
 static void     printSettingDatalog(void);
 static void     printSettingJSON(void);
-static void     printSettingOPA(const int ch);
+static void     printSettingOPA(const int32_t ch);
 static void     printSettingRF(void);
 static void     printSettingRFFreq(void);
-static void     printSettingV(const int ch);
+static void     printSettingV(const int32_t ch);
 static void     printSettings(void);
 static void     printSettingsHR(void);
 static void     printSettingsKV(void);
 static void     printUptime(void);
-static void     putFloat(float val, int flt_len);
+static void     putFloat(float val, int32_t flt_len);
 /* static char     waitForChar(void); - Removed, NVM corruption now auto-loads
  * defaults */
 /* static bool     restoreDefaults(void); - Removed pending OEM decision */
@@ -106,11 +106,11 @@ static char           inBuffer[IN_BUFFER_W];
 /* Async confirmation state */
 static volatile ConfirmState_t confirmState        = CONFIRM_IDLE;
 static volatile uint32_t       confirmStartTime_ms = 0;
-static int8_t clearAccumIdx = -1; /* -1=all, 0-11=E1-E12, 12-13=P1-P2 */
-static int    inBufferIdx   = 0;
-static bool   cmdPending    = false;
-static bool   resetReq      = false;
-static bool   unsavedChange = false;
+static int8_t  clearAccumIdx = -1; /* -1=all, 0-11=E1-E12, 12-13=P1-P2 */
+static int32_t inBufferIdx   = 0;
+static bool    cmdPending    = false;
+static bool    resetReq      = false;
+static bool    unsavedChange = false;
 
 /*! @brief Set all configuration values to defaults */
 static void configDefault(void) {
@@ -134,13 +134,13 @@ static void configDefault(void) {
   config.dataTxCfg.rfmPwr     = RFM_PALEVEL_DEF;
   config.dataTxCfg.rfmFreq    = RFM_FREQ_DEF;
 
-  for (int idxV = 0u; idxV < NUM_V; idxV++) {
+  for (int32_t idxV = 0u; idxV < NUM_V; idxV++) {
     config.voltageCfg[idxV].voltageCal = 100.0f;
     config.voltageCfg[idxV].vActive    = (0 == idxV);
   }
 
   /* 4.2 degree shift @ 50 Hz. Initialize ALL slots including reserved. */
-  for (int idxCT = 0u; idxCT < (NUM_CT + CT_RES); idxCT++) {
+  for (int32_t idxCT = 0u; idxCT < (NUM_CT + CT_RES); idxCT++) {
     config.ctCfg[idxCT].ctCal    = 100.0f;
     config.ctCfg[idxCT].phase    = 4.2f;
     config.ctCfg[idxCT].vChan1   = 0;
@@ -168,7 +168,7 @@ static void configDefault(void) {
   config.opaCfg[1].puEn      = true;
 
   /* Initialize reserved OPA slots */
-  for (int idxOPA = NUM_OPA; idxOPA < (NUM_OPA + PULSE_RES); idxOPA++) {
+  for (int32_t idxOPA = NUM_OPA; idxOPA < (NUM_OPA + PULSE_RES); idxOPA++) {
     config.opaCfg[idxOPA].func      = 0;
     config.opaCfg[idxOPA].opaActive = false;
     config.opaCfg[idxOPA].period    = 0;
@@ -198,20 +198,20 @@ static bool configureAnalog(void) {
    */
   ConvFloat_t convF     = {false, 0.0f};
   ConvInt_t   convI     = {false, 0};
-  int         ch        = 0;
+  int32_t     ch        = 0;
   bool        active    = false;
   float       calAmpl   = 0.0f;
   float       calPhase  = 0.0f;
-  int         vCh1      = 0;
-  int         vCh2      = 0;
-  int         posActive = 0;
-  int         posCalib  = 0;
-  int         posPhase  = 0;
-  int         posV1     = 0;
-  int         posV2     = 0;
+  int32_t     vCh1      = 0;
+  int32_t     vCh2      = 0;
+  int32_t     posActive = 0;
+  int32_t     posCalib  = 0;
+  int32_t     posPhase  = 0;
+  int32_t     posV1     = 0;
+  int32_t     posV2     = 0;
   ECMCfg_t   *ecmCfg    = 0;
 
-  for (int i = 0; i < IN_BUFFER_W; i++) {
+  for (int32_t i = 0; i < IN_BUFFER_W; i++) {
     if (0 == inBuffer[i]) {
       break;
     }
@@ -354,10 +354,10 @@ static void configureBackup(void) {
   serialPuts("{");
   /* {board_info} dict */
   serialPuts("\"board_info\":{");
-  printf_("\"revision\":%d,", (int)getBoardRevision());
-  printf_("\"serial\":\"0x%02x%02x%02x%02x\",", (unsigned int)getUniqueID(0),
-          (unsigned int)getUniqueID(1), (unsigned int)getUniqueID(2),
-          (unsigned int)getUniqueID(3));
+  printf_("\"revision\":%d,", (int32_t)getBoardRevision());
+  printf_("\"serial\":\"0x%02x%02x%02x%02x\",", (uint32_t)getUniqueID(0),
+          (uint32_t)getUniqueID(1), (uint32_t)getUniqueID(2),
+          (uint32_t)getUniqueID(3));
   printf_("\"fw\":\"%d.%d.%d\"},", VERSION_FW_MAJ, VERSION_FW_MIN,
           VERSION_FW_REV);
 
@@ -369,7 +369,7 @@ static void configureBackup(void) {
   printf_("\"assumedV\":%d,", config.baseCfg.assumedVrms);
   /* {v_config} list of dicts */
   serialPuts("\"v_config\":[");
-  for (int i = 0; i < NUM_V; i++) {
+  for (int32_t i = 0; i < NUM_V; i++) {
     utilFtoa(strBuf, config.voltageCfg[i].voltageCal);
     printf_("{\"active\":%s,\"cal\":%s}",
             (config.voltageCfg[i].vActive ? "true" : "false"), strBuf);
@@ -381,7 +381,7 @@ static void configureBackup(void) {
 
   /* {ct_config} list of dicts */
   serialPuts("\"ct_config\":[");
-  for (int i = 0; i < NUM_CT; i++) {
+  for (int32_t i = 0; i < NUM_CT; i++) {
     utilFtoa(strBuf, config.ctCfg[i].ctCal);
     printf_("{\"active\":%s,\"cal\":%s,",
             (config.ctCfg[i].ctActive ? "true" : "false"), strBuf);
@@ -429,7 +429,7 @@ static bool configureGroupID(void) {
   }
 
   config.baseCfg.dataGrp = convI.val;
-  printf_("rfGroup = %d\r\n", (int)convI.val);
+  printf_("rfGroup = %d\r\n", (int32_t)convI.val);
   return true;
 }
 
@@ -569,18 +569,18 @@ static bool configureOPA(void) {
    *      y[7] -> pull up enabled
    *      z[9] -> NULL: hysteresis
    */
-  const int posCh     = 1;
-  const int posActive = 3;
-  const int posFunc   = 5;
-  const int posPu     = 7;
-  const int posPeriod = 9;
+  const int32_t posCh     = 1;
+  const int32_t posActive = 3;
+  const int32_t posFunc   = 5;
+  const int32_t posPu     = 7;
+  const int32_t posPeriod = 9;
 
   ConvInt_t convI;
-  int       ch     = 0;
+  int32_t   ch     = 0;
   bool      active = 0;
   char      func   = 0;
   bool      pu     = false;
-  int       period = 0;
+  int32_t   period = 0;
 
   inBufferTok();
 
@@ -657,12 +657,15 @@ static bool configureNodeID(void) {
   if ((convI.val < 1) || (convI.val > 60)) {
     return false;
   }
+
   config.baseCfg.nodeID = convI.val;
+  printf_("rfNode = %d\r\n", config.baseCfg.nodeID);
+
   return true;
 }
 
 static bool configureRFEnable(void) {
-  int val = inBuffer[1] - '0';
+  int32_t val = inBuffer[1] - '0';
 
   if (!((0 == val) || (1 == val))) {
     return false;
@@ -675,7 +678,7 @@ static bool configureRFEnable(void) {
 }
 
 static bool configureRF433(void) {
-  int val = inBuffer[1] - '0';
+  int32_t val = inBuffer[1] - '0';
 
   if (!((0 == val) || (1 == val))) {
     return false;
@@ -709,7 +712,7 @@ static bool configureRFPower(void) {
   }
 
   config.dataTxCfg.rfmPwr = convI.val;
-  printf_("rfPower = %d\r\n", (int)convI.val);
+  printf_("rfPower = %d\r\n", (int32_t)convI.val);
   return true;
 }
 
@@ -781,14 +784,14 @@ static char *getLastReset(void) {
   return "Unknown";
 }
 
-uint32_t getUniqueID(int idx) {
+uint32_t getUniqueID(int32_t idx) {
   /* Section 10.3.3 Serial Number */
   const uint32_t id_addr_lut[4] = {0x0080A00C, 0x0080A040, 0x0080A044,
                                    0x0080A048};
   return *(volatile uint32_t *)id_addr_lut[idx];
 }
 
-static void inBufferClear(int n) {
+static void inBufferClear(int32_t n) {
   inBufferIdx = 0;
   (void)memset(inBuffer, 0, n);
 }
@@ -808,7 +811,7 @@ static size_t inBufferTok(void) {
   return tokCount;
 }
 
-static void printSettingCT(const int ch) {
+static void printSettingCT(const int32_t ch) {
   printf_("iCal%d = ", (ch + 1));
   putFloat(config.ctCfg[ch].ctCal, 0);
   printf_(", iLead%d = ", (ch + 1));
@@ -829,20 +832,20 @@ static void printSettingJSON(void) {
   printf_("json = %s\r\n", config.baseCfg.useJson ? "on" : "off");
 }
 
-static void printSettingOPA(const int ch) {
+static void printSettingOPA(const int32_t ch) {
   printf_("opa%d = ", (ch + 1));
 
   /* OneWire */
   if ('o' == config.opaCfg[ch].func) {
-    printf_("onewire, active = %s\r\n",
+    printf_("active = %s, onewire\r\n",
             config.opaCfg[ch].opaActive ? "1" : "0");
     return;
   }
 
   /* Pulse */
-  printf_("pulse, pulsePeriod = %d, pullUp = %s, active = %s\r\n",
-          config.opaCfg[ch].period, config.opaCfg[ch].puEn ? "on" : "off",
-          config.opaCfg[ch].opaActive ? "1" : "0");
+  printf_("active %s, pulse, pullUp = %s, pulsePeriod = %d\r\n",
+          (config.opaCfg[ch].opaActive ? "1" : "0"),
+          config.opaCfg[ch].puEn ? "on" : "off", config.opaCfg[ch].period);
 }
 
 static void printSettingRF(void) {
@@ -873,7 +876,7 @@ static void printSettingRFFreq(void) {
   }
 }
 
-static void printSettingV(const int ch) {
+static void printSettingV(const int32_t ch) {
   printf_("vCal%d = ", (ch + 1));
   putFloat(config.voltageCfg[ch].voltageCal, 0);
   printf_(", vActive%d = %s\r\n", (ch + 1),
@@ -884,7 +887,7 @@ static void printAccumulators(void) {
   Emon32Cumulative_t cumulative;
   eepromWLStatus_t   status;
   bool               eepromOK;
-  int                idx;
+  int32_t            idx;
 
   status   = eepromReadWL(&cumulative, &idx);
   eepromOK = (EEPROM_WL_OK == status);
@@ -897,11 +900,11 @@ static void printAccumulators(void) {
   }
   printf_(" [%d]:\r\n", idx);
 
-  for (unsigned int i = 0; i < NUM_CT; i++) {
-    uint32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
-    printf_("  E%d = %" PRIu32 " Wh\r\n", (i + 1), wh);
+  for (uint32_t i = 0; i < NUM_CT; i++) {
+    int32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
+    printf_("  E%ld = %ld Wh\r\n", (i + 1), wh);
   }
-  for (unsigned int i = 0; i < NUM_OPA; i++) {
+  for (uint32_t i = 0; i < NUM_OPA; i++) {
     uint32_t pulse = eepromOK ? cumulative.pulseCnt[i] : 0;
     printf_("  pulse%d = %" PRIu32 "\r\n", (i + 1), pulse);
   }
@@ -943,7 +946,7 @@ static void printSettingsHR(void) {
           config.baseCfg.useJson ? "JSON" : "Key:Value");
   serialPuts("\r\n");
 
-  for (unsigned int i = 0; i < NUM_OPA; i++) {
+  for (uint32_t i = 0; i < NUM_OPA; i++) {
     bool enabled = config.opaCfg[i].opaActive;
     printf_("OPA %d (%sactive)\r\n", (i + 1), enabled ? "" : "in");
     if ('o' == config.opaCfg[i].func) {
@@ -978,13 +981,13 @@ static void printSettingsHR(void) {
       "| Ref | Channel | Active | Calibration |  Phase  | In 1 | In 2 |\r\n");
   serialPuts(
       "+=====+=========+========+=============+=========+======+======+\r\n");
-  for (int i = 0; i < NUM_V; i++) {
+  for (int32_t i = 0; i < NUM_V; i++) {
     printf_("| %2d  |  V %2d   | %c      | ", (i + 1), (i + 1),
             (config.voltageCfg[i].vActive ? 'Y' : 'N'));
     putFloat(config.voltageCfg[i].voltageCal, 6);
     serialPuts("      |         |      |      |\r\n");
   }
-  for (int i = 0; i < NUM_CT; i++) {
+  for (int32_t i = 0; i < NUM_CT; i++) {
     printf_("| %2d  | CT %2d   | %c      | ", (i + 1 + NUM_V), (i + 1),
             (config.ctCfg[i].ctActive ? 'Y' : 'N'));
     putFloat(config.ctCfg[i].ctCal, 6);
@@ -1003,13 +1006,13 @@ static void printSettingsKV(void) {
           VERSION_FW_REV);
   printf_("commit = %s\r\n", emon32_build_info().revision);
   printf_("assumedV = %d\r\n", config.baseCfg.assumedVrms);
-  for (int i = 0; i < NUM_V; i++) {
+  for (int32_t i = 0; i < NUM_V; i++) {
     printSettingV(i);
   }
-  for (int i = 0; i < NUM_CT; i++) {
+  for (int32_t i = 0; i < NUM_CT; i++) {
     printSettingCT(i);
   }
-  for (int i = 0; i < NUM_OPA; i++) {
+  for (int32_t i = 0; i < NUM_OPA; i++) {
     printSettingOPA(i);
   }
   printSettingRF();
@@ -1017,13 +1020,13 @@ static void printSettingsKV(void) {
   printSettingJSON();
 }
 
-static void putFloat(float val, int flt_len) {
-  char strBuffer[16];
-  int  ftoalen = utilFtoa(strBuffer, val);
+static void putFloat(float val, int32_t flt_len) {
+  char    strBuffer[16];
+  int32_t ftoalen = utilFtoa(strBuffer, val);
 
   if (flt_len) {
     /* ftoalen includes null terminator, subtract 1 for actual string length */
-    int fillSpace = flt_len - (ftoalen - 1);
+    int32_t fillSpace = flt_len - (ftoalen - 1);
 
     while (fillSpace-- > 0) {
       serialPuts(" ");
@@ -1055,6 +1058,11 @@ static void printUptime(void) {
 bool configHandleConfirmation(const uint8_t c) {
   if (CONFIRM_IDLE == confirmState) {
     return false; /* Not waiting for confirmation */
+  }
+
+  /* Reject CR/LF so the double line ending doesn't clear confirmation */
+  if (('\n' == c) || ('\r' == c)) {
+    return false;
   }
 
   /* We're waiting for confirmation - handle it */
@@ -1101,7 +1109,7 @@ static void handleConfirmation(char c) {
   case CONFIRM_ZERO_ACCUM_INDIVIDUAL:
     if ('y' == c) {
       Emon32Cumulative_t cumulative;
-      int                idx;
+      int32_t            idx;
       /* Read current NVM data */
       if (EEPROM_WL_OK == eepromReadWL(&cumulative, &idx)) {
         /* Clear the specific accumulator */
@@ -1245,7 +1253,7 @@ static void parseAndZeroAccumulator(void) {
 
   /* ze1-12 - zero energy accumulator */
   if (inBuffer[1] == 'e' && inBuffer[2] >= '1' && inBuffer[2] <= '9') {
-    int num = inBuffer[2] - '0';
+    int32_t num = inBuffer[2] - '0';
     /* Check for two-digit number (ze10-12) */
     if (inBuffer[3] >= '0' && inBuffer[3] <= '9') {
       num = num * 10 + (inBuffer[3] - '0');
@@ -1261,7 +1269,7 @@ static void parseAndZeroAccumulator(void) {
   /* zp1-2 - zero pulse accumulator */
   if (inBuffer[1] == 'p' && inBuffer[2] >= '1' &&
       inBuffer[2] <= '0' + NUM_OPA) {
-    int num = inBuffer[2] - '0';
+    int32_t num = inBuffer[2] - '0';
     if (num >= 1 && num <= NUM_OPA) {
       zeroAccumulatorIndividual(NUM_CT + num - 1); /* Pulse index starts after
                                                        energy */
@@ -1278,22 +1286,24 @@ static void parseAndZeroAccumulator(void) {
 void configCmdChar(const uint8_t c) {
   if (('\r' == c) || ('\n' == c)) {
     if (!cmdPending) {
-      serialPuts("\r\n");
+      configEchoQueueStr("\r\n");
       cmdPending = true;
       emon32EventSet(EVT_PROCESS_CMD);
     }
   } else if ('\b' == c) {
-    serialPuts("\b \b");
+    configEchoQueueStr("\b \b");
     if (0 != inBufferIdx) {
       inBufferIdx--;
       inBuffer[inBufferIdx] = 0;
     }
   } else if ((inBufferIdx < (IN_BUFFER_W - 1)) && utilCharPrintable(c)) {
+    configEchoQueueChar(c);
     inBuffer[inBufferIdx++] = c;
   } else {
     inBufferClear(IN_BUFFER_W);
-    serialPuts("\r\n");
+    configEchoQueueStr("\r\n");
   }
+  emon32EventSet(EVT_ECHO);
 }
 
 void configFirmwareBoardInfo(void) {
@@ -1302,9 +1312,9 @@ void configFirmwareBoardInfo(void) {
   serialPuts("> Board:\r\n");
   printf_("  - emonPi3/emonTx6 (arch. rev. %" PRIu32 ")\r\n",
           getBoardRevision());
-  printf_("  - Serial    : 0x%02x%02x%02x%02x\r\n",
-          (unsigned int)getUniqueID(0), (unsigned int)getUniqueID(1),
-          (unsigned int)getUniqueID(2), (unsigned int)getUniqueID(3));
+  printf_("  - Serial    : 0x%02x%02x%02x%02x\r\n", (uint32_t)getUniqueID(0),
+          (uint32_t)getUniqueID(1), (uint32_t)getUniqueID(2),
+          (uint32_t)getUniqueID(3));
   printf_("  - Last reset: %s\r\n", getLastReset());
   serialPuts("  - Uptime    : ");
   printUptime();
@@ -1353,8 +1363,8 @@ Emon32Config_t *configLoadFromNVM(void) {
 }
 
 void configProcessCmd(void) {
-  unsigned int arglen    = 0;
-  bool         termFound = false;
+  uint32_t arglen    = 0;
+  bool     termFound = false;
 
   /* Help text - serves as documentation interally as well */
   const char helpText[] =
@@ -1570,7 +1580,7 @@ void configProcessCmd(void) {
 
 bool configUnsavedChanges(void) { return unsavedChange; }
 
-int configTimeToCycles(const float time, const int mainsFreq) {
+int32_t configTimeToCycles(const float time, const int32_t mainsFreq) {
   return qfp_float2uint(qfp_fmul(time, qfp_int2float(mainsFreq)));
 }
 
@@ -1591,6 +1601,17 @@ static size_t  idxEchoWr               = 0;
 static size_t  idxEchoRd               = 0;
 static uint8_t echoBuf[ECHO_BUF_DEPTH] = {0};
 
+static void configEchoQueueChar(const uint8_t c) {
+  echoBuf[(idxEchoWr & ECHO_IDX_MASK)] = c;
+  idxEchoWr                            = (idxEchoWr + 1u) & ECHO_FMASK;
+}
+
+static void configEchoQueueStr(const char *s) {
+  while (*s) {
+    configEchoQueueChar(*s++);
+  }
+}
+
 uint8_t configEchoChar(void) {
   uint8_t c = 0;
   if (idxEchoRd != idxEchoWr) {
@@ -1609,12 +1630,6 @@ void SERCOM_UART_INTERACTIVE_HANDLER {
 
     if (!configHandleConfirmation(rx_char)) {
       configCmdChar(rx_char);
-
-      if (utilCharPrintable(rx_char) && !cmdPending) {
-        echoBuf[(idxEchoWr & ECHO_IDX_MASK)] = rx_char;
-        idxEchoWr                            = (idxEchoWr + 1u) & ECHO_FMASK;
-        emon32EventSet(EVT_ECHO);
-      }
     }
   }
 

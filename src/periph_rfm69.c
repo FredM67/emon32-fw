@@ -25,16 +25,16 @@ typedef struct RFMRx_ {
 static bool      rfmAckRecv(uint16_t fromId);
 static void      rfmFreqToBand(const RFM_Freq_t freq, uint8_t *band);
 static void      rfmPacketHandler(void); /* LPL: interruptHandler */
-static uint8_t   rfmReadReg(const unsigned int addr);
+static uint8_t   rfmReadReg(const uint32_t addr);
 static int16_t   rfmReadRSSI(void);
 static void      rfmReset(void);
 static void      rfmRxBegin(void); /* LPL: receiveBegin */
 static bool      rfmRxDone(void);  /* LPL: receiveDone */
 static RFMSend_t rfmSendWithRetry(uint8_t n, const uint8_t retries,
-                                  int *pRetryCount);
+                                  int32_t *pRetryCount);
 static void      rfmSetMode(RFMMode_t mode);
 static bool      rfmTxAvailable(void); /* LPL: canSend */
-static void      rfmWriteReg(const unsigned int addr, const uint8_t data);
+static void      rfmWriteReg(const uint32_t addr, const uint8_t data);
 static uint8_t   spiRx(void);
 static void      spiTx(const uint8_t b);
 
@@ -117,7 +117,7 @@ static void rfmPacketHandler(void) {
     rfmRx.ackRecv = ctl & RFM69_CTL_SENDACK;
     rfmRx.ackReq  = ctl & RFM69_CTL_REQACK;
 
-    for (int i = 0; i < rfmRx.dataLen; i++) {
+    for (int32_t i = 0; i < rfmRx.dataLen; i++) {
       rxData[i] = spiRx();
     }
     spiDeSelect(sel);
@@ -127,7 +127,7 @@ static void rfmPacketHandler(void) {
   rfmRx.rxRSSI = rfmReadRSSI();
 }
 
-static uint8_t rfmReadReg(const unsigned int addr) {
+static uint8_t rfmReadReg(const uint32_t addr) {
   uint8_t rdByte;
   spiSelect(sel);
   spiTx((uint8_t)addr);
@@ -148,7 +148,7 @@ static bool rfmTxAvailable(void) {
   return canSend;
 }
 
-static void rfmWriteReg(const unsigned int addr, const uint8_t data) {
+static void rfmWriteReg(const uint32_t addr, const uint8_t data) {
   spiSelect(sel);
   /* Datasheet 5.2.1, Figure 24: "wnr is 1 for write" */
   spiTx((uint8_t)addr | 0x80);
@@ -244,9 +244,9 @@ static bool rfmRxDone(void) {
  *  @return status of sending the packet
  */
 static RFMSend_t rfmSendWithRetry(uint8_t n, const uint8_t retries,
-                                  int *pRetryCount) {
+                                  int32_t *pRetryCount) {
 
-  for (int r = 0; r < retries; r++) {
+  for (int32_t r = 0; r < retries; r++) {
     uint32_t tNow;
     uint32_t tSent;
 
@@ -413,7 +413,7 @@ bool rfmInit(const RFMOpt_t *pOpt) {
 }
 
 RFMSend_t rfmSendBuffer(const int_fast8_t n, const uint8_t retries,
-                        int *pRetryCount) {
+                        int32_t *pRetryCount) {
   if (n > 61) {
     return RFM_N_TOO_LARGE;
   }

@@ -22,7 +22,7 @@ uint64_t *ds18b20AddressGet(void);
  *  @param [in] pCfg: pointer to the configuration struct
  *  @return number of sensors found
  */
-unsigned int ds18b20InitSensors(const DS18B20_conf_t *pCfg);
+uint32_t ds18b20InitSensors(const DS18B20_conf_t *pCfg);
 
 /*! @brief Map the found OneWire sensors to logical index
  *  @param [in] pAddr : array of logical addresses
@@ -38,19 +38,19 @@ uint8_t ds18b20MapToLogical(const unsigned int dev);
 /*! @brief Start a temperature conversion on all OneWire devices
  *  @return true for success, false if no presence pulse detected
  */
-bool ds18b20StartSample(const int opaIdx);
+bool ds18b20StartSample(const int32_t opaIdx);
 
 /*! @brief Read the temperature data from a OneWire device
  *  @param [in] dev : index of OneWire device
  *  @return result in struct
  */
-TempRead_t ds18b20ReadSample(const unsigned int dev);
+TempRead_t ds18b20ReadSample(const uint32_t dev);
 
 /*! @brief Read the serial number from a OneWire device
  *  @param [in] dev : index of the OneWire device
  *  @return the device's serial number and interface ID
  */
-TempDev_t ds18b20ReadSerial(const unsigned int dev);
+TempDev_t ds18b20ReadSerial(const uint32_t dev);
 
 /*! @brief Convert the DS18B20 value into a float
  *  @param [in] fix : 8.4 fixed point value

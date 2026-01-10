@@ -4,6 +4,6 @@
 
 #define DOWNSAMPLE_TAPS 19
 
-static const int     downsample_taps = DOWNSAMPLE_TAPS;
-static const int     numCoeffUnique  = 6;
+static const int32_t downsample_taps = DOWNSAMPLE_TAPS;
+static const int32_t numCoeffUnique  = 6;
 static const int16_t firCoeffs[6]    = {92, -279, 957, -2670, 10113, 16339};

@@ -7,9 +7,9 @@
 #include "periph_DS18B20.h"
 #include "temperature.h"
 
-static bool tempSampled               = false;
-static int  numSensors                = 0;
-static int  millisLastSample[NUM_OPA] = {0};
+static bool    tempSampled               = false;
+static int32_t numSensors                = 0;
+static int32_t millisLastSample[NUM_OPA] = {0};
 
 uint64_t *tempAddress1WGet(void) { return ds18b20AddressGet(); }
 
@@ -23,11 +23,11 @@ float tempAsFloat(const TEMP_INTF_t intf, const int16_t tFixed) {
 
 void tempInitClear(void) { numSensors = 0; }
 
-unsigned int tempInitSensors(const TEMP_INTF_t intf, const void *pParams) {
+uint32_t tempInitSensors(const TEMP_INTF_t intf, const void *pParams) {
   EMON32_ASSERT(pParams);
 
   if (TEMP_INTF_ONEWIRE == intf) {
-    int numFound = ds18b20InitSensors((DS18B20_conf_t *)pParams);
+    int32_t numFound = ds18b20InitSensors((DS18B20_conf_t *)pParams);
     numSensors += numFound;
     return numFound;
   }
