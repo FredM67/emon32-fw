@@ -250,8 +250,9 @@ void uartPutcBlocking(Sercom *sercom, char c) {
   uint32_t t_start         = timerMillis();
   bool     uartNotTimedOut = true;
 
-  while (!(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE) &&
-         uartNotTimedOut && uartInUse) {
+  while (
+      (!(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE) || uartInUse) &&
+      uartNotTimedOut) {
     uartNotTimedOut = (timerMillisDelta(t_start) < 75);
   };
 
