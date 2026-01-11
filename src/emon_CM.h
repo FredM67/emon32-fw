@@ -91,7 +91,7 @@ typedef struct ECMCfg_ {
   uint32_t reportTime_us; /* Report time in microseconds */
   float    assumedVrms;   /* Assume RMS voltage if not found */
 
-  int8_t mapCTLog[NUM_CT]; /* Map of CT to microcontroller pins */
+  uint8_t mapCTLog[NUM_CT]; /* Map of CT to microcontroller pins */
 
   GainOffset_t correction; /* Gain and offset correction */
 

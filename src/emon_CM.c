@@ -255,7 +255,7 @@ void ecmConfigInit(void) {
   sampleIntervalRad = qfp_fmul(sampleIntervalRad, sampleIntervalDeg);
 
   /* Map the logical channel back to the CT to unwind the data */
-  for (int8_t i = 0; i < NUM_CT; i++) {
+  for (uint8_t i = 0; i < NUM_CT; i++) {
     mapLogCT[ecmCfg.mapCTLog[i]] = i;
   }
 
@@ -395,7 +395,7 @@ static float calibrationAmplitude(float cal, bool isV) {
  *  @return structure with the X/Y fixed point coefficients.
  */
 static void calibrationPhase(PhaseXY_t *pPh, float phase, int8_t idxCT) {
-  int8_t idxMapped = ecmCfg.mapCTLog[idxCT];
+  uint8_t idxMapped = ecmCfg.mapCTLog[idxCT];
 
   float   phaseShift = qfp_fdiv(phase, 360.0f);
   int32_t phCorr_i   = (idxMapped + NUM_V) * ecmCfg.mainsFreq * samplePeriodus;

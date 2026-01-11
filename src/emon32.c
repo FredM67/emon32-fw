@@ -226,7 +226,7 @@ void ecmConfigure(void) {
    * used for storage, and avoids any awkward alignment from packing.
    */
 
-  extern const int8_t ainRemap[NUM_CT];
+  extern const uint8_t ainRemap[NUM_CT];
 
   ECMCfg_t *ecmCfg = ecmConfigGet();
 
@@ -260,7 +260,7 @@ void ecmConfigure(void) {
     ecmCfg->ctCfg[i].vChan2   = pConfig->ctCfg[i].vChan2;
   }
 
-  for (int32_t i = 0; i < NUM_CT; i++) {
+  for (uint32_t i = 0; i < NUM_CT; i++) {
     ecmCfg->mapCTLog[i] = ainRemap[i];
   }
 
@@ -349,7 +349,7 @@ static void pulseConfigure(void) {
 
   uint8_t pinsPulse[][2] = {{GRP_OPA, PIN_OPA1}, {GRP_OPA, PIN_OPA2}};
 
-  for (uint32_t i = 0; i < NUM_OPA; i++) {
+  for (uint8_t i = 0; i < NUM_OPA; i++) {
     PulseCfg_t *pulseCfg = pulseGetCfg(i);
 
     if ((0 != pulseCfg) && ('o' != pConfig->opaCfg[i].func) &&
