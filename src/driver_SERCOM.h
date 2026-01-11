@@ -169,4 +169,4 @@ void uartPutsBlocking(Sercom *sercom, const char *s);
  *  @param [in] len : Length of the string (not including NULL)
  */
 void uartPutsNonBlocking(uint8_t dma_chan, const char *const s,
-                         const uint16_t len);
+                         const size_t len);

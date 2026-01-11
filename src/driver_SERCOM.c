@@ -284,7 +284,7 @@ static void uartConfigureDMA(void) {
 }
 
 void uartPutsNonBlocking(uint8_t dma_chan, const char *const s,
-                         const uint16_t len) {
+                         const size_t len) {
   volatile DmacDescriptor *dmacDesc = dmacGetDescriptor(dma_chan);
   /* Valid bit is cleared when a channel is complete */
   dmacDesc->BTCTRL.bit.VALID        = 1;

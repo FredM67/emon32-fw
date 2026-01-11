@@ -218,8 +218,8 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
   return strn.n;
 }
 
-int8_t dataPackPacked(const Emon32Dataset_t *pData, void *pPacked,
-                      const PackedRange_t range) {
+uint8_t dataPackPacked(const Emon32Dataset_t *pData, void *pPacked,
+                       const PackedRange_t range) {
 
   /* Both upper and lower packets share the same initial data structure.
    * Differentiate for pulse or temperature readings. */
@@ -255,5 +255,5 @@ int8_t dataPackPacked(const Emon32Dataset_t *pData, void *pPacked,
     return sizeof(*pUpper);
   }
 
-  return 0;
+  return 0u;
 }

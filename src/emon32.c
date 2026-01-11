@@ -74,7 +74,7 @@ static void evtKiloHertz(void);
 static bool evtPending(EVTSRC_t evt);
 static void pulseConfigure(void);
 void        putchar_(char c);
-static void serialPutsNonBlocking(const char *const s, uint16_t len);
+static void serialPutsNonBlocking(const char *const s, const size_t len);
 static void rfmConfigure(void);
 static void ssd1306Setup(void);
 static void tempReadEvt(Emon32Dataset_t *pData, const uint32_t numT);
@@ -376,7 +376,7 @@ void putchar_(char c) {
   uartPutcBlocking(SERCOM_UART, c);
 }
 
-static void serialPutsNonBlocking(const char *const s, uint16_t len) {
+static void serialPutsNonBlocking(const char *const s, const size_t len) {
   if (usbCDCIsConnected()) {
     usbCDCPutsBlocking(s);
   }
@@ -463,7 +463,7 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
   dsCfg.grp                     = GRP_OPA;
   dsCfg.t_wait_us               = 5;
 
-  for (int32_t i = 0; i < NUM_OPA; i++) {
+  for (uint8_t i = 0; i < NUM_OPA; i++) {
     if (('o' == pConfig->opaCfg[i].func) && pConfig->opaCfg[i].opaActive) {
       dsCfg.opaIdx = i;
       dsCfg.pin    = opaPins[i];
@@ -473,7 +473,7 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
   }
 
   /* Set all unused temperature slots to 300°C (4800 as Q4 fixed point) */
-  for (int32_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (uint32_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
     pData->temp[i] = 4800;
   }
 
@@ -502,7 +502,8 @@ static void totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc) {
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
                          char *txBuffer) {
 
-  size_t nSerial = dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
+  const size_t nSerial =
+      dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
 
   if (pOpt->useRFM) {
 
@@ -513,7 +514,7 @@ static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
     if (sercomExtIntfEnabled()) {
       uint8_t   retryCount = 0;
       RFMSend_t rfmResult;
-      int8_t    nPacked = dataPackPacked(pSrc, rfmGetBuffer(), PACKED_LOWER);
+      uint8_t   nPacked = dataPackPacked(pSrc, rfmGetBuffer(), PACKED_LOWER);
 
       rfmSetAddress(pOpt->node);
 
@@ -679,7 +680,7 @@ int main(void) {
         eepromWLClear();
         eepromWLReset(sizeof(nvmCumulative));
         ecmClearEnergy();
-        for (int32_t i = 0; i < NUM_OPA; i++) {
+        for (uint8_t i = 0; i < NUM_OPA; i++) {
           pulseSetCount(i, 0);
         }
         emon32EventClr(EVT_CLEAR_ACCUM);
@@ -691,7 +692,7 @@ int main(void) {
        */
       if (evtPending(EVT_ECM_TRIG)) {
         if (numTempSensors > 0) {
-          for (int32_t i = 0; i < NUM_OPA; i++) {
+          for (uint8_t i = 0; i < NUM_OPA; i++) {
             if (('o' == pConfig->opaCfg[i].func) &&
                 pConfig->opaCfg[i].opaActive) {
               (void)tempStartSample(TEMP_INTF_ONEWIRE, i);
@@ -705,7 +706,7 @@ int main(void) {
       /* Trigger a temperature sample 1 s before the report is due. */
       if (evtPending(EVT_ECM_PEND_1S)) {
         if (numTempSensors > 0) {
-          for (int32_t i = 0; i < NUM_OPA; i++) {
+          for (uint8_t i = 0; i < NUM_OPA; i++) {
             if (('o' == pConfig->opaCfg[i].func) &&
                 pConfig->opaCfg[i].opaActive) {
               (void)tempStartSample(TEMP_INTF_ONEWIRE, i);
