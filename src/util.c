@@ -161,12 +161,8 @@ uint32_t utilFtoa(char *pBuf, float val) {
   }
 
   /* Extract integer and fractional parts */
-  units           = (uint32_t)qfp_float2int_z(val);
-  /* decimals = (val * 100) - (units * 100), using shifts for *100 */
-  uint32_t val100 = (uint32_t)qfp_float2int_z(qfp_fmul(val, 100.0f));
-  uint32_t units100 =
-      (units << 6) + (units << 5) + (units << 2); /* units * 100 */
-  decimals = val100 - units100;
+  units    = (uint32_t)qfp_float2int_z(val);
+  decimals = (uint32_t)qfp_float2int_z(qfp_fmul(val, 100.0f)) - (units * 100);
 
   /* Write decimals (always 2 digits) using fast division */
   uint32_t q = fastDiv10(decimals);
