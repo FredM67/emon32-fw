@@ -14,10 +14,12 @@ static bool isnumeric(const char c) {
   return false;
 }
 
-void utilStrReverse(char *pBuf, size_t len) {
-  char   tmp;
-  size_t idxEnd = len - 1u;
-  for (size_t idx = 0; idx < (len / 2); idx++) {
+uint32_t utilAbs(const int32_t x) { return (x < 0) ? -x : x; }
+
+void utilStrReverse(char *pBuf, uint32_t len) {
+  char     tmp;
+  uint32_t idxEnd = len - 1u;
+  for (uint32_t idx = 0; idx < (len / 2); idx++) {
     tmp          = pBuf[idx];
     pBuf[idx]    = pBuf[idxEnd];
     pBuf[idxEnd] = tmp;

@@ -959,6 +959,11 @@ bool configHandleConfirmation(const uint8_t c) {
     return false; /* Not waiting for confirmation */
   }
 
+  /* Reject CR/LF so the double line ending doesn't clear confirmation */
+  if (('\n' == c) || ('\r' == c)) {
+    return false;
+  }
+
   /* We're waiting for confirmation - handle it */
   handleConfirmation((char)c);
   return true;
