@@ -388,7 +388,7 @@ void i2cBusRecovery(Sercom *sercom, const uint8_t grp, const uint8_t sdaPin,
   i2cmCommon(sercom);
 }
 
-I2CM_Status_t i2cActivate(Sercom *sercom, const uint8_t addr) {
+I2CM_Status_t i2cActivate(Sercom *sercom, const uint32_t addr) {
   uint32_t      t = timerMicros();
   I2CM_Status_t s = I2CM_SUCCESS;
 

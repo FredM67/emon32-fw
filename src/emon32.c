@@ -144,7 +144,7 @@ static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
 
   if (blocking) {
     /* Blocking write - use before system reset to ensure data is saved */
-    eepromWriteWL(pPkt, 0);
+    eepromWriteWL(pPkt);
   } else {
     /* Async write with hardware timer callbacks to avoid blocking */
     eepromWrStatus_t status = eepromWriteWLAsync(pPkt, 0);

@@ -41,15 +41,15 @@
 
 /* EEPROM */
 /* Top of EEPROM address, not including R/W bit */
-#define EEPROM_BASE_ADDR   0x50
+#define EEPROM_BASE_ADDR   0x50u
 /* Maximum number of bytes in a single page */
 #define EEPROM_PAGE_SIZE   16u
 /* Worst case EEPROM write time (microseconds) */
 #define EEPROM_WR_TIME     5000ul
 /* Size of configuration area */
-#define EEPROM_CONFIG_SIZE 256
+#define EEPROM_CONFIG_SIZE 256u
 /* Size of the EEPROM in bytes */
-#define EEPROM_SIZE        1024
+#define EEPROM_SIZE        1024u
 /* Offset of wear levelled area */
 #define EEPROM_WL_OFFSET   (EEPROM_CONFIG_SIZE)
 

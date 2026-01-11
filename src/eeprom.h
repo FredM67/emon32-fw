@@ -86,10 +86,9 @@ eepromWrStatus_t eepromWriteContinue(void);
 
 /*! @brief Save data to EEPROM with wear leveling (blocking).
  *  @param [in] pPktWr : pointer to write packet
- *  @param [out] pIdx : pointer to the value of the index written to
  *  @return status of the EEPROM write process
  */
-eepromWrStatus_t eepromWriteWL(const void *pPktWr, uint32_t *pIdx);
+eepromWrStatus_t eepromWriteWL(const void *pPktWr);
 
 /*! @brief Start an asynchronous wear-leveled write operation (non-blocking).
  *  @details Uses hardware timer callback queue for precise timing

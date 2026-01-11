@@ -74,7 +74,7 @@ void i2cBusRecovery(Sercom *sercom, const uint8_t grp, const uint8_t sdaPin,
  *  @param [in] sercom : SERCOM instance
  *  @param [in] addr : address and RW bit
  */
-I2CM_Status_t i2cActivate(Sercom *sercom, const uint8_t addr);
+I2CM_Status_t i2cActivate(Sercom *sercom, const uint32_t addr);
 
 /*! @brief Requester acknowledge command
  *  @param [in] sercom : SERCOM instance
