@@ -410,7 +410,7 @@ static void calibrationPhase(PhaseXY_t *pPh, float phase, int8_t idxCT) {
 }
 
 void ecmClearEnergy(void) {
-  for (int32_t i = 0; i < NUM_CT; i++) {
+  for (uint32_t i = 0; i < NUM_CT; i++) {
     datasetProc.CT[i].wattHour = 0;
     residualEnergy[i]          = 0.0f;
   }
@@ -446,11 +446,11 @@ void ecmFlush(void) {
 RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
   if (!ecmCfg.downsample) {
     /* No filtering, discard the second sample in the set */
-    for (int32_t idxV = 0; idxV < NUM_V; idxV++) {
+    for (uint32_t idxV = 0; idxV < NUM_V; idxV++) {
       pDst->smpV[idxV] = applyCorrection(adcProc->samples[0].smp[idxV]);
     }
 
-    for (int32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
+    for (uint32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
       pDst->smpCT[mapLogCT[idxCT - NUM_V]] =
           applyCorrection(adcProc->samples[0].smp[idxCT + NUM_V]);
     }
@@ -474,7 +474,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
     /* Copy the packed raw ADC value into the unpacked buffer; samples[1] is
      * the most recent sample.
      */
-    for (int32_t idxSmp = 0; idxSmp < VCT_TOTAL; idxSmp++) {
+    for (uint32_t idxSmp = 0; idxSmp < VCT_TOTAL; idxSmp++) {
       dspBuffer[idxInjPrev].smp[idxSmp] =
           applyCorrection(adcProc->samples[0].smp[idxSmp]);
       dspBuffer[idxInj].smp[idxSmp] =
@@ -492,7 +492,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
     /* Loop over the FIR coefficients, sub loop through channels. The filter
      * is folded so the symmetric FIR coefficients are used for both samples.
      */
-    uint8_t  idxSmp[numCoeffUnique - 1][2];
+    uint32_t idxSmp[numCoeffUnique - 1][2];
     uint32_t idxSmpStart = idxInj;
     uint32_t idxSmpEnd = ((downsampleTaps - 1u) == idxInj) ? 0 : (idxInj + 1u);
     if (idxSmpEnd >= downsampleTaps)
@@ -503,7 +503,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
 
     /* Build a table of indices for the samples and coeffecietns. Converge
      * toward the middle, checking for over/underflow */
-    for (int32_t i = 1; i < (numCoeffUnique - 1); i++) {
+    for (uint32_t i = 1; i < (numCoeffUnique - 1); i++) {
       idxSmpStart -= 2u;
       if (idxSmpStart > downsampleTaps)
         idxSmpStart += downsampleTaps;
@@ -516,7 +516,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
       idxSmp[i][1] = idxSmpEnd;
     }
 
-    for (int32_t ch = 0; ch < VCT_TOTAL; ch++) {
+    for (uint32_t ch = 0; ch < VCT_TOTAL; ch++) {
       q15_t result;
       bool  active = (ch < NUM_V) ? channelActive[ch]
                                   : channelActive[mapLogCT[ch - NUM_V] + NUM_V];
@@ -524,7 +524,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
       if (active) {
         int32_t intRes = coeffMid * dspBuffer[idxMid].smp[ch];
 
-        for (int32_t fir = 0; fir < (numCoeffUnique - 1); fir++) {
+        for (uint32_t fir = 0; fir < (numCoeffUnique - 1); fir++) {
           const q15_t coeff = firCoeffs[fir];
           intRes += coeff * (dspBuffer[idxSmp[fir][0]].smp[ch] +
                              dspBuffer[idxSmp[fir][1]].smp[ch]);
@@ -565,14 +565,14 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
   }
 
   ecmFilterSample(&smpSet);
-  for (int32_t i = 0; i < NUM_V; i++) {
+  for (uint32_t i = 0; i < NUM_V; i++) {
     vSampleBuffer[idxInject].smpV[i] = smpSet.smpV[i];
   }
   accumCollecting->numSamples++;
 
   const int32_t idxLast = (idxInject - 1) & (PROC_DEPTH - 1);
 
-  for (int32_t idxV = 0; idxV < NUM_V; idxV++) {
+  for (uint32_t idxV = 0; idxV < NUM_V; idxV++) {
     if (channelActive[idxV]) {
       int32_t V = smpSet.smpV[idxV];
       accumCollecting->processV[idxV].sumV_sqr += (int64_t)(V * V);
@@ -597,7 +597,7 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
     accumCollecting->processV[5].sumV_deltas += v3v1;
   }
 
-  for (int32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
+  for (uint32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
     if (channelActive[idxCT + NUM_V]) {
       int32_t thisV;
       int32_t lastV;
@@ -724,7 +724,7 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
   const float timeTotal = qfp_fdiv(qfp_uint2float(t_dividend), 1000000.0f);
   datasetProc.wallTime  = timeTotal;
 
-  for (int32_t idxV = 0; idxV < NUM_V; idxV++) {
+  for (uint32_t idxV = 0; idxV < NUM_V; idxV++) {
     if (channelActive[idxV]) {
       rms.cal    = ecmCfg.vCfg[idxV].voltageCal;
       rms.sDelta = accumProcessing->processV[idxV].sumV_deltas;
@@ -745,7 +745,7 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
   }
 
   if (threePhase) {
-    for (int32_t i = 0; i < 3; i++) {
+    for (uint32_t i = 0; i < 3; i++) {
       rms.cal    = ecmCfg.vCfg[i].voltageCal;
       rms.sDelta = accumProcessing->processV[i + NUM_V].sumV_deltas;
       rms.sSqr   = accumProcessing->processV[i + NUM_V].sumV_sqr;
@@ -761,7 +761,7 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
     }
   }
 
-  for (int32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
+  for (uint32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
     if (channelActive[idxCT + NUM_V]) {
       int32_t idxV1 = ecmCfg.ctCfg[idxCT].vChan1;
       int32_t idxV2 = ecmCfg.ctCfg[idxCT].vChan2;

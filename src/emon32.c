@@ -100,7 +100,7 @@ static void cumulativeNVMLoad(Emon32Cumulative_t *pPkt,
   EMON32_ASSERT(pData);
 
   uint32_t  totalP   = 0;
-  uint32_t  totalWh  = 0;
+  int32_t   totalWh  = 0;
   bool      eepromOK = false;
   ECMCfg_t *ecmCfg   = ecmConfigGet();
 
@@ -108,7 +108,7 @@ static void cumulativeNVMLoad(Emon32Cumulative_t *pPkt,
   eepromOK = (EEPROM_WL_OK == eepromReadWL(pPkt, 0));
 
   for (uint32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
-    uint32_t wh = eepromOK ? pPkt->wattHour[idxCT] : 0;
+    int32_t wh = eepromOK ? pPkt->wattHour[idxCT] : 0;
 
     ecmCfg->ctCfg[idxCT].wattHourInit = wh;
     totalWh += wh;
@@ -234,7 +234,7 @@ void ecmConfigure(void) {
   ecmCfg->reportCycles  = pConfig->baseCfg.reportCycles;
   ecmCfg->mainsFreq     = pConfig->baseCfg.mainsFreq;
   ecmCfg->samplePeriod  = timerADCPeriod();
-  ecmCfg->reportTime_us = (1000000 / ecmCfg->mainsFreq) * ecmCfg->reportCycles;
+  ecmCfg->reportTime_us = (1000000u / ecmCfg->mainsFreq) * ecmCfg->reportCycles;
   ecmCfg->assumedVrms   = qfp_uint2float(pConfig->baseCfg.assumedVrms);
   ecmCfg->timeMicros    = &timerMicros;
   ecmCfg->timeMicrosDelta = &timerMicrosDelta;
@@ -427,7 +427,7 @@ static void ssd1306Setup(void) {
 }
 
 static void tempReadEvt(Emon32Dataset_t *pData, const uint32_t numT) {
-  static uint32_t tempRdCount;
+  static uint8_t tempRdCount;
 
   if (numT > 0) {
     TempRead_t tempValue = tempReadSample(TEMP_INTF_ONEWIRE, tempRdCount);
@@ -680,7 +680,7 @@ int main(void) {
         eepromWLClear();
         eepromWLReset(sizeof(nvmCumulative));
         ecmClearEnergy();
-        for (uint8_t i = 0; i < NUM_OPA; i++) {
+        for (uint32_t i = 0; i < NUM_OPA; i++) {
           pulseSetCount(i, 0);
         }
         emon32EventClr(EVT_CLEAR_ACCUM);

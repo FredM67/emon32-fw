@@ -51,7 +51,7 @@ static void     configDefault(void);
 static void     configEchoQueueChar(const uint8_t c);
 static void     configEchoQueueStr(const char *s);
 static void     configInitialiseNVM(void);
-static uint16_t configTimeToCycles(const float time, const int32_t mainsFreq);
+static uint16_t configTimeToCycles(const float time, const uint32_t mainsFreq);
 static bool     configureAnalog(void);
 static bool     configureAssumed(void);
 static void     configureBackup(void);
@@ -1469,7 +1469,7 @@ void configProcessCmd(void) {
 
 bool configUnsavedChanges(void) { return unsavedChange; }
 
-uint16_t configTimeToCycles(const float time, const int32_t mainsFreq) {
+uint16_t configTimeToCycles(const float time, const uint32_t mainsFreq) {
   return (uint16_t)qfp_float2uint(qfp_fmul(time, qfp_int2float(mainsFreq)));
 }
 

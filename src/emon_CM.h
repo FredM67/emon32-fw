@@ -85,9 +85,9 @@ typedef struct ECMCfg_ {
   uint32_t (*timeMicrosDelta)(uint32_t); /* Time delta in microseconds */
 
   bool     downsample;    /* DSP enabled */
-  int32_t  reportCycles;  /* Number of cycles before reporting */
-  int32_t  mainsFreq;     /* Mains frequency */
-  int32_t  samplePeriod;  /* Sampling period for each sample */
+  uint32_t reportCycles;  /* Number of cycles before reporting */
+  uint32_t mainsFreq;     /* Mains frequency */
+  uint32_t samplePeriod;  /* Sampling period for each sample */
   uint32_t reportTime_us; /* Report time in microseconds */
   float    assumedVrms;   /* Assume RMS voltage if not found */
 
