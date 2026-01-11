@@ -16,7 +16,7 @@ static bool isnumeric(const char c) {
 
 uint32_t utilAbs(const int32_t x) { return (x < 0) ? -x : x; }
 
-void utilStrReverse(char *pBuf, uint32_t len) {
+void utilStrReverse(char *pBuf, size_t len) {
   char     tmp;
   uint32_t idxEnd = len - 1u;
   for (uint32_t idx = 0; idx < (len / 2); idx++) {
@@ -35,10 +35,9 @@ size_t utilStrlen(const char *pBuf) {
   return charCnt;
 }
 
-size_t utilItoa(char *pBuf, int32_t val, const ITOA_BASE_t base) {
-  size_t      charCnt    = 0;
-  bool        isNegative = false;
-  char *const pBase      = pBuf;
+size_t utilUtoa(char *pBuf, uint32_t val, const ITOA_BASE_t base) {
+  size_t      charCnt = 0;
+  char *const pBase   = pBuf;
 
   /* Handle 0 explicitly */
   if (0 == val) {
@@ -47,30 +46,17 @@ size_t utilItoa(char *pBuf, int32_t val, const ITOA_BASE_t base) {
     return 2u;
   }
 
-  /* Base 10 can be signed, and has a divide in */
   if (ITOA_BASE10 == base) {
-    if (val < 0) {
-      isNegative = true;
-      val        = -val;
-    }
-
     while (0 != val) {
-      *pBuf++ = (val % 10u) + '0';
+      *pBuf++ = (char)((val % 10u) + '0');
       val     = val / 10u;
-      charCnt++;
-    }
-
-    if (isNegative) {
-      *pBuf++ = '-';
       charCnt++;
     }
   } else {
     const char itohex[] = "0123456789abcdef";
-    uint32_t   val_u    = (uint32_t)val;
-
-    while (0 != val_u) {
-      *pBuf++ = itohex[(val_u & 0xFu)];
-      val_u >>= 4;
+    while (0 != val) {
+      *pBuf++ = itohex[(val & 0xFu)];
+      val >>= 4;
       charCnt++;
     }
   }
@@ -81,6 +67,21 @@ size_t utilItoa(char *pBuf, int32_t val, const ITOA_BASE_t base) {
 
   utilStrReverse(pBase, charCnt - 1u);
   return charCnt;
+}
+
+size_t utilItoa(char *pBuf, int32_t val, const ITOA_BASE_t base) {
+  /* Hex treats value as unsigned bit pattern */
+  if (ITOA_BASE16 == base) {
+    return utilUtoa(pBuf, (uint32_t)val, base);
+  }
+
+  /* Negative decimal: write sign, then magnitude */
+  if (val < 0) {
+    *pBuf = '-';
+    return utilUtoa(pBuf + 1, (uint32_t)(-val), base) + 1u;
+  }
+
+  return utilUtoa(pBuf, (uint32_t)val, base);
 }
 
 ConvInt_t utilAtoi(char *pBuf, const ITOA_BASE_t base) {

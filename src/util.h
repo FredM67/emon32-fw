@@ -49,13 +49,21 @@ bool utilCharPrintable(const char c);
  */
 size_t utilFtoa(char *pBuf, float val);
 
-/*! @brief Convert integer to null terminated string.
- *  @param [in] pBuf : pointer to string buffer, at least 11 characters
+/*! @brief Convert signed integer to null terminated string.
+ *  @param [in] pBuf : pointer to string buffer, at least 12 characters
  *  @param [in] val : value to convert
  *  @param [in] base : select base 10 or base 16 conversion
  *  @return the number of characters (including NULL).
  */
 size_t utilItoa(char *pBuf, int32_t val, const ITOA_BASE_t base);
+
+/*! @brief Convert unsigned integer to null terminated string.
+ *  @param [in] pBuf : pointer to string buffer, at least 11 characters
+ *  @param [in] val : value to convert
+ *  @param [in] base : select base 10 or base 16 conversion
+ *  @return the number of characters (including NULL).
+ */
+size_t utilUtoa(char *pBuf, uint32_t val, const ITOA_BASE_t base);
 
 /*! @brief Returns the number of characters up to, but not including, NULL
  *  @param [in] pBuf : pointer to the NULL terminated string buffer
