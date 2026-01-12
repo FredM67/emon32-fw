@@ -74,7 +74,6 @@ static void evtKiloHertz(void);
 static bool evtPending(EVTSRC_t evt);
 static void pulseConfigure(void);
 void        putchar_(char c);
-static void serialPutsNonBlocking(const char *const s, uint16_t len);
 static void rfmConfigure(void);
 static void ssd1306Setup(void);
 static void tempReadEvt(Emon32Dataset_t *pData, const uint32_t numT);
@@ -376,13 +375,6 @@ void putchar_(char c) {
   uartPutcBlocking(SERCOM_UART, c);
 }
 
-static void serialPutsNonBlocking(const char *const s, uint16_t len) {
-  if (usbCDCIsConnected()) {
-    usbCDCPutsBlocking(s);
-  }
-  uartPutsNonBlocking(DMA_CHAN_UART, s, len);
-}
-
 static void rfmConfigure(void) {
   RFMOpt_t rfmOpt = {0};
   rfmOpt.freq     = (RFM_Freq_t)pConfig->dataTxCfg.rfmFreq;
@@ -502,12 +494,12 @@ static void totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc) {
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
                          char *txBuffer) {
 
-  int32_t nSerial = dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
+  (void)dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
 
   if (pOpt->useRFM) {
 
     if (pOpt->logSerial) {
-      serialPutsNonBlocking(txBuffer, nSerial);
+      serialPuts(txBuffer);
     }
 
     if (sercomExtIntfEnabled()) {
@@ -528,7 +520,7 @@ static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
     }
 
   } else {
-    serialPutsNonBlocking(txBuffer, nSerial);
+    serialPuts(txBuffer);
   }
 }
 
