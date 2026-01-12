@@ -31,7 +31,7 @@
 #include "qfplib-m0-full.h"
 
 typedef struct EPAccum_ {
-  uint32_t E; /* Energy */
+  int32_t  E; /* Energy */
   uint32_t P; /* Pulse */
 } EPAccum_t;
 
@@ -74,7 +74,6 @@ static void evtKiloHertz(void);
 static bool evtPending(EVTSRC_t evt);
 static void pulseConfigure(void);
 void        putchar_(char c);
-static void serialPutsNonBlocking(const char *const s, uint16_t len);
 static void rfmConfigure(void);
 static void ssd1306Setup(void);
 static void tempReadEvt(Emon32Dataset_t *pData, const uint32_t numT);
@@ -172,24 +171,24 @@ static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
   EMON32_ASSERT(pPkt);
   EMON32_ASSERT(pData);
 
-  uint32_t  deltaPulse = 0;
-  uint32_t  deltaWh    = 0;
-  EPAccum_t ep         = {0};
-  bool      epOverflow = false;
-
-  /* Store cumulative values if over threshold */
+  EPAccum_t ep = {0};
   totalEnergy(pData, &ep);
 
-  /* Catch overflow of energy. This corresponds to ~4 MWh(!), so unlikely to
+  /* Catch overflow of energy. This corresponds to ~2 GWh(!), so unlikely to
    * but handle safely.
    */
-  epOverflow = (ep.E < lastStoredEP.E) || (ep.P < lastStoredEP.P);
+  const uint32_t absE     = utilAbs(ep.E);
+  const uint32_t absELast = utilAbs(lastStoredEP.E);
+
+  const bool epOverflow =
+      ((absE + absELast) > INT32_MAX) || (ep.P < lastStoredEP.P);
 
   /* Treat 1 pulse == 1 Wh; not true in general case but reasonable criterion
    * for storage threshold. */
-  deltaPulse = ep.P - lastStoredEP.P;
-  deltaWh    = ep.E - lastStoredEP.E;
+  const uint32_t deltaPulse = ep.P - lastStoredEP.P;
+  const uint32_t deltaWh    = absE - absELast;
 
+  /* Store cumulative values if over thresholds or overflow */
   if ((deltaWh >= epDeltaStore) || (deltaPulse >= epDeltaStore) || epOverflow) {
     cumulativeNVMStore(pPkt, pData, false);
     lastStoredEP.E = ep.E;
@@ -376,13 +375,6 @@ void putchar_(char c) {
   uartPutcBlocking(SERCOM_UART, c);
 }
 
-static void serialPutsNonBlocking(const char *const s, uint16_t len) {
-  if (usbCDCIsConnected()) {
-    usbCDCPutsBlocking(s);
-  }
-  uartPutsNonBlocking(DMA_CHAN_UART, s, len);
-}
-
 static void rfmConfigure(void) {
   RFMOpt_t rfmOpt = {0};
   rfmOpt.freq     = (RFM_Freq_t)pConfig->dataTxCfg.rfmFreq;
@@ -502,12 +494,12 @@ static void totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc) {
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
                          char *txBuffer) {
 
-  int32_t nSerial = dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
+  (void)dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
 
   if (pOpt->useRFM) {
 
     if (pOpt->logSerial) {
-      serialPutsNonBlocking(txBuffer, nSerial);
+      serialPuts(txBuffer);
     }
 
     if (sercomExtIntfEnabled()) {
@@ -528,7 +520,7 @@ static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
     }
 
   } else {
-    serialPutsNonBlocking(txBuffer, nSerial);
+    serialPuts(txBuffer);
   }
 }
 

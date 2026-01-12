@@ -15,13 +15,10 @@ static void i2cmExtPinsSetup(void);
 static void sercomSetupSPI(void);
 static void spiExtPinsSetup(bool enable);
 
-static void uartConfigureDMA(void);
 static void uartInterruptEnable(Sercom *sercom, uint32_t interrupt);
-static void uartInUseClear(void);
-static void uartSetup(const UART_Cfg_t *pCfg);
+static void uartSetup(void);
 
 static volatile bool extIntfEnabled = true;
-static volatile bool uartInUse      = false;
 
 static void i2cmCommon(Sercom *pSercom) {
   /* For 400 kHz I2C (fast mode) with asymmetric timing:
@@ -88,28 +85,7 @@ void sercomSetup(void) {
    * Debug UART setup
    ******************/
 
-  UART_Cfg_t uart_dbg_cfg;
-  uart_dbg_cfg.sercom    = SERCOM_UART;
-  uart_dbg_cfg.baud      = UART_BAUD;
-  uart_dbg_cfg.apbc_mask = SERCOM_UART_APBCMASK;
-  uart_dbg_cfg.gclk_id   = SERCOM_UART_GCLK_ID;
-  uart_dbg_cfg.gclk_gen  = 3u;
-  uart_dbg_cfg.pad_tx    = UART_PAD_TX;
-  uart_dbg_cfg.pad_rx    = UART_PAD_RX;
-
-  uart_dbg_cfg.port_grp = GRP_SERCOM_UART;
-  uart_dbg_cfg.pin_tx   = PIN_UART_TX;
-  uart_dbg_cfg.pin_rx   = PIN_UART_RX;
-  uart_dbg_cfg.pmux     = PMUX_UART;
-
-  uart_dbg_cfg.dmaChannel   = DMA_CHAN_UART;
-  uart_dbg_cfg.dmaCfg.ctrlb = DMAC_CHCTRLB_LVL(1u) |
-                              DMAC_CHCTRLB_TRIGSRC(SERCOM_UART_DMAC_ID_TX) |
-                              DMAC_CHCTRLB_TRIGACT_BEAT;
-  uartSetup(&uart_dbg_cfg);
-
-  /* Setup DMAC for non-blocking UART (this is optional, unlike ADC) */
-  uartConfigureDMA();
+  uartSetup();
 
   /*****************
    * I2C Setup
@@ -137,11 +113,12 @@ void sercomSetup(void) {
   sercomSetupSPI();
 }
 
-static void uartSetup(const UART_Cfg_t *pCfg) {
+static void uartSetup(void) {
+
   uint16_t baud;
   // const uint64_t br_dbg = (uint64_t)65536 * (F_PERIPH - 16 * pCfg->baud) /
   // F_PERIPH;
-  switch (pCfg->baud) {
+  switch (UART_BAUD) {
   case (UART_BAUD_9600):
     baud = 64279;
     break;
@@ -168,31 +145,33 @@ static void uartSetup(const UART_Cfg_t *pCfg) {
     baud = 64279;
   }
 
-  portPinMux(pCfg->port_grp, pCfg->pin_tx, pCfg->pmux);
-  portPinMux(pCfg->port_grp, pCfg->pin_rx, pCfg->pmux);
+  portPinMux(GRP_SERCOM_UART, PIN_UART_TX, PMUX_UART);
+  portPinMux(GRP_SERCOM_UART, PIN_UART_RX, PMUX_UART);
 
   /* Configure clocks - runs from the OSC8M clock on gen 3 */
-  PM->APBCMASK.reg |= pCfg->apbc_mask;
-  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(pCfg->gclk_id) |
-                      GCLK_CLKCTRL_GEN(pCfg->gclk_gen) | GCLK_CLKCTRL_CLKEN;
+  PM->APBCMASK.reg |= SERCOM_UART_APBCMASK;
+  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM_UART_GCLK_ID) |
+                      GCLK_CLKCTRL_GEN(3u) | GCLK_CLKCTRL_CLKEN;
 
-  /* Configure the USART */
-  pCfg->sercom->USART.CTRLA.reg = SERCOM_USART_CTRLA_DORD |
-                                  SERCOM_USART_CTRLA_MODE_USART_INT_CLK |
-                                  SERCOM_USART_CTRLA_RXPO(pCfg->pad_rx) |
-                                  SERCOM_USART_CTRLA_TXPO(pCfg->pad_tx);
-
-  /* TX/RX enable requires synchronisation */
-  pCfg->sercom->USART.CTRLB.reg = SERCOM_USART_CTRLB_RXEN |
-                                  SERCOM_USART_CTRLB_TXEN |
-                                  SERCOM_USART_CTRLB_CHSIZE(0);
-  while (pCfg->sercom->USART.STATUS.reg & SERCOM_USART_SYNCBUSY_CTRLB)
+  /* Reset the USART fully to flush any state */
+  SERCOM_UART->USART.CTRLA.reg = SERCOM_USART_CTRLA_SWRST;
+  while (SERCOM_UART->USART.CTRLA.reg & SERCOM_USART_CTRLA_SWRST)
     ;
 
-  pCfg->sercom->USART.BAUD.reg = baud;
+  /* Configure the USART */
+  SERCOM_UART->USART.CTRLA.reg = SERCOM_USART_CTRLA_DORD |
+                                 SERCOM_USART_CTRLA_MODE_USART_INT_CLK |
+                                 SERCOM_USART_CTRLA_RXPO(UART_PAD_RX) |
+                                 SERCOM_USART_CTRLA_TXPO(UART_PAD_TX);
 
-  /* Configure DMA */
-  dmacChannelConfigure(pCfg->dmaChannel, &pCfg->dmaCfg);
+  /* TX/RX enable requires synchronisation */
+  SERCOM_UART->USART.CTRLB.reg = SERCOM_USART_CTRLB_RXEN |
+                                 SERCOM_USART_CTRLB_TXEN |
+                                 SERCOM_USART_CTRLB_CHSIZE(0);
+  while (SERCOM_UART->USART.STATUS.reg & SERCOM_USART_SYNCBUSY_CTRLB)
+    ;
+
+  SERCOM_UART->USART.BAUD.reg = baud;
 }
 
 static void sercomSetupSPI(void) {
@@ -233,48 +212,29 @@ static void sercomSetupSPI(void) {
  * =====================================
  */
 
-static void uartInUseClear(void) { uartInUse = false; }
-
 void uartPutcBlocking(Sercom *sercom, char c) {
-  /* Wait until any DMA transfers complete */
-  while (uartInUse)
-    ;
 
-  while (!(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE))
-    ;
+  uint32_t t_start         = timerMillis();
+  bool     uartNotTimedOut = true;
+
+  while (!(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE) &&
+         uartNotTimedOut) {
+    uartNotTimedOut = (timerMillisDelta(t_start) < 10);
+  };
+
+  /* Assume at this point the UART is in error state, so reset and proceed. */
+  if (!uartNotTimedOut) {
+    uartSetup();
+  }
+
   sercom->USART.DATA.reg    = c;
   sercom->USART.INTFLAG.reg = SERCOM_USART_INTFLAG_DRE;
 }
 
 void uartPutsBlocking(Sercom *sercom, const char *s) {
-  while (*s)
+  while (*s) {
     uartPutcBlocking(sercom, *s++);
-}
-
-static void uartConfigureDMA(void) {
-  volatile DmacDescriptor *dmacDesc = dmacGetDescriptor(DMA_CHAN_UART);
-  dmacDesc->BTCTRL.reg = DMAC_BTCTRL_VALID | DMAC_BTCTRL_BLOCKACT_NOACT |
-                         DMAC_BTCTRL_STEPSIZE_X1 | DMAC_BTCTRL_STEPSEL_SRC |
-                         DMAC_BTCTRL_SRCINC | DMAC_BTCTRL_BEATSIZE_BYTE;
-
-  dmacDesc->DSTADDR.reg  = (uint32_t)&SERCOM_UART->USART.DATA;
-  dmacDesc->DESCADDR.reg = 0u;
-
-  dmacCallbackUartCmpl(&uartInUseClear);
-}
-
-void uartPutsNonBlocking(uint32_t dma_chan, const char *const s, uint16_t len) {
-  volatile DmacDescriptor *dmacDesc = dmacGetDescriptor(dma_chan);
-  /* Valid bit is cleared when a channel is complete */
-  dmacDesc->BTCTRL.reg |= DMAC_BTCTRL_VALID;
-  dmacDesc->BTCNT.reg   = len;
-  dmacDesc->SRCADDR.reg = (uint32_t)s + len;
-
-  /* Ensure no interrupt between flag set and DMA start */
-  __disable_irq();
-  uartInUse = true;
-  dmacChannelEnable(dma_chan);
-  __enable_irq();
+  }
 }
 
 void uartEnableRx(Sercom *sercom, const uint32_t irqn) {
