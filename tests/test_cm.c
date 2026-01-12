@@ -49,7 +49,9 @@ static bool checkDataset(ECMDataset_t *pData, float pF);
  */
 static void currentToWave(double IRMS, int scaleCT, double phase, wave_t *w);
 
-static void dynamicRun(int reports, bool prtReport, noise_t *noise, bool noVAC);
+static double degToRad(double deg);
+
+static void dynamicRun(int reports, int prtReport, noise_t *noise, bool noVAC);
 
 /*! @brief Generates a Q11 [-1024, 1023] wave with configurable parameters
  *  @param [in] w       : pointer to wave information
@@ -73,8 +75,10 @@ static double randSkewNormal(noise_t *noise);
  *  @param [in] reportNum   Report number
  *  @param [in] tick        Simulation tick in us
  *  @param [in] pDataset    Pointer to the dataset
+ *  @param [in] ch          channel to report
  */
-static void printReport(int reportNum, int64_t tick, ECMDataset_t *pDataset);
+static void printReport(int reportNum, int64_t tick, ECMDataset_t *pDataset,
+                        int ch);
 
 /*! @brief Convert a voltage into a wave description
  *  @param [in] vRMS : RMS voltage
@@ -124,8 +128,9 @@ static bool checkDataset(ECMDataset_t *pData, float pF) {
   return true;
 }
 
-static void dynamicRun(int reports, bool prtReport, noise_t *noise,
-                       bool noVAC) {
+static double degToRad(double deg) { return deg * (M_PI / 180.0); }
+
+static void dynamicRun(int reports, int prtReport, noise_t *noise, bool noVAC) {
   int reportNum = 0;
 
   while (reportNum < reports) {
@@ -149,8 +154,8 @@ static void dynamicRun(int reports, bool prtReport, noise_t *noise,
 
     if (ECM_REPORT_COMPLETE == ecmInjectSample()) {
       dataset = ecmProcessSet();
-      if (prtReport) {
-        printReport(reportNum, tick, dataset);
+      if (prtReport > -1) {
+        printReport(reportNum, tick, dataset, prtReport);
       }
       reportNum++;
     }
@@ -198,7 +203,7 @@ int main(int argc, char *argv[]) {
 
   /* Set all CTs to 3.5 A */
   for (int i = NUM_V; i < VCT_TOTAL; i++) {
-    currentToWave(3.5, 5, 5.0, &wave[i]);
+    currentToWave(3.5, 5, 0, &wave[i]);
   }
 
   pEcmCfg = ecmConfigGet();
@@ -225,13 +230,13 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < NUM_V; i++) {
     pEcmCfg->vCfg[i].voltageCalRaw = 100.0f;
     pEcmCfg->vCfg[i].vActive       = (i == 0);
-    pEcmCfg->vCfg[i].phase         = 0.2f;
+    pEcmCfg->vCfg[i].phase         = 0.0f;
   }
 
   for (int i = 0; i < NUM_CT; i++) {
     pEcmCfg->ctCfg[i].active   = true;
     pEcmCfg->ctCfg[i].ctCalRaw = 20.0f;
-    pEcmCfg->ctCfg[i].phCal    = 3.2f;
+    pEcmCfg->ctCfg[i].phCal    = 0.0f;
     pEcmCfg->ctCfg[i].vChan1   = 0;
     pEcmCfg->ctCfg[i].vChan2   = 0;
   }
@@ -335,7 +340,7 @@ int main(int argc, char *argv[]) {
   printf("  Dynamic tests...\n\n");
 
   printf("    - Phase 0°, PF = 1 ...    ");
-  dynamicRun(4, false, &noise, false);
+  dynamicRun(4, -1, &noise, false);
   if (!checkDataset(dataset, 1.0f)) {
     return 1;
   }
@@ -343,10 +348,10 @@ int main(int argc, char *argv[]) {
 
   printf("    - Phase 90°, PF = 0 ...   ");
   for (int i = NUM_V; i < VCT_TOTAL; i++) {
-    wave[i].phi = M_PI / 2;
+    wave[i].phi = degToRad(90.0);
   }
   tick = 0;
-  dynamicRun(4, false, &noise, false);
+  dynamicRun(4, -1, &noise, false);
   if (!checkDataset(dataset, 0.0f)) {
     return 1;
   }
@@ -357,7 +362,7 @@ int main(int argc, char *argv[]) {
     wave[i].phi = M_PI;
   }
   tick = 0;
-  dynamicRun(4, false, &noise, false);
+  dynamicRun(4, -1, &noise, false);
   if (!checkDataset(dataset, -1.0f)) {
     return 1;
   }
@@ -368,7 +373,7 @@ int main(int argc, char *argv[]) {
     wave[i].phi = M_PI * 4.2f / 180;
   }
   tick = 0;
-  dynamicRun(4, false, &noise, true);
+  dynamicRun(4, -1, &noise, true);
   if (!checkDataset(dataset, 1.0f)) {
     return 1;
   }
@@ -381,7 +386,7 @@ int main(int argc, char *argv[]) {
     wave[i].phi = M_PI * 4.2f / 180;
   }
   tick = 0;
-  dynamicRun(2, false, &noise, false);
+  dynamicRun(2, -1, &noise, false);
   checkDataset(dataset, 1.0f);
   printf("Done!\n");
 
@@ -392,7 +397,7 @@ int main(int argc, char *argv[]) {
     wave[i].phi = M_PI * 4.2f / 180;
   }
   tick = 0;
-  dynamicRun(4, false, &noise, false);
+  dynamicRun(4, -1, &noise, false);
   checkDataset(dataset, 1.0f);
   printf("Done!\n");
 
@@ -425,8 +430,9 @@ static q15_t generateWave(wave_t *w, int tMicros) {
   return wave;
 }
 
-static void printReport(int reportNum, int64_t tick, ECMDataset_t *pDataset) {
-  const int  ct    = 0;
+static void printReport(int reportNum, int64_t tick, ECMDataset_t *pDataset,
+                        int ch) {
+  const int  ct    = ch;
   static int prevE = 0;
   int        thisE;
 

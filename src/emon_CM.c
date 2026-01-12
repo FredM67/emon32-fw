@@ -439,9 +439,6 @@ static float calibrationAmplitude(float cal, bool isV) {
  */
 static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT) {
 
-  /* Map physical CT -> logical CT inputs */
-  int idxMapped = ecmCfg.mapCTLog[idxCT];
-
   /* Compensate for V phase */
   float phiCT_V = qfp_fsub(pCfgCT->phCal, pCfgV[pCfgCT->vChan1].phase);
 
@@ -452,7 +449,8 @@ static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT) {
   float phaseShiftSets = qfp_fdiv(phiCT_V, phaseShift_deg);
 
   float phaseShiftSmpIdx =
-      qfp_fdiv(qfp_int2float(idxMapped - pCfgCT->vChan1), (float)VCT_TOTAL);
+      qfp_fdiv(qfp_int2float(idxCT - pCfgCT->vChan1 + NUM_V), (float)VCT_TOTAL);
+
   phaseShiftSets = qfp_fadd(phaseShiftSets, phaseShiftSmpIdx);
 
   int floorPhaseShiftSets = floorf_(phaseShiftSets);
