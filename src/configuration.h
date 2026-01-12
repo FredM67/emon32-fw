@@ -52,6 +52,10 @@ typedef struct __attribute__((__packed__)) CTCfg_ {
   uint8_t res0;
 } CTCfgPacked_t;
 
+typedef struct __attribute__((__packed__)) OneWireAddr_ {
+  uint64_t addr[TEMP_MAX_ONEWIRE];
+} OneWireAddr_t;
+
 typedef struct __attribute__((__packed__)) Emon32Config_ {
   uint32_t           key;
   BaseCfg_t          baseCfg;
@@ -59,7 +63,8 @@ typedef struct __attribute__((__packed__)) Emon32Config_ {
   VoltageCfgPacked_t voltageCfg[NUM_V];
   CTCfgPacked_t      ctCfg[NUM_CT + CT_RES];
   OpaCfgPacked_t     opaCfg[NUM_OPA + PULSE_RES];
-  uint8_t            res0[17];
+  OneWireAddr_t      oneWireAddr;
+  uint8_t            res0[16];
   uint16_t           crc16_ccitt;
 } Emon32Config_t;
 
