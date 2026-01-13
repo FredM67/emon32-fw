@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "board_def.h"
@@ -76,8 +77,8 @@ typedef struct CTCfgUnpacked_ {
   float   ctCal;
   float   ctCalRaw;
   bool    active;
-  int32_t vChan1;
-  int32_t vChan2;
+  uint8_t vChan1;
+  uint8_t vChan2;
   int32_t wattHourInit;
   int32_t idxInterpolateCT;
   int32_t idxInterpolateV;
@@ -142,7 +143,7 @@ void ecmClearEnergy(void);
 /*! @brief Clear accumulated energy for a single channel
  *  @param [in] idx : channel index (0 to NUM_CT-1)
  */
-void ecmClearEnergyChannel(int32_t idx);
+void ecmClearEnergyChannel(const size_t idx);
 
 /*! @brief Get the pointer to the configuration struct
  *  @return pointer to Emon CM configuration struct
@@ -162,7 +163,7 @@ void ecmConfigInit(void);
 /*! @brief Set cycles between reports
  *  @param [in] reportCycles : cycles between reports
  */
-void ecmConfigReportCycles(int32_t reportCycles);
+void ecmConfigReportCycles(uint32_t reportCycles);
 
 /*! @brief Returns a pointer to the ADC data buffer
  *  @return pointer to the active ADC data buffer.

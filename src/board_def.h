@@ -23,7 +23,7 @@
 #define SAMPLE_RATE        4800
 #define SAMPLES_IN_SET     2
 #define SAMPLE_BUF_DEPTH   2
-#define OVERSAMPLING_RATIO 2
+#define OVERSAMPLING_RATIO 2u
 
 #define ADC_VREF     1.024f
 #define ADC_RES_BITS 11

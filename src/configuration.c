@@ -203,8 +203,8 @@ static bool configureAnalog(void) {
   bool        active    = false;
   float       calAmpl   = 0.0f;
   float       calPhase  = 0.0f;
-  int32_t     vCh1      = 0;
-  int32_t     vCh2      = 0;
+  uint8_t     vCh1      = 0;
+  uint8_t     vCh2      = 0;
   int32_t     posActive = 0;
   int32_t     posCalib  = 0;
   int32_t     posPhase  = 0;
@@ -352,7 +352,7 @@ static bool configureAssumed(void) {
   ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
   if (convI.valid) {
     ECMCfg_t *pEcmCfg          = ecmConfigGet();
-    pEcmCfg->assumedVrms       = qfp_uint2float(convI.val);
+    pEcmCfg->assumedVrms       = qfp_int2float(convI.val);
     config.baseCfg.assumedVrms = convI.val;
     return true;
   }
@@ -1595,7 +1595,7 @@ void configProcessCmd(void) {
 bool configUnsavedChanges(void) { return unsavedChange; }
 
 uint16_t configTimeToCycles(const float time, const uint32_t mainsFreq) {
-  return (uint16_t)qfp_float2uint(qfp_fmul(time, qfp_int2float(mainsFreq)));
+  return (uint16_t)qfp_float2uint(qfp_fmul(time, qfp_uint2float(mainsFreq)));
 }
 
 VersionInfo_t configVersion(void) {

@@ -113,10 +113,10 @@ static bool         zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) RAMFUNC;
 static void  accumSwapClear(void);
 static int   floorf_(float f);
 static float calibrationAmplitude(float cal, bool isV);
-static void  calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT);
-static void  configChannelV(int_fast8_t ch);
-static void  configChannelCT(int_fast8_t ch);
-static void  swapPtr(void **pIn1, void **pIn2);
+static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, int_fast8_t idxCT);
+static void configChannelV(int_fast8_t ch);
+static void configChannelCT(int_fast8_t ch);
+static void swapPtr(void **pIn1, void **pIn2);
 
 /******************************************************************************
  * Pre-processing
@@ -191,11 +191,11 @@ static void swapPtr(void **pIn1, void **pIn2) {
 
 static ECMCfg_t ecmCfg           = {0};
 static bool     processTrigger   = false;
-static int8_t   mapLogCT[NUM_CT] = {0};
-static int8_t   discardCycles    = EQUIL_CYCLES;
+static uint8_t  mapLogCT[NUM_CT] = {0};
+static uint8_t  discardCycles    = EQUIL_CYCLES;
 static bool     initDone         = false;
 static bool     inAutoPhase      = false;
-static int32_t  samplePeriodus;
+static uint32_t samplePeriodus;
 static float    sampleIntervalRad;
 
 ECMCfg_t *ecmConfigGet(void) { return &ecmCfg; }
@@ -253,7 +253,7 @@ void ecmConfigInit(void) {
   uint32_t setPeriodus = samplePeriodus * VCT_TOTAL;
 
   sampleIntervalRad =
-      qfp_fmul((TWO_PI / 1E6f), qfp_int2float(ecmCfg.mainsFreq * setPeriodus));
+      qfp_fmul((TWO_PI / 1E6f), qfp_uint2float(ecmCfg.mainsFreq * setPeriodus));
 
   /* Map the logical channel back to the CT to unwind the data */
   for (uint8_t i = 0; i < NUM_CT; i++) {
@@ -278,7 +278,7 @@ void ecmConfigInit(void) {
   initDone = true;
 }
 
-void ecmConfigReportCycles(int32_t reportCycles) {
+void ecmConfigReportCycles(uint32_t reportCycles) {
   ecmCfg.reportCycles = reportCycles;
 }
 
@@ -437,7 +437,8 @@ static float calibrationAmplitude(float cal, bool isV) {
  *  @param [in] pCfgV : to pointer to array of V configuration structs
  *  @param [in] idxCT : physical index (0-based) of the CT
  */
-static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT) {
+static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV,
+                             int_fast8_t idxCT) {
 
   /* Compensate for V phase */
   float phiCT_V = qfp_fsub(pCfgCT->phCal, pCfgV[pCfgCT->vChan1].phase);
@@ -484,7 +485,7 @@ void ecmClearEnergy(void) {
   }
 }
 
-void ecmClearEnergyChannel(int32_t idx) {
+void ecmClearEnergyChannel(const size_t idx) {
   if (idx >= 0 && idx < NUM_CT) {
     datasetProc.CT[idx].wattHour = 0;
     residualEnergy[idx]          = 0.0f;
