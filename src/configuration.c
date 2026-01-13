@@ -14,6 +14,7 @@
 #include "emon_CM.h"
 #include "periph_rfm69.h"
 #include "pulse.h"
+#include "temperature.h"
 #include "util.h"
 
 #include "printf.h"
@@ -59,6 +60,11 @@ static bool     configureDatalog(void);
 static bool     configureGroupID(void);
 static bool     configureJSON(void);
 static bool     configureLineFrequency(void);
+static bool     configure1WAddr(void);
+static void     configure1WFind(void);
+static bool     configure1WFreeze(void);
+static void     configure1WList(void);
+static bool     configure1WSave(void);
 static bool     configureOPA(void);
 static bool     configureNodeID(void);
 static bool     configureRFEnable(void);
@@ -68,7 +74,9 @@ static bool     configureSerialLog(void);
 static void     enterBootloader(void);
 static uint32_t getBoardRevision(void);
 static char    *getLastReset(void);
-static void     inBufferClear(size_t n);
+static void     handleConfirmation(char c);
+static void     inBufferClear(int32_t n);
+static size_t   inBufferTok(void);
 static void     printSettingCT(const int32_t ch);
 static void     printSettingDatalog(void);
 static void     printSettingJSON(void);
@@ -81,7 +89,6 @@ static void     printSettingsHR(void);
 static void     printSettingsKV(void);
 static void     printUptime(void);
 static void     putFloat(float val, int32_t flt_len);
-static void     handleConfirmation(char c);
 /* static char     waitForChar(void); - Removed, NVM corruption now auto-loads
  * defaults */
 /* static bool     restoreDefaults(void); - Removed pending OEM decision */
@@ -107,6 +114,8 @@ static bool    unsavedChange = false;
 
 /*! @brief Set all configuration values to defaults */
 static void configDefault(void) {
+  (void)memset(&config, 0, sizeof(config));
+
   config.key = CONFIG_NVM_KEY;
 
   /* Single phase, 50 Hz, 240 VAC, 10 s report period */
@@ -121,25 +130,23 @@ static void configDefault(void) {
   config.baseCfg.logToSerial  = true;
   config.baseCfg.useJson      = false;
   config.baseCfg.debugSerial  = false;
-  (void)memset(config.baseCfg.res0, 0, sizeof(config.baseCfg.res0));
-  config.dataTxCfg.useRFM  = true;
-  config.dataTxCfg.rfmPwr  = RFM_PALEVEL_DEF;
-  config.dataTxCfg.rfmFreq = RFM_FREQ_DEF;
-  config.dataTxCfg.res0    = 0;
+  config.dataTxCfg.useRFM     = true;
+  config.dataTxCfg.rfmPwr     = RFM_PALEVEL_DEF;
+  config.dataTxCfg.rfmFreq    = RFM_FREQ_DEF;
 
   for (int32_t idxV = 0u; idxV < NUM_V; idxV++) {
     config.voltageCfg[idxV].voltageCal = 100.0f;
     config.voltageCfg[idxV].vActive    = (0 == idxV);
+    config.voltageCfg[idxV].phase      = 0.0f;
   }
 
   /* 4.2 degree shift @ 50 Hz. Initialize ALL slots including reserved. */
   for (int32_t idxCT = 0u; idxCT < (NUM_CT + CT_RES); idxCT++) {
     config.ctCfg[idxCT].ctCal    = 100.0f;
-    config.ctCfg[idxCT].phase    = 4.2f;
+    config.ctCfg[idxCT].phase    = 3.2f;
     config.ctCfg[idxCT].vChan1   = 0;
     config.ctCfg[idxCT].vChan2   = 0;
     config.ctCfg[idxCT].ctActive = (idxCT < NUM_CT_ACTIVE_DEF);
-    config.ctCfg[idxCT].res0     = 0;
   }
 
   /* OneWire/Pulse configuration:
@@ -168,9 +175,6 @@ static void configDefault(void) {
     config.opaCfg[idxOPA].period    = 0;
     config.opaCfg[idxOPA].puEn      = false;
   }
-
-  /* Zero all reserved bytes before CRC calculation */
-  (void)memset(config.res0, 0, sizeof(config.res0));
 
   config.crc16_ccitt = calcCRC16_ccitt(&config, (sizeof(config) - 2u));
 }
@@ -232,7 +236,7 @@ static bool configureAnalog(void) {
   /* Voltage channels are [1..3], CTs are [4..] but 0 indexed internally. All
    * fields must be present for a given channel type.
    */
-  convI = utilAtoi(inBuffer + 1u, ITOA_BASE10);
+  convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
   if (!convI.valid) {
     return false;
   }
@@ -242,11 +246,12 @@ static bool configureAnalog(void) {
     return false;
   }
 
-  if ((0 == posCalib) || (0 == posActive)) {
+  if ((0 == posCalib) || (0 == posActive) || (0 == posPhase)) {
     return false;
   }
+
   if (ch >= NUM_V) {
-    if ((0 == posPhase) || (0 == posV1) || (0 == posV2)) {
+    if ((0 == posV1) || (0 == posV2)) {
       return false;
     }
   }
@@ -266,28 +271,40 @@ static bool configureAnalog(void) {
   }
   calAmpl = convF.val;
 
+  convF = utilAtof(inBuffer + posPhase);
+  if (!convF.valid) {
+    return false;
+  }
+  calPhase = convF.val;
+
   if (NUM_V > ch) {
 
     if ((calAmpl <= 25.0f) || (calAmpl >= 150.0f)) {
       return false;
     }
 
+    bool reconfigureCT = calPhase != ecmCfg->vCfg[ch].phase;
+
     config.voltageCfg[ch].vActive    = active;
     config.voltageCfg[ch].voltageCal = calAmpl;
+    config.voltageCfg[ch].phase      = calPhase;
     ecmCfg->vCfg[ch].vActive         = active;
     ecmCfg->vCfg[ch].voltageCalRaw   = calAmpl;
+    ecmCfg->vCfg[ch].phase           = calPhase;
 
     printSettingV(ch);
 
     ecmConfigChannel(ch);
+
+    /* If the voltage phase was changed reconfigure all CTs as well */
+    if (reconfigureCT) {
+      for (size_t i = 0; i < NUM_CT; i++) {
+        ecmConfigChannel(i + NUM_V);
+      }
+    }
+
     return true;
   }
-
-  convF = utilAtof(inBuffer + posPhase);
-  if (!convF.valid) {
-    return false;
-  }
-  calPhase = convF.val;
 
   convI = utilAtoi(inBuffer + posV1, ITOA_BASE10);
   if (!convI.valid) {
@@ -462,6 +479,98 @@ static bool configureLineFrequency(void) {
   return true;
 }
 
+static bool configure1WAddr(void) {
+  char c1 = *(inBuffer + 1);
+  if ('f' == c1) {
+    configure1WFind();
+    return false;
+  } else if ('l' == c1) {
+    configure1WList();
+    return false;
+  } else if ('s' == c1) {
+    configure1WFreeze();
+    return true;
+  } else {
+    return configure1WSave();
+  }
+}
+
+static void configure1WFind(void) { emon32EventSet(EVT_OPA_INIT); }
+
+static bool configure1WFreeze(void) {
+  uint64_t *pAddrDev = tempAddress1WGet();
+  memcpy(&config.oneWireAddr, pAddrDev, sizeof(config.oneWireAddr));
+  return true;
+}
+
+static void configure1WList(void) {
+  uint64_t *pAddr = tempAddress1WGet();
+
+  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+
+    /* Only list DS18B20 devices */
+    uint8_t id = (uint8_t)(pAddr[i] & 0xFF);
+    if (0x28 == id) {
+      printf_("%d [->%d] ", (i + 1),
+              (tempMapToLogical(TEMP_INTF_ONEWIRE, i) + 1));
+      for (int j = 0; j < 8; j++) {
+        printf_("%x%s", (uint8_t)((pAddr[i] >> (8 * j)) & 0xFF),
+                ((j == 7) ? "\r\n" : " "));
+      }
+    }
+  }
+}
+
+static bool configure1WSave(void) {
+
+  uint8_t pos[8];
+  size_t  ch;
+
+  if (8 != inBufferTok()) {
+    return false;
+  }
+
+  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
+  if (!convI.valid) {
+    return false;
+  }
+
+  if ((convI.val < 1) || (convI.val > (TEMP_MAX_ONEWIRE))) {
+    return false;
+  }
+  ch = convI.val - 1u;
+
+  /* Find the position of the bytes in the string */
+  size_t tcnt = 0;
+  for (size_t i = 0; (i < IN_BUFFER_W) && (tcnt != 8u); i++) {
+    if ('\0' == inBuffer[i]) {
+      pos[tcnt++] = i + 1u;
+    }
+  }
+
+  uint64_t addr = 0;
+  for (size_t i = 0; i < 8; i++) {
+    convI = utilAtoi(&inBuffer[pos[i]], ITOA_BASE16);
+    if (!convI.valid) {
+      return false;
+    }
+    addr |= ((uint64_t)convI.val << (8u * i));
+  }
+
+  /* If this is an existing address, then zero the previous one */
+  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+    uint64_t as; /* Ensure 8byte alignment */
+    memcpy(&as, &config.oneWireAddr.addr[i], sizeof(as));
+    if (as == addr) {
+      config.oneWireAddr.addr[i] = 0;
+    }
+  }
+
+  config.oneWireAddr.addr[ch] = addr;
+
+  return true;
+}
+
 static bool configureOPA(void) {
   /* String format in inBuffer:
    *  m<v> <w> <x> <y> <z>
@@ -485,15 +594,7 @@ static bool configureOPA(void) {
   bool      pu     = false;
   int32_t   period = 0;
 
-  /* Form a group of null-terminated strings */
-  for (int32_t i = 0; i < IN_BUFFER_W; i++) {
-    if (0 == inBuffer[i]) {
-      break;
-    }
-    if (' ' == inBuffer[i]) {
-      inBuffer[i] = 0;
-    }
-  }
+  inBufferTok();
 
   /* Channel index */
   convI = utilAtoi(inBuffer + posCh, ITOA_BASE10);
@@ -541,12 +642,8 @@ static bool configureOPA(void) {
     period = convI.val;
   }
 
-  /* OneWire requires a reset if changed to find any OneWire sensors. */
   if ('o' == func) {
     config.opaCfg[ch].func = 'o';
-    if ('o' != config.opaCfg[ch].func) {
-      resetReq = true;
-    }
     printSettingOPA(ch);
     return true;
   }
@@ -556,7 +653,7 @@ static bool configureOPA(void) {
   config.opaCfg[ch].puEn   = pu;
 
   printSettingOPA(ch);
-  resetReq = true;
+
   return true;
 }
 
@@ -711,6 +808,21 @@ static void inBufferClear(size_t n) {
   (void)memset(inBuffer, 0, n);
 }
 
+static size_t inBufferTok(void) {
+  /* Form a group of null-terminated strings */
+  size_t tokCount = 0;
+  for (int i = 0; i < IN_BUFFER_W; i++) {
+    if ('\0' == inBuffer[i]) {
+      break;
+    }
+    if (' ' == inBuffer[i]) {
+      inBuffer[i] = 0;
+      tokCount++;
+    }
+  }
+  return tokCount;
+}
+
 static void printSettingCT(const int32_t ch) {
   printf_("iCal%ld = ", (ch + 1));
   putFloat(config.ctCfg[ch].ctCal, 0);
@@ -779,7 +891,9 @@ static void printSettingRFFreq(void) {
 static void printSettingV(const int32_t ch) {
   printf_("vCal%ld = ", (ch + 1));
   putFloat(config.voltageCfg[ch].voltageCal, 0);
-  printf_(", vActive%ld = %s\r\n", (ch + 1),
+  printf_(",vLead%d = ", (ch + 1));
+  putFloat(config.voltageCfg[ch].phase, 0);
+  printf_(", vActive%d = %s\r\n", (ch + 1),
           config.voltageCfg[ch].vActive ? "1" : "0");
 }
 
@@ -885,7 +999,9 @@ static void printSettingsHR(void) {
     printf_("| %2ld  |  V %2ld   | %c      | ", (i + 1), (i + 1),
             (config.voltageCfg[i].vActive ? 'Y' : 'N'));
     putFloat(config.voltageCfg[i].voltageCal, 6);
-    serialPuts("      |         |      |      |\r\n");
+    serialPuts("      |  ");
+    putFloat(config.voltageCfg[i].phase, 6);
+    serialPuts(" |      |      |\r\n");
   }
   for (int32_t i = 0; i < NUM_CT; i++) {
     printf_("| %2ld  | CT %2ld   | %c      | ", (i + 1 + NUM_V), (i + 1),
@@ -1282,7 +1398,7 @@ void configProcessCmd(void) {
       "   - x:        : channel (1-3 -> V; 4... -> CT)\r\n"
       "   - a:        : channel active. a = 0: DISABLED, a = 1: ENABLED\r\n"
       "   - y.y       : V/CT calibration constant\r\n"
-      "   - z.z       : CT phase calibration value\r\n"
+      "   - z.z       : V/CT phase calibration value\r\n"
       "   - v1        : CT voltage channel 1\r\n"
       "   - v2        : CT voltage channel 2\r\n"
       " - l           : list settings\r\n"
@@ -1295,6 +1411,11 @@ void configProcessCmd(void) {
       "     - y : pull-up. y = 0: OFF, y = 1: ON\r\n"
       "     - z : minimum period (ms). Ignored if w = 0\r\n"
       " - n<n>        : set node ID [1..60]\r\n"
+      " - o<x>        : configure OneWire addressing\r\n"
+      "   - x = f   : reset and find OneWire devices\r\n"
+      "   - x = l   : list current addresses\r\n"
+      "   - x = s   : save current addresses\r\n"
+      "   - x = <n> : save address to index n\r\n"
       " - p<n>        : set the RF power level\r\n"
       " - r           : restore defaults\r\n"
       " - s           : save settings to NVM\r\n"
@@ -1387,12 +1508,16 @@ void configProcessCmd(void) {
   case 'm':
     if (configureOPA()) {
       unsavedChange = true;
+      emon32EventSet(EVT_OPA_INIT);
       emon32EventSet(EVT_CONFIG_CHANGED);
     }
     break;
   case 'o':
-    /* Start auto calibration of CT<x> lead */
-    serialPuts("> Reserved for auto calibration. Not yet implemented.\r\n");
+    if (configure1WAddr()) {
+      unsavedChange = true;
+      emon32EventSet(EVT_OPA_INIT);
+      emon32EventSet(EVT_CONFIG_CHANGED);
+    }
     break;
   case 'n':
     /* Set the node ID */

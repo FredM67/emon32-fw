@@ -74,7 +74,6 @@ static void evtKiloHertz(void);
 static bool evtPending(EVTSRC_t evt);
 static void pulseConfigure(void);
 void        putchar_(char c);
-static void serialPutsNonBlocking(const char *const s, const size_t len);
 static void rfmConfigure(void);
 static void ssd1306Setup(void);
 static void tempReadEvt(Emon32Dataset_t *pData, const uint32_t numT);
@@ -376,13 +375,6 @@ void putchar_(char c) {
   uartPutcBlocking(SERCOM_UART, c);
 }
 
-static void serialPutsNonBlocking(const char *const s, const size_t len) {
-  if (usbCDCIsConnected()) {
-    usbCDCPutsBlocking(s);
-  }
-  uartPutsNonBlocking(DMA_CHAN_UART, s, len);
-}
-
 static void rfmConfigure(void) {
   RFMOpt_t rfmOpt = {0};
   rfmOpt.freq     = (RFM_Freq_t)pConfig->dataTxCfg.rfmFreq;
@@ -430,14 +422,15 @@ static void tempReadEvt(Emon32Dataset_t *pData, const uint32_t numT) {
   static uint8_t tempRdCount;
 
   if (numT > 0) {
-    TempRead_t tempValue = tempReadSample(TEMP_INTF_ONEWIRE, tempRdCount);
+    TempRead_t tempValue  = tempReadSample(TEMP_INTF_ONEWIRE, tempRdCount);
+    size_t     mapLogical = tempMapToLogical(TEMP_INTF_ONEWIRE, tempRdCount);
 
     if (TEMP_OK == tempValue.status) {
-      pData->temp[tempRdCount] = tempValue.temp;
+      pData->temp[mapLogical] = tempValue.temp;
     } else if (TEMP_OUT_OF_RANGE == tempValue.status) {
-      pData->temp[tempRdCount] = 4832; /* 302°C */
+      pData->temp[mapLogical] = 4832; /* 302°C */
     } else {
-      pData->temp[tempRdCount] = 4864; /* 304°C */
+      pData->temp[mapLogical] = 4864; /* 304°C */
     }
 
     tempRdCount++;
@@ -463,14 +456,32 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
   dsCfg.grp                     = GRP_OPA;
   dsCfg.t_wait_us               = 5;
 
-  for (uint8_t i = 0; i < NUM_OPA; i++) {
-    if (('o' == pConfig->opaCfg[i].func) && pConfig->opaCfg[i].opaActive) {
-      dsCfg.opaIdx = i;
-      dsCfg.pin    = opaPins[i];
-      dsCfg.pinPU  = opaPUs[i];
-      numTempSensors += tempInitSensors(TEMP_INTF_ONEWIRE, &dsCfg);
+  tempInitClear();
+
+  for (int32_t i = 0; i < NUM_OPA; i++) {
+    if (('o' == pConfig->opaCfg[i].func)) {
+
+      /* If configured as OneWire device always enable the PU even if inactive
+       * as an external device may be handling the port */
+      portPinDrv(GRP_OPA, opaPUs[i], PIN_DRV_SET);
+      portPinDir(GRP_OPA, opaPUs[i], PIN_DIR_OUT);
+      portPinDrv(GRP_OPA, opaPins[i], PIN_DRV_CLR);
+
+      if (pConfig->opaCfg[i].opaActive) {
+        dsCfg.opaIdx = i;
+        dsCfg.pin    = opaPins[i];
+        dsCfg.pinPU  = opaPUs[i];
+        numTempSensors += tempInitSensors(TEMP_INTF_ONEWIRE, &dsCfg);
+      }
     }
   }
+
+  /* 64 bit values must be 8byte aligned, not guaranteed from a packed struct */
+  uint64_t addrAlign8[TEMP_MAX_ONEWIRE];
+  memcpy(addrAlign8, pConfig->oneWireAddr.addr,
+         sizeof(pConfig->oneWireAddr.addr));
+
+  tempMapDevices(TEMP_INTF_ONEWIRE, addrAlign8);
 
   /* Set all unused temperature slots to 300°C (4800 as Q4 fixed point) */
   for (uint32_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
@@ -502,13 +513,12 @@ static void totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc) {
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
                          char *txBuffer) {
 
-  const size_t nSerial =
-      dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
+  (void)dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
 
   if (pOpt->useRFM) {
 
     if (pOpt->logSerial) {
-      serialPutsNonBlocking(txBuffer, nSerial);
+      serialPuts(txBuffer);
     }
 
     if (sercomExtIntfEnabled()) {
@@ -529,7 +539,7 @@ static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
     }
 
   } else {
-    serialPutsNonBlocking(txBuffer, nSerial);
+    serialPuts(txBuffer);
   }
 }
 
@@ -767,6 +777,11 @@ int main(void) {
       if (evtPending(EVT_PROCESS_CMD)) {
         configProcessCmd();
         emon32EventClr(EVT_PROCESS_CMD);
+      }
+      if (evtPending(EVT_OPA_INIT)) {
+        pulseConfigure();
+        numTempSensors = tempSetup(&dataset);
+        emon32EventClr(EVT_OPA_INIT);
       }
       if (evtPending(EVT_CONFIG_CHANGED)) {
         emon32EventClr(EVT_CONFIG_CHANGED);

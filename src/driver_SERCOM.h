@@ -34,22 +34,6 @@ typedef enum UART_BAUD_ {
   UART_BAUD_115200 = 115200
 } UART_BAUD_t;
 
-typedef struct UART_Cfg_ {
-  Sercom     *sercom;
-  UART_BAUD_t baud;
-  uint32_t    apbc_mask;
-  uint8_t     gclk_id;
-  uint8_t     gclk_gen;
-  uint8_t     pad_tx;
-  uint8_t     pad_rx;
-  uint8_t     port_grp;
-  uint8_t     pin_tx;
-  uint8_t     pin_rx;
-  uint8_t     pmux;
-  uint8_t     dmaChannel;
-  DMACCfgCh_t dmaCfg;
-} UART_Cfg_t;
-
 /*! @brief Disable the external SPI and I2C interfaces */
 void sercomExtIntfDisable(void);
 
@@ -162,11 +146,3 @@ void uartPutcBlocking(Sercom *sercom, char c);
  *  @param [in] s : Pointer to null terminated string
  */
 void uartPutsBlocking(Sercom *sercom, const char *s);
-
-/*! @brief Send a string (non-blocking) on UART by DMA
- *  @param [in] dma_chan : DMA channel to send on
- *  @param [in] s : Pointer to the string
- *  @param [in] len : Length of the string (not including NULL)
- */
-void uartPutsNonBlocking(uint8_t dma_chan, const char *const s,
-                         const size_t len);

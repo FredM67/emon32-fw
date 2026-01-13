@@ -47,7 +47,7 @@
 /* Worst case EEPROM write time (microseconds) */
 #define EEPROM_WR_TIME     5000ul
 /* Size of configuration area */
-#define EEPROM_CONFIG_SIZE 256u
+#define EEPROM_CONFIG_SIZE 320
 /* Size of the EEPROM in bytes */
 #define EEPROM_SIZE        1024u
 /* Offset of wear levelled area */
@@ -69,8 +69,6 @@
 #define SERCOM_I2CM_EXT_GCLK_ID SERCOM3_GCLK_ID_CORE
 #define SERCOM_I2CM_INT_GCLK_ID SERCOM4_GCLK_ID_CORE
 #define SERCOM_UART_GCLK_ID     SERCOM5_GCLK_ID_CORE
-
-#define SERCOM_UART_DMAC_ID_TX SERCOM5_DMAC_ID_TX
 
 #define SERCOM_UART_INTERACTIVE_HANDLER irq_handler_sercom5()
 #define SERCOM_UART_INTERACTIVE         SERCOM5
@@ -223,7 +221,6 @@
 #define PMUX_I2CM_EXT      PORT_PMUX_PMUXE_C
 
 /* DMA defines */
-#define NUM_CHAN_DMA  3u
-#define DMA_CHAN_UART 2u
+#define NUM_CHAN_DMA  2u
 #define DMA_CHAN_ADC1 1u
 #define DMA_CHAN_ADC0 0u

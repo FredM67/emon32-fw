@@ -7,7 +7,6 @@ static volatile DmacDescriptor dmacs[NUM_CHAN_DMA];
 static DmacDescriptor          dmacs_wb[NUM_CHAN_DMA];
 
 static void (*cbBufferFill)(void);
-static void (*cbUartCmpl)(void);
 
 /* Useful ref: https://aykevl.nl/2019/09/samd21-dma */
 
@@ -29,11 +28,9 @@ volatile DmacDescriptor *dmacGetDescriptor(uint8_t ch) { return &dmacs[ch]; }
 
 void dmacCallbackBufferFill(void (*cb)(void)) { cbBufferFill = cb; }
 
-void dmacCallbackUartCmpl(void (*cb)(void)) { cbUartCmpl = cb; }
-
-void dmacChannelDisable(uint8_t ch) {
-  DMAC->CHID.reg           = ch;
-  DMAC->CHCTRLA.bit.ENABLE = 0;
+void dmacChannelDisable(uint32_t ch) {
+  DMAC->CHID.reg = ch;
+  DMAC->CHCTRLA.reg &= ~DMAC_CHCTRLA_ENABLE;
 }
 
 void dmacChannelEnable(uint8_t ch) {
@@ -70,12 +67,6 @@ void irq_handler_dmac(void) {
     DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_TCMPL;
     dmacChannelEnable(DMA_CHAN_ADC0);
     (*cbBufferFill)();
-  }
-
-  DMAC->CHID.reg = DMA_CHAN_UART;
-  if (DMAC->CHINTFLAG.reg & DMAC_CHINTFLAG_TCMPL) {
-    DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_TCMPL;
-    (*cbUartCmpl)();
   }
 }
 
