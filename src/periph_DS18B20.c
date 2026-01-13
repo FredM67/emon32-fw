@@ -1,3 +1,5 @@
+#include <stddef.h>
+
 #include "emon32_samd.h"
 
 #include "board_def.h"
@@ -37,15 +39,15 @@ static uint8_t  devRemap[TEMP_MAX_ONEWIRE]     = {0};
 
 /* OneWire functions & state variables */
 static uint8_t calcCRC8(const uint8_t crc, const uint8_t value);
-static bool    oneWireFirst(const uint8_t opaIdx);
-static bool    oneWireNext(const uint8_t opaIdx);
-static uint8_t oneWireReadBit(const uint8_t opaIdx);
-static void oneWireReadBytes(void *pDst, const uint8_t n, const uint8_t opaIdx);
-static bool oneWireReset(const uint8_t opaIdx);
-static bool oneWireSearch(const uint8_t opaIdx);
-static void oneWireWriteBit(uint8_t bit, const uint8_t opaIdx);
+static bool    oneWireFirst(const size_t opaIdx);
+static bool    oneWireNext(const size_t opaIdx);
+static uint8_t oneWireReadBit(const size_t opaIdx);
+static void oneWireReadBytes(void *pDst, const uint8_t n, const size_t opaIdx);
+static bool oneWireReset(const size_t opaIdx);
+static bool oneWireSearch(const size_t opaIdx);
+static void oneWireWriteBit(uint8_t bit, const size_t opaIdx);
 static void oneWireWriteBytes(const void *pSrc, const uint8_t n,
-                              const uint8_t opaIdx);
+                              const size_t opaIdx);
 
 uint64_t ROM_NO                = 0;
 int32_t  lastDiscrepancy       = 0;
@@ -79,7 +81,7 @@ static uint8_t calcCRC8(const uint8_t crc, const uint8_t value) {
 /*! @brief: Find the first device on the 1-Wire bus
  *  @return true if device found, ROM number in ROM_NO buffer; false otherwise
  */
-static bool oneWireFirst(const uint8_t opaIdx) {
+static bool oneWireFirst(const size_t opaIdx) {
   /* Reset the search state */
   lastDiscrepancy       = 0;
   lastDeviceFlag        = 0;
@@ -91,9 +93,9 @@ static bool oneWireFirst(const uint8_t opaIdx) {
 /*! @brief: Find the next device on the 1-Wire bus
  *  @return true if device found, ROM number in ROM_NO buffer; false otherwise
  */
-static bool oneWireNext(const uint8_t opaIdx) { return oneWireSearch(opaIdx); }
+static bool oneWireNext(const size_t opaIdx) { return oneWireSearch(opaIdx); }
 
-static uint8_t oneWireReadBit(const uint8_t opaIdx) {
+static uint8_t oneWireReadBit(const size_t opaIdx) {
   uint8_t result = 0;
 
   __disable_irq();
@@ -111,8 +113,7 @@ static uint8_t oneWireReadBit(const uint8_t opaIdx) {
   return result;
 }
 
-static void oneWireReadBytes(void *pDst, const uint8_t n,
-                             const uint8_t opaIdx) {
+static void oneWireReadBytes(void *pDst, const uint8_t n, const size_t opaIdx) {
   EMON32_ASSERT(pDst);
 
   uint8_t *pData = (uint8_t *)pDst;
@@ -126,7 +127,7 @@ static void oneWireReadBytes(void *pDst, const uint8_t n,
   }
 }
 
-static bool oneWireReset(const uint8_t opaIdx) {
+static bool oneWireReset(const size_t opaIdx) {
   /* t_RSTL (min) = 480 us
    * t_RSTH (min) = 480 us
    * t_PDHIGH (max) = 60 us
@@ -156,7 +157,7 @@ static bool oneWireReset(const uint8_t opaIdx) {
   return presence;
 }
 
-static bool oneWireSearch(const uint8_t opaIdx) {
+static bool oneWireSearch(const size_t opaIdx) {
   /* Initialise for search */
   const uint8_t CMD_SEARCH_ROM  = 0xF0u;
   uint8_t       searchDirection = 0;
@@ -248,7 +249,7 @@ static bool oneWireSearch(const uint8_t opaIdx) {
   return searchResult;
 }
 
-static void oneWireWriteBit(uint8_t bit, const uint8_t opaIdx) {
+static void oneWireWriteBit(uint8_t bit, const size_t opaIdx) {
   /* See timing diagrams in Figure 16. Interrupts are disabled in sections
    * where too long would break the OneWire protocol. At the end of a bit
    * transmission, a pending interrupt may be serviced, but this will only
@@ -268,7 +269,7 @@ static void oneWireWriteBit(uint8_t bit, const uint8_t opaIdx) {
 }
 
 static void oneWireWriteBytes(const void *pSrc, const uint8_t n,
-                              const uint8_t opaIdx) {
+                              const size_t opaIdx) {
   EMON32_ASSERT(pSrc);
 
   uint8_t *pData = (uint8_t *)pSrc;
@@ -336,7 +337,7 @@ void ds18b20MapSensors(const uint64_t *pAddr) {
 
 uint8_t ds18b20MapToLogical(const unsigned int dev) { return devRemap[dev]; }
 
-bool ds18b20StartSample(const uint8_t opaIdx) {
+bool ds18b20StartSample(const size_t opaIdx) {
   const uint8_t CMD_SKIP_ROM  = 0xCC;
   const uint8_t CMD_CONVERT_T = 0x44;
   const uint8_t cmds[2]       = {CMD_SKIP_ROM, CMD_CONVERT_T};

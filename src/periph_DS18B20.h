@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include <temperature.h>
@@ -38,7 +39,7 @@ uint8_t ds18b20MapToLogical(const unsigned int dev);
 /*! @brief Start a temperature conversion on all OneWire devices
  *  @return true for success, false if no presence pulse detected
  */
-bool ds18b20StartSample(const uint8_t opaIdx);
+bool ds18b20StartSample(const size_t opaIdx);
 
 /*! @brief Read the temperature data from a OneWire device
  *  @param [in] dev : index of OneWire device
