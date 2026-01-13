@@ -401,18 +401,18 @@ static void ssd1306Setup(void) {
 
   if (SSD1306_SUCCESS == ssd1306Init(SERCOM_I2CM_EXT)) {
     VersionInfo_t vInfo  = configVersion();
-    int32_t       offset = 0;
+    uint32_t      offset = 0;
     for (size_t i = 0; i < strlen(vInfo.revision); i++) {
       if ('-' == vInfo.revision[i]) {
-        offset = -20;
+        offset = 20;
       }
     }
 
-    ssd1306SetPosition((PosXY_t){.x = 44, .y = 0});
+    ssd1306SetPosition((PosXY_t){.x = 44u, .y = 0u});
     ssd1306DrawString("emonPi3");
-    ssd1306SetPosition((PosXY_t){.x = 46, .y = 1});
+    ssd1306SetPosition((PosXY_t){.x = 46u, .y = 1u});
     ssd1306DrawString(vInfo.version);
-    ssd1306SetPosition((PosXY_t){.x = (44 + offset), .y = 2});
+    ssd1306SetPosition((PosXY_t){.x = (44u - offset), .y = 2u});
     ssd1306DrawString(vInfo.revision);
     ssd1306DisplayUpdate();
   }
@@ -458,7 +458,7 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
 
   tempInitClear();
 
-  for (int32_t i = 0; i < NUM_OPA; i++) {
+  for (uint8_t i = 0; i < NUM_OPA; i++) {
     if (('o' == pConfig->opaCfg[i].func)) {
 
       /* If configured as OneWire device always enable the PU even if inactive
