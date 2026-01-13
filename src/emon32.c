@@ -421,18 +421,35 @@ static void ssd1306Setup(void) {
 static void tempReadEvt(Emon32Dataset_t *pData, const uint32_t numT) {
   static uint32_t tempRdCount;
 
+  static uint8_t cntSinceLastValid[TEMP_MAX_ONEWIRE] = {0};
+  static int16_t lastValidTemp[TEMP_MAX_ONEWIRE]     = {0};
+  static bool    validTempRead[TEMP_MAX_ONEWIRE]     = {0};
+
   if (numT > 0) {
     TempRead_t tempValue  = tempReadSample(TEMP_INTF_ONEWIRE, tempRdCount);
     size_t     mapLogical = tempMapToLogical(TEMP_INTF_ONEWIRE, tempRdCount);
 
+    int16_t tempData = 0;
+
     if (TEMP_OK == tempValue.status) {
-      pData->temp[mapLogical] = tempValue.temp;
-    } else if (TEMP_OUT_OF_RANGE == tempValue.status) {
-      pData->temp[mapLogical] = 4832; /* 302°C */
+      validTempRead[mapLogical]     = true;
+      tempData                      = tempValue.temp;
+      lastValidTemp[mapLogical]     = tempData;
+      cntSinceLastValid[mapLogical] = 0;
     } else {
-      pData->temp[mapLogical] = 4864; /* 304°C */
+      if ((cntSinceLastValid[mapLogical] < 10) && validTempRead[mapLogical]) {
+        tempData = lastValidTemp[mapLogical];
+        cntSinceLastValid[mapLogical]++;
+      } else {
+        if (TEMP_OUT_OF_RANGE == tempValue.status) {
+          tempData = 4832; /* 302°C */
+        } else {
+          tempData = 4864; /* 304°C */
+        }
+      }
     }
 
+    pData->temp[mapLogical] = tempData;
     tempRdCount++;
   }
 
