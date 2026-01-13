@@ -348,7 +348,7 @@ static void pulseConfigure(void) {
 
   uint8_t pinsPulse[][2] = {{GRP_OPA, PIN_OPA1}, {GRP_OPA, PIN_OPA2}};
 
-  for (uint8_t i = 0; i < NUM_OPA; i++) {
+  for (size_t i = 0; i < NUM_OPA; i++) {
     PulseCfg_t *pulseCfg = pulseGetCfg(i);
 
     if ((0 != pulseCfg) && ('o' != pConfig->opaCfg[i].func) &&
