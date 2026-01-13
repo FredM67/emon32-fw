@@ -325,7 +325,7 @@ void ds18b20MapSensors(const uint64_t *pAddr) {
   for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
     devRemap[i] = i;
     for (int j = 0; j < TEMP_MAX_ONEWIRE; j++) {
-      if (devTableAddr[i] == pAddr[j]) {
+      if ((devTableAddr[i] == pAddr[j]) && (0x28 == (uint8_t)devTableAddr[i])) {
         devRemap[j] = devRemap[i];
         devRemap[i] = j;
         break;
