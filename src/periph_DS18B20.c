@@ -322,9 +322,9 @@ uint32_t ds18b20InitSensors(const DS18B20_conf_t *pCfg) {
 void ds18b20MapSensors(const uint64_t *pAddr) {
   /* Default to physical == logical index. If a matching saved address is found,
    * then swap the remapping indices */
-  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (uint8_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
     devRemap[i] = i;
-    for (int j = 0; j < TEMP_MAX_ONEWIRE; j++) {
+    for (uint8_t j = 0; j < TEMP_MAX_ONEWIRE; j++) {
       if (devTableAddr[i] == pAddr[j]) {
         devRemap[j] = devRemap[i];
         devRemap[i] = j;

@@ -29,8 +29,8 @@ volatile DmacDescriptor *dmacGetDescriptor(uint8_t ch) { return &dmacs[ch]; }
 void dmacCallbackBufferFill(void (*cb)(void)) { cbBufferFill = cb; }
 
 void dmacChannelDisable(uint8_t ch) {
-  DMAC->CHID.reg = ch;
-  DMAC->CHCTRLA.reg &= ~DMAC_CHCTRLA_ENABLE;
+  DMAC->CHID.reg           = ch;
+  DMAC->CHCTRLA.bit.ENABLE = 0;
 }
 
 void dmacChannelEnable(uint8_t ch) {
