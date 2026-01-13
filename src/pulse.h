@@ -36,9 +36,9 @@ void pulseUpdate(void);
  *  @param [in] index : pulse count index to set
  *  @param [in] pulseCount : the value to set
  */
-void pulseSetCount(const size_t index, const uint64_t value);
+void pulseSetCount(const size_t index, const uint32_t value);
 
 /*! @brief Get the current pulse count value
  *  @return current pulse value
  */
-uint64_t pulseGetCount(const size_t index);
+uint32_t pulseGetCount(const size_t index);
