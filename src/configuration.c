@@ -77,18 +77,18 @@ static char    *getLastReset(void);
 static void     handleConfirmation(char c);
 static void     inBufferClear(size_t n);
 static size_t   inBufferTok(void);
-static void     printSettingCT(const int32_t ch);
+static void     printSettingCT(const size_t ch);
 static void     printSettingDatalog(void);
 static void     printSettingJSON(void);
-static void     printSettingOPA(const int32_t ch);
+static void     printSettingOPA(const size_t ch);
 static void     printSettingRF(void);
 static void     printSettingRFFreq(void);
-static void     printSettingV(const int32_t ch);
+static void     printSettingV(const size_t ch);
 static void     printSettings(void);
 static void     printSettingsHR(void);
 static void     printSettingsKV(void);
 static void     printUptime(void);
-static void     putFloat(float val, int32_t flt_len);
+static void     putFloat(float val, const size_t flt_len);
 /* static char     waitForChar(void); - Removed, NVM corruption now auto-loads
  * defaults */
 /* static bool     restoreDefaults(void); - Removed pending OEM decision */
@@ -106,11 +106,12 @@ static char           inBuffer[IN_BUFFER_W];
 /* Async confirmation state */
 static volatile ConfirmState_t confirmState        = CONFIRM_IDLE;
 static volatile uint32_t       confirmStartTime_ms = 0;
-static int8_t  clearAccumIdx = -1; /* -1=all, 0-11=E1-E12, 12-13=P1-P2 */
-static int32_t inBufferIdx   = 0;
-static bool    cmdPending    = false;
-static bool    resetReq      = false;
-static bool    unsavedChange = false;
+static uint8_t                 clearAccumIdx =
+    UINT8_MAX; /* UINT8_MAX=all, 0-11=E1-E12, 12-13=P1-P2 */
+static size_t inBufferIdx   = 0;
+static bool   cmdPending    = false;
+static bool   resetReq      = false;
+static bool   unsavedChange = false;
 
 /*! @brief Set all configuration values to defaults */
 static void configDefault(void) {
@@ -199,7 +200,7 @@ static bool configureAnalog(void) {
    */
   ConvFloat_t convF     = {false, 0.0f};
   ConvInt_t   convI     = {false, 0};
-  int32_t     ch        = 0;
+  size_t      ch        = 0;
   bool        active    = false;
   float       calAmpl   = 0.0f;
   float       calPhase  = 0.0f;
@@ -522,9 +523,7 @@ static void configure1WList(void) {
 }
 
 static bool configure1WSave(void) {
-
-  uint8_t pos[8];
-  size_t  ch;
+  size_t ch;
 
   if (8 != inBufferTok()) {
     return false;
@@ -541,7 +540,8 @@ static bool configure1WSave(void) {
   ch = convI.val - 1u;
 
   /* Find the position of the bytes in the string */
-  size_t tcnt = 0;
+  size_t  tcnt = 0;
+  uint8_t pos[8];
   for (size_t i = 0; (i < IN_BUFFER_W) && (tcnt != 8u); i++) {
     if ('\0' == inBuffer[i]) {
       pos[tcnt++] = i + 1u;
@@ -823,7 +823,7 @@ static size_t inBufferTok(void) {
   return tokCount;
 }
 
-static void printSettingCT(const int32_t ch) {
+static void printSettingCT(const size_t ch) {
   printf_("iCal%ld = ", (ch + 1));
   putFloat(config.ctCfg[ch].ctCal, 0);
   printf_(", iLead%ld = ", (ch + 1));
@@ -844,7 +844,7 @@ static void printSettingJSON(void) {
   printf_("json = %s\r\n", config.baseCfg.useJson ? "on" : "off");
 }
 
-static void printSettingOPA(const int32_t ch) {
+static void printSettingOPA(const size_t ch) {
   printf_("opa%ld = ", (ch + 1));
 
   /* OneWire */
@@ -888,7 +888,7 @@ static void printSettingRFFreq(void) {
   }
 }
 
-static void printSettingV(const int32_t ch) {
+static void printSettingV(const size_t ch) {
   printf_("vCal%ld = ", (ch + 1));
   putFloat(config.voltageCfg[ch].voltageCal, 0);
   printf_(",vLead%d = ", (ch + 1));
@@ -1036,17 +1036,12 @@ static void printSettingsKV(void) {
   printSettingJSON();
 }
 
-static void putFloat(float val, int32_t flt_len) {
-  char    strBuffer[16];
-  int32_t ftoalen = utilFtoa(strBuffer, val);
+static void putFloat(float val, const size_t flt_len) {
+  char   strBuffer[16];
+  size_t ftoalen = utilFtoa(strBuffer, val);
 
-  if (flt_len) {
-    /* ftoalen includes null terminator, subtract 1 for actual string length */
-    int32_t fillSpace = flt_len - (ftoalen - 1);
-
-    while (fillSpace-- > 0) {
-      serialPuts(" ");
-    }
+  while (ftoalen++ <= flt_len) {
+    serialPuts(" ");
   }
 
   serialPuts(strBuffer);
@@ -1149,7 +1144,7 @@ static void handleConfirmation(char c) {
     __disable_irq();
     confirmState        = CONFIRM_IDLE;
     confirmStartTime_ms = 0;
-    clearAccumIdx       = -1;
+    clearAccumIdx       = UINT8_MAX;
     __enable_irq();
     break;
 
@@ -1229,7 +1224,7 @@ void configCheckConfirmationTimeout(void) {
 
 /*! @brief Zero all accumulators (async confirmation) */
 static void zeroAccumulators(void) {
-  clearAccumIdx = -1; /* -1 means all accumulators */
+  clearAccumIdx = UINT8_MAX; /* -1 means all accumulators */
   serialPuts(
       "> Zero accumulators. This can not be undone. 'y' to proceed.\r\n");
   __disable_irq();
@@ -1241,7 +1236,7 @@ static void zeroAccumulators(void) {
 /*! @brief Zero individual accumulator (async confirmation)
  *  @param [in] idx : accumulator index (0-11=E1-E12, 12-13=P1-P2)
  */
-static void zeroAccumulatorIndividual(int8_t idx) {
+static void zeroAccumulatorIndividual(uint8_t idx) {
   clearAccumIdx = idx;
   if (idx < NUM_CT) {
     printf_(
@@ -1268,10 +1263,11 @@ static void parseAndZeroAccumulator(void) {
 
   /* ze1-12 - zero energy accumulator */
   if (inBuffer[1] == 'e' && inBuffer[2] >= '1' && inBuffer[2] <= '9') {
-    int32_t num = inBuffer[2] - '0';
+    uint8_t num = inBuffer[2] - '0';
     /* Check for two-digit number (ze10-12) */
     if (inBuffer[3] >= '0' && inBuffer[3] <= '9') {
-      num = num * 10 + (inBuffer[3] - '0');
+      num *= 10u;
+      num += inBuffer[3] - '0';
     }
     if (num >= 1 && num <= NUM_CT) {
       zeroAccumulatorIndividual(num - 1); /* Convert to 0-indexed */
@@ -1284,7 +1280,7 @@ static void parseAndZeroAccumulator(void) {
   /* zp1-2 - zero pulse accumulator */
   if (inBuffer[1] == 'p' && inBuffer[2] >= '1' &&
       inBuffer[2] <= '0' + NUM_OPA) {
-    int32_t num = inBuffer[2] - '0';
+    uint8_t num = inBuffer[2] - '0';
     if (num >= 1 && num <= NUM_OPA) {
       zeroAccumulatorIndividual(NUM_CT + num - 1); /* Pulse index starts after
                                                        energy */

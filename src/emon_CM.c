@@ -110,9 +110,9 @@ static q15_t        applyCorrection(q15_t smp) RAMFUNC;
 static float        calcRMS(const CalcRMS_t *pSrc) RAMFUNC;
 static bool         zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) RAMFUNC;
 
-static void  accumSwapClear(void);
-static int   floorf_(float f);
-static float calibrationAmplitude(float cal, bool isV);
+static void    accumSwapClear(void);
+static int32_t floorf_(float f);
+static float   calibrationAmplitude(float cal, bool isV);
 static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, int_fast8_t idxCT);
 static void configChannelV(int_fast8_t ch);
 static void configChannelCT(int_fast8_t ch);
@@ -307,7 +307,7 @@ static RAMFUNC q15_t applyCorrection(q15_t smp) {
     int32_t result = smp + ecmCfg.correction.offset;
     result *= ecmCfg.correction.gain;
     result >>= 11;
-    return result;
+    return (q15_t)result;
   } else {
     return smp;
   }
@@ -376,7 +376,7 @@ RAMFUNC bool zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) {
  *  @param [in] f : float in
  *  @return integer floor of f
  */
-static int floorf_(float f) {
+static int32_t floorf_(float f) {
   union {
     float    x;
     uint32_t ui;
@@ -401,7 +401,7 @@ static int floorf_(float f) {
   }
 
   uint32_t mnt   = (v.ui & 0x7FFFFFul) | 0x800000ul;
-  int      value = (23 <= exp) ? mnt << (exp - 23) : mnt >> (23 - exp);
+  int32_t  value = (23 <= exp) ? mnt << (exp - 23) : mnt >> (23 - exp);
 
   if (s) {
     return -value;
@@ -441,20 +441,20 @@ static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV,
                              int_fast8_t idxCT) {
 
   /* Compensate for V phase */
-  float phiCT_V = qfp_fsub(pCfgCT->phCal, pCfgV[pCfgCT->vChan1].phase);
+  const float phiCT_V = qfp_fsub(pCfgCT->phCal, pCfgV[pCfgCT->vChan1].phase);
 
   /* Calculate phase change over full set */
-  float phaseShift_deg =
+  const float phaseShift_deg =
       qfp_fmul((360.0f / 1E6f),
                qfp_int2float(samplePeriodus * VCT_TOTAL * ecmCfg.mainsFreq));
   float phaseShiftSets = qfp_fdiv(phiCT_V, phaseShift_deg);
 
-  float phaseShiftSmpIdx =
+  const float phaseShiftSmpIdx =
       qfp_fdiv(qfp_int2float(idxCT - pCfgCT->vChan1 + NUM_V), (float)VCT_TOTAL);
 
   phaseShiftSets = qfp_fadd(phaseShiftSets, phaseShiftSmpIdx);
 
-  int floorPhaseShiftSets = floorf_(phaseShiftSets);
+  const int32_t floorPhaseShiftSets = floorf_(phaseShiftSets);
 
   if (0 <= floorPhaseShiftSets) {
     pCfgCT->idxInterpolateCT = 1 + floorPhaseShiftSets;
