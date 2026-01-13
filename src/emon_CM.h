@@ -152,7 +152,7 @@ ECMCfg_t *ecmConfigGet(void);
 /*! @brief Configure a channel.
  *  @param [in] ch : channel, logical index.
  */
-void ecmConfigChannel(int8_t ch);
+void ecmConfigChannel(int_fast8_t ch);
 
 /*! @brief Having set all configuration values, calculate all required constant
  *         values

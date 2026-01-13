@@ -15,7 +15,7 @@ static void i2cmExtPinsSetup(void);
 static void sercomSetupSPI(void);
 static void spiExtPinsSetup(bool enable);
 
-static void uartInterruptEnable(Sercom *sercom, uint32_t interrupt);
+static void uartInterruptEnable(Sercom *sercom, uint8_t interrupt);
 static void uartSetup(void);
 
 static volatile bool extIntfEnabled = true;

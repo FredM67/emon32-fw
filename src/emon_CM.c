@@ -200,7 +200,7 @@ static float    sampleIntervalRad;
 
 ECMCfg_t *ecmConfigGet(void) { return &ecmCfg; }
 
-void ecmConfigChannel(int8_t ch) {
+void ecmConfigChannel(int_fast8_t ch) {
   if (ch < NUM_V) {
     configChannelV(ch);
     if ((NUM_V == 3) && channelActive[1] && channelActive[2]) {
@@ -213,7 +213,7 @@ void ecmConfigChannel(int8_t ch) {
   }
 }
 
-void configChannelCT(int8_t ch) {
+void configChannelCT(int_fast8_t ch) {
   channelActive[ch + NUM_V] = ecmCfg.ctCfg[ch].active;
 
   if (ecmCfg.ctCfg[ch].active) {
@@ -228,7 +228,7 @@ void configChannelCT(int8_t ch) {
   calibrationPhase(&ecmCfg.ctCfg[ch], ecmCfg.vCfg, ch);
 }
 
-void configChannelV(int8_t ch) {
+void configChannelV(int_fast8_t ch) {
   channelActive[ch] = ecmCfg.vCfg[ch].vActive;
 
   if (ecmCfg.vCfg[ch].vActive) {

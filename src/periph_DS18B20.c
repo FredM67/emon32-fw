@@ -336,7 +336,7 @@ void ds18b20MapSensors(const uint64_t *pAddr) {
 
 uint8_t ds18b20MapToLogical(const unsigned int dev) { return devRemap[dev]; }
 
-bool ds18b20StartSample(const int32_t opaIdx) {
+bool ds18b20StartSample(const uint8_t opaIdx) {
   const uint8_t CMD_SKIP_ROM  = 0xCC;
   const uint8_t CMD_CONVERT_T = 0x44;
   const uint8_t cmds[2]       = {CMD_SKIP_ROM, CMD_CONVERT_T};

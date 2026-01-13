@@ -75,7 +75,7 @@ static void     enterBootloader(void);
 static uint32_t getBoardRevision(void);
 static char    *getLastReset(void);
 static void     handleConfirmation(char c);
-static void     inBufferClear(int32_t n);
+static void     inBufferClear(size_t n);
 static size_t   inBufferTok(void);
 static void     printSettingCT(const int32_t ch);
 static void     printSettingDatalog(void);
