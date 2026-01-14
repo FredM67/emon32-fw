@@ -796,7 +796,7 @@ static char *getLastReset(void) {
   return "Unknown";
 }
 
-uint32_t getUniqueID(int32_t idx) {
+uint32_t getUniqueID(const size_t idx) {
   /* Section 10.3.3 Serial Number */
   const uint32_t id_addr_lut[4] = {0x0080A00C, 0x0080A040, 0x0080A044,
                                    0x0080A048};
@@ -824,12 +824,12 @@ static size_t inBufferTok(void) {
 }
 
 static void printSettingCT(const size_t ch) {
-  printf_("iCal%ld = ", (ch + 1));
+  printf_("iCal%x = ", (ch + 1));
   putFloat(config.ctCfg[ch].ctCal, 0);
-  printf_(", iLead%ld = ", (ch + 1));
+  printf_(", iLead%x = ", (ch + 1));
   putFloat(config.ctCfg[ch].phase, 0);
-  printf_(", iActive%ld = %s", (ch + 1), config.ctCfg[ch].ctActive ? "1" : "0");
-  printf_(", v1Chan%ld = %d, v2Chan%ld = %d\r\n", (ch + 1),
+  printf_(", iActive%x = %s", (ch + 1), config.ctCfg[ch].ctActive ? "1" : "0");
+  printf_(", v1Chan%x = %d, v2Chan%x = %d\r\n", (ch + 1),
           (config.ctCfg[ch].vChan1 + 1), (ch + 1),
           (config.ctCfg[ch].vChan2 + 1));
 }
@@ -845,7 +845,7 @@ static void printSettingJSON(void) {
 }
 
 static void printSettingOPA(const size_t ch) {
-  printf_("opa%ld = ", (ch + 1));
+  printf_("opa%x = ", (ch + 1));
 
   /* OneWire */
   if ('o' == config.opaCfg[ch].func) {
@@ -889,11 +889,11 @@ static void printSettingRFFreq(void) {
 }
 
 static void printSettingV(const size_t ch) {
-  printf_("vCal%ld = ", (ch + 1));
+  printf_("vCal%x = ", (ch + 1));
   putFloat(config.voltageCfg[ch].voltageCal, 0);
-  printf_(",vLead%d = ", (ch + 1));
+  printf_(",vLead%x = ", (ch + 1));
   putFloat(config.voltageCfg[ch].phase, 0);
-  printf_(", vActive%d = %s\r\n", (ch + 1),
+  printf_(", vActive%x = %s\r\n", (ch + 1),
           config.voltageCfg[ch].vActive ? "1" : "0");
 }
 
@@ -1322,9 +1322,8 @@ void configFirmwareBoardInfo(void) {
 
   serialPuts("> Board:\r\n");
   printf_("  - emonPi3/emonTx6 (arch. rev. %lu)\r\n", getBoardRevision());
-  printf_("  - Serial    : 0x%02lx%02lx%02lx%02lx\r\n",
-          (uint32_t)getUniqueID(0), (uint32_t)getUniqueID(1),
-          (uint32_t)getUniqueID(2), (uint32_t)getUniqueID(3));
+  printf_("  - Serial    : 0x%02lx%02lx%02lx%02lx\r\n", getUniqueID(0),
+          getUniqueID(1), getUniqueID(2), getUniqueID(3));
   printf_("  - Last reset: %s\r\n", getLastReset());
   serialPuts("  - Uptime    : ");
   printUptime();

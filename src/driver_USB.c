@@ -113,7 +113,7 @@ void usbSetup(void) {
 size_t board_get_unique_id(uint8_t id[], size_t max_len) {
   (void)max_len;
   uint32_t *pId = (uint32_t *)id;
-  for (int32_t i = 0; i < 4; i++) {
+  for (size_t i = 0; i < 4; i++) {
     *pId++ = getUniqueID(i);
   }
   return 16;
