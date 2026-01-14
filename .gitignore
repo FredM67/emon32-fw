@@ -7,7 +7,7 @@
 *.test.dSYM/
 *.tgz
 bin/emon32*
-build/
+build*/
 cm-test-sine.csv
 compile_commands.json
 emon32_build_info.c
