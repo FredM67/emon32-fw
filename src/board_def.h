@@ -47,7 +47,7 @@
 /* Worst case EEPROM write time (microseconds) */
 #define EEPROM_WR_TIME     5000ul
 /* Size of configuration area */
-#define EEPROM_CONFIG_SIZE 320
+#define EEPROM_CONFIG_SIZE 320u
 /* Size of the EEPROM in bytes */
 #define EEPROM_SIZE        1024u
 /* Offset of wear levelled area */

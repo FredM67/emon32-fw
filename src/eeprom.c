@@ -405,7 +405,7 @@ eepromWLStatus_t eepromReadWL(void *pPktRd, uint32_t *pIdx) {
   idxRd = wlIdxNxtWr - 1u;
 
   if (UINT32_MAX == idxRd) {
-    idxRd = (wlBlkCnt - 1);
+    idxRd = wlBlkCnt - 1u;
   }
   if (pIdx) {
     *pIdx = idxRd;

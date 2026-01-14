@@ -507,14 +507,14 @@ static bool configure1WFreeze(void) {
 static void configure1WList(void) {
   uint64_t *pAddr = tempAddress1WGet();
 
-  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (uint8_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
 
     /* Only list DS18B20 devices */
     uint8_t id = (uint8_t)(pAddr[i] & 0xFF);
     if (0x28 == id) {
       printf_("%d [->%d] ", (i + 1),
               (tempMapToLogical(TEMP_INTF_ONEWIRE, i) + 1));
-      for (int j = 0; j < 8; j++) {
+      for (uint8_t j = 0; j < 8; j++) {
         printf_("%x%s", (uint8_t)((pAddr[i] >> (8 * j)) & 0xFF),
                 ((j == 7) ? "\r\n" : " "));
       }
@@ -542,7 +542,7 @@ static bool configure1WSave(void) {
   /* Find the position of the bytes in the string */
   size_t  tcnt = 0;
   uint8_t pos[8];
-  for (size_t i = 0; (i < IN_BUFFER_W) && (tcnt != 8u); i++) {
+  for (uint8_t i = 0; (i < IN_BUFFER_W) && (tcnt != 8u); i++) {
     if ('\0' == inBuffer[i]) {
       pos[tcnt++] = i + 1u;
     }
@@ -558,7 +558,7 @@ static bool configure1WSave(void) {
   }
 
   /* If this is an existing address, then zero the previous one */
-  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (size_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
     uint64_t as; /* Ensure 8byte alignment */
     memcpy(&as, &config.oneWireAddr.addr[i], sizeof(as));
     if (as == addr) {
@@ -914,13 +914,13 @@ static void printAccumulators(void) {
   }
   printf_(" [%lu]:\r\n", idx);
 
-  for (uint32_t i = 0; i < NUM_CT; i++) {
-    uint32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
-    printf_("  E%lu = %lu Wh\r\n", (i + 1), wh);
+  for (size_t i = 0; i < NUM_CT; i++) {
+    int32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
+    printf_("  E%u = %lu Wh\r\n", (i + 1), wh);
   }
-  for (uint32_t i = 0; i < NUM_OPA; i++) {
+  for (size_t i = 0; i < NUM_OPA; i++) {
     uint32_t pulse = eepromOK ? cumulative.pulseCnt[i] : 0;
-    printf_("  pulse%lu = %lu\r\n", (i + 1), pulse);
+    printf_("  pulse%u = %lu\r\n", (i + 1), pulse);
   }
   serialPuts("\r\n");
 }
@@ -1104,7 +1104,7 @@ static void handleConfirmation(char c) {
 
   case CONFIRM_ZERO_ACCUM:
     if ('y' == c) {
-      eepromInitBlock(EEPROM_WL_OFFSET, 0, (1024 - EEPROM_WL_OFFSET));
+      eepromInitBlock(EEPROM_WL_OFFSET, 0, (1024u - EEPROM_WL_OFFSET));
       serialPuts("    - Accumulators cleared.\r\n");
       emon32EventSet(EVT_CLEAR_ACCUM);
     } else {
