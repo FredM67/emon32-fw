@@ -12,13 +12,21 @@ typedef struct ConvFloat_ {
 } ConvFloat_t;
 
 typedef struct ConvInt_ {
-  bool    valid; /* true if the value in val is valid */
-  int32_t val;   /* converted integer value */
+  bool valid; /* true if the value in val is valid */
+  union {
+    int32_t i32;
+    int16_t i16;
+    int8_t  i8;
+  } val;
 } ConvInt_t;
 
 typedef struct ConvUint_ {
-  bool     valid; /* true if the value in val is valid */
-  uint32_t val;   /* converted unsigned integer value */
+  bool valid; /* true if the value in val is valid */
+  union {
+    uint32_t u32;
+    uint16_t u16;
+    uint8_t  u8;
+  } val;
 } ConvUint_t;
 
 /*! @brief Convert null terminated string to float, returns the value.

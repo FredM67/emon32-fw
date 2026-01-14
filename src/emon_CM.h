@@ -71,17 +71,17 @@ typedef struct VCfg_ {
 } VCfg_t;
 
 typedef struct CTCfgUnpacked_ {
-  float   phaseX;
-  float   phaseY;
-  float   phCal;
-  float   ctCal;
-  float   ctCalRaw;
-  bool    active;
-  uint8_t vChan1;
-  uint8_t vChan2;
-  int32_t wattHourInit;
-  int32_t idxInterpolateCT;
-  int32_t idxInterpolateV;
+  float    phaseX;
+  float    phaseY;
+  float    phCal;
+  float    ctCal;
+  float    ctCalRaw;
+  bool     active;
+  uint8_t  vChan1;
+  uint8_t  vChan2;
+  int32_t  wattHourInit;
+  uint32_t idxInterpolateCT;
+  uint32_t idxInterpolateV;
 } CTCfg_t;
 
 typedef struct ECMCfg_ {
@@ -119,18 +119,18 @@ typedef struct ECMDataset_ {
 } ECMDataset_t;
 
 typedef struct ECMPerformance_ {
-  int32_t numSlices;
-  int32_t microsSlices;
-  int32_t numCycles;
-  int32_t microsCycles;
-  int32_t numDatasets;
-  int32_t microsDatasets;
+  uint32_t numSlices;
+  uint32_t microsSlices;
+  uint32_t numCycles;
+  uint32_t microsCycles;
+  uint32_t numDatasets;
+  uint32_t microsDatasets;
 } ECMPerformance_t;
 
 typedef struct AutoPhaseRes_ {
-  int32_t idxCt;
-  float   phase;
-  bool    success;
+  uint32_t idxCt;
+  float    phase;
+  bool     success;
 } AutoPhaseRes_t;
 
 /******************************************************************************
@@ -153,7 +153,7 @@ ECMCfg_t *ecmConfigGet(void);
 /*! @brief Configure a channel.
  *  @param [in] ch : channel, logical index.
  */
-void ecmConfigChannel(int_fast8_t ch);
+void ecmConfigChannel(const size_t ch);
 
 /*! @brief Having set all configuration values, calculate all required constant
  *         values

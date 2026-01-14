@@ -94,6 +94,9 @@ $(BUILD)/qfplib-m0-full.o:
 	@echo AS $@
 	@$(CC) $(CFLAGS) third_party/qfplib/qfplib-m0-full.s -c -o $@
 
+# Suppress warnings for third-party TinyUSB
+$(BUILD)/dcd_samd.o: CFLAGS += -w
+
 %.o:
 	@echo CC $@
 	@$(CC) $(CFLAGS) $(filter %/$(subst .o,.c,$(notdir $@)), $(SRCS)) -c -o $@

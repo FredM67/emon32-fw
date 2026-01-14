@@ -98,7 +98,7 @@ static void     zeroAccumulators(void);
  * Local variables
  *************************************/
 
-#define IN_BUFFER_W 64
+#define IN_BUFFER_W 64u
 
 static Emon32Config_t config;
 static char           inBuffer[IN_BUFFER_W];
@@ -199,57 +199,58 @@ static bool configureAnalog(void) {
    * Find space delimiters, then convert to null and a->i/f
    */
   ConvFloat_t convF     = {false, 0.0f};
-  ConvInt_t   convI     = {false, 0};
-  size_t      ch        = 0;
+  ConvUint_t  convU     = {false, {0}};
+  uint32_t    ch        = 0;
   bool        active    = false;
   float       calAmpl   = 0.0f;
   float       calPhase  = 0.0f;
   uint8_t     vCh1      = 0;
   uint8_t     vCh2      = 0;
-  int32_t     posActive = 0;
-  int32_t     posCalib  = 0;
-  int32_t     posPhase  = 0;
-  int32_t     posV1     = 0;
-  int32_t     posV2     = 0;
+  uint32_t    posActive = 0;
+  uint32_t    posCalib  = 0;
+  uint32_t    posPhase  = 0;
+  uint32_t    posV1     = 0;
+  uint32_t    posV2     = 0;
   ECMCfg_t   *ecmCfg    = 0;
 
-  for (int32_t i = 0; i < IN_BUFFER_W; i++) {
+  for (size_t i = 0; i < IN_BUFFER_W; i++) {
     if (0 == inBuffer[i]) {
       break;
     }
     if (' ' == inBuffer[i]) {
       inBuffer[i] = 0;
       if (0 == posActive) {
-        posActive = i + 1;
+        posActive = i + 1u;
       } else if (0 == posCalib) {
-        posCalib = i + 1;
+        posCalib = i + 1u;
       } else if (0 == posPhase) {
-        posPhase = i + 1;
+        posPhase = i + 1u;
       } else if (0 == posV1) {
-        posV1 = i + 1;
+        posV1 = i + 1u;
       } else if (0 == posV2) {
-        posV2 = i + 1;
+        posV2 = i + 1u;
         break;
       }
     }
   }
 
-  /* Voltage channels are [1..3], CTs are [4..] but 0 indexed internally. All
-   * fields must be present for a given channel type.
-   */
-  convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (!convI.valid) {
-    return false;
-  }
-  ch = convI.val - 1;
-
-  if ((ch < 0) || (ch >= VCT_TOTAL)) {
-    return false;
-  }
-
   if ((0 == posCalib) || (0 == posActive) || (0 == posPhase)) {
     return false;
   }
+
+  /* Voltage channels are [1..3], CTs are [4..] but 0 indexed internally. All
+   * fields must be present for a given channel type.
+   */
+  convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (!convU.valid) {
+    return false;
+  }
+
+  if (convU.val.u32 >= VCT_TOTAL) {
+    return false;
+  }
+
+  ch = convU.val.u32 - 1u;
 
   if (ch >= NUM_V) {
     if ((0 == posV1) || (0 == posV2)) {
@@ -260,11 +261,16 @@ static bool configureAnalog(void) {
   ecmCfg = ecmConfigGet();
   EMON32_ASSERT(ecmCfg);
 
-  convI = utilAtoi(inBuffer + posActive, ITOA_BASE10);
-  if (!convI.valid) {
+  convU = utilAtoui(inBuffer + posActive, ITOA_BASE10);
+  if (!convU.valid) {
     return false;
   }
-  active = (bool)convI.val;
+
+  if (convU.val.u32 > 1) {
+    return false;
+  }
+
+  active = (bool)convU.val.u8;
 
   convF = utilAtof(inBuffer + posCalib);
   if (!convF.valid) {
@@ -299,7 +305,7 @@ static bool configureAnalog(void) {
 
     /* If the voltage phase was changed reconfigure all CTs as well */
     if (reconfigureCT) {
-      for (size_t i = 0; i < NUM_CT; i++) {
+      for (uint8_t i = 0; i < NUM_CT; i++) {
         ecmConfigChannel(i + NUM_V);
       }
     }
@@ -307,21 +313,24 @@ static bool configureAnalog(void) {
     return true;
   }
 
-  convI = utilAtoi(inBuffer + posV1, ITOA_BASE10);
-  if (!convI.valid) {
+  convU = utilAtoui(inBuffer + posV1, ITOA_BASE10);
+  if (!convU.valid) {
     return false;
   }
-  vCh1 = convI.val;
+  if (!convU.val.u32 || convU.val.u32 > NUM_V) {
+    return false;
+  }
 
-  convI = utilAtoi(inBuffer + posV2, ITOA_BASE10);
-  if (!convI.valid) {
-    return false;
-  }
-  vCh2 = convI.val;
+  vCh1 = convU.val.u8;
 
-  if ((vCh1 < 1) || (vCh1 > NUM_V) || (vCh2 < 1) || (vCh2 > NUM_V)) {
+  convU = utilAtoui(inBuffer + posV2, ITOA_BASE10);
+  if (!convU.valid) {
     return false;
   }
+  if (!convU.val.u32 || convU.val.u32 > NUM_V) {
+    return false;
+  }
+  vCh2 = convU.val.u8;
 
   /* CT configuration - assume 10/200 A min/max CTs */
   if ((calAmpl < 10.0f) || (calAmpl) > 200.0f) {
@@ -350,11 +359,11 @@ static bool configureAnalog(void) {
 }
 
 static bool configureAssumed(void) {
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (convI.valid) {
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (convU.valid) {
     ECMCfg_t *pEcmCfg          = ecmConfigGet();
-    pEcmCfg->assumedVrms       = qfp_int2float(convI.val);
-    config.baseCfg.assumedVrms = convI.val;
+    pEcmCfg->assumedVrms       = qfp_uint2float(convU.val.u32);
+    config.baseCfg.assumedVrms = convU.val.u16;
     return true;
   }
   return false;
@@ -431,33 +440,33 @@ static bool configureDatalog(void) {
 }
 
 static bool configureGroupID(void) {
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
 
-  if (!convI.valid) {
+  if (!convU.valid) {
     return false;
   }
 
-  if ((convI.val < 0) || (convI.val > 255)) {
+  if (convU.val.u32 > 255u) {
     return false;
   }
 
-  config.baseCfg.dataGrp = convI.val;
-  printf_("rfGroup = %ld\r\n", convI.val);
+  config.baseCfg.dataGrp = convU.val.u8;
+  printf_("rfGroup = %u\r\n", convU.val.u8);
   return true;
 }
 
 static bool configureJSON(void) {
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
 
-  if (!convI.valid) {
+  if (!convU.valid) {
     return false;
   }
 
-  if (!((0 == convI.val) || (1 == convI.val))) {
+  if (convU.val.u32 > 1) {
     return false;
   }
 
-  config.baseCfg.useJson = (bool)convI.val;
+  config.baseCfg.useJson = (bool)convU.val.u8;
   printSettingJSON();
   return true;
 }
@@ -466,17 +475,17 @@ static bool configureLineFrequency(void) {
   /* f<n>
    * n must be 50 or 60
    */
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (!convI.valid) {
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (!convU.valid) {
     return false;
   }
 
-  if (!((50 == convI.val) || (60 == convI.val))) {
+  if (!((50 == convU.val.u32) || (60 == convU.val.u32))) {
     return false;
   }
 
   printf_("> Mains frequency set to: %d\r\n", config.baseCfg.mainsFreq);
-  config.baseCfg.mainsFreq = convI.val;
+  config.baseCfg.mainsFreq = convU.val.u8;
   return true;
 }
 
@@ -529,15 +538,15 @@ static bool configure1WSave(void) {
     return false;
   }
 
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (!convI.valid) {
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (!convU.valid) {
     return false;
   }
 
-  if ((convI.val < 1) || (convI.val > (TEMP_MAX_ONEWIRE))) {
+  if ((convU.val.u32 < 1) || (convU.val.u32 > (TEMP_MAX_ONEWIRE))) {
     return false;
   }
-  ch = convI.val - 1u;
+  ch = convU.val.u32 - 1u;
 
   /* Find the position of the bytes in the string */
   size_t  tcnt = 0;
@@ -550,11 +559,11 @@ static bool configure1WSave(void) {
 
   uint64_t addr = 0;
   for (size_t i = 0; i < 8; i++) {
-    convI = utilAtoi(&inBuffer[pos[i]], ITOA_BASE16);
-    if (!convI.valid) {
+    convU = utilAtoui(&inBuffer[pos[i]], ITOA_BASE16);
+    if (!convU.valid) {
       return false;
     }
-    addr |= ((uint64_t)convI.val << (8u * i));
+    addr |= ((uint64_t)convU.val.u8 << (8u * i));
   }
 
   /* If this is an existing address, then zero the previous one */
@@ -587,32 +596,37 @@ static bool configureOPA(void) {
   const int32_t posPu     = 7;
   const int32_t posPeriod = 9;
 
-  ConvInt_t convI;
-  int32_t   ch     = 0;
-  bool      active = 0;
-  char      func   = 0;
-  bool      pu     = false;
-  int32_t   period = 0;
+  ConvUint_t convU;
+  uint8_t    ch     = 0;
+  bool       active = 0;
+  char       func   = 0;
+  bool       pu     = false;
+  uint8_t    period = 0;
 
   inBufferTok();
 
   /* Channel index */
-  convI = utilAtoi(inBuffer + posCh, ITOA_BASE10);
-  if (!convI.valid) {
+  convU = utilAtoui(inBuffer + posCh, ITOA_BASE10);
+  if (!convU.valid) {
     return false;
   }
-  ch = convI.val - 1;
+  if (convU.val.u32 >= NUM_OPA) {
+    return false;
+  }
 
-  if ((ch < 0) || (ch >= NUM_OPA)) {
-    return false;
-  }
+  ch = convU.val.u8 - 1;
 
   /* Check if the channel is active or inactive */
-  convI = utilAtoi(inBuffer + posActive, ITOA_BASE10);
-  if (!convI.valid) {
+  convU = utilAtoui(inBuffer + posActive, ITOA_BASE10);
+  if (!convU.valid) {
     return false;
   }
-  active = (bool)convI.val;
+
+  if (convU.val.u32 > 1) {
+    return false;
+  }
+
+  active = (bool)convU.val.u8;
 
   if (!active) {
     config.opaCfg[ch].opaActive = false;
@@ -629,17 +643,22 @@ static bool configureOPA(void) {
   }
 
   if ('o' != func) {
-    convI = utilAtoi((inBuffer + posPu), ITOA_BASE10);
-    if (!convI.valid) {
+    convU = utilAtoui((inBuffer + posPu), ITOA_BASE10);
+    if (!convU.valid) {
       return false;
     }
-    pu = (bool)convI.val;
 
-    convI = utilAtoi((inBuffer + posPeriod), ITOA_BASE10);
-    if (!convI.valid) {
+    if (convU.val.u32 > 1) {
       return false;
     }
-    period = convI.val;
+
+    pu = (bool)convU.val.u8;
+
+    convU = utilAtoui((inBuffer + posPeriod), ITOA_BASE10);
+    if (!convU.valid) {
+      return false;
+    }
+    period = convU.val.u8;
   }
 
   if ('o' == func) {
@@ -661,16 +680,16 @@ static bool configureNodeID(void) {
   /* n<n>
    * Valid range is 1..60.
    */
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (!convI.valid) {
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (!convU.valid) {
     return false;
   }
 
-  if ((convI.val < 1) || (convI.val > 60)) {
+  if ((convU.val.u32 < 1) || (convU.val.u32 > 60)) {
     return false;
   }
 
-  config.baseCfg.nodeID = convI.val;
+  config.baseCfg.nodeID = convU.val.u8;
   printf_("rfNode = %d\r\n", config.baseCfg.nodeID);
 
   return true;
@@ -714,17 +733,17 @@ static bool configureRFPower(void) {
   /* p<n>
    * n is in range: 0-31
    */
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (!convI.valid) {
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (!convU.valid) {
     return false;
   }
 
-  if ((convI.val < 0) || (convI.val > 31)) {
+  if (convU.val.u32 > 31) {
     return false;
   }
 
-  config.dataTxCfg.rfmPwr = convI.val;
-  printf_("rfPower = %ld\r\n", convI.val);
+  config.dataTxCfg.rfmPwr = convU.val.u8;
+  printf_("rfPower = %lu\r\n", convU.val.u32);
   return true;
 }
 
@@ -732,17 +751,17 @@ static bool configureSerialLog(void) {
   /* Log to serial output, default TRUE
    * Format: c0 | c1
    */
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
 
-  if (!convI.valid) {
+  if (!convU.valid) {
     return false;
   }
 
-  if (!((0 == convI.val) || (1 == convI.val))) {
+  if (convU.val.u32 > 1) {
     return false;
   }
 
-  config.baseCfg.logToSerial = (bool)convI.val;
+  config.baseCfg.logToSerial = (bool)convU.val.u8;
   return true;
 }
 
@@ -811,7 +830,7 @@ static void inBufferClear(size_t n) {
 static size_t inBufferTok(void) {
   /* Form a group of null-terminated strings */
   size_t tokCount = 0;
-  for (int i = 0; i < IN_BUFFER_W; i++) {
+  for (size_t i = 0; i < IN_BUFFER_W; i++) {
     if ('\0' == inBuffer[i]) {
       break;
     }
@@ -1266,7 +1285,7 @@ static void parseAndZeroAccumulator(void) {
     uint8_t num = inBuffer[2] - '0';
     /* Check for two-digit number (ze10-12) */
     if (inBuffer[3] >= '0' && inBuffer[3] <= '9') {
-      num *= 10u;
+      num *= 10;
       num += inBuffer[3] - '0';
     }
     if (num >= 1 && num <= NUM_CT) {

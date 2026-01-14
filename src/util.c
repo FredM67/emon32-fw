@@ -75,7 +75,7 @@ size_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
 
 ConvUint_t utilAtoui(const char *pBuf, ITOA_BASE_t base) {
   uint32_t   result = 0;
-  ConvUint_t conv   = {false, 0};
+  ConvUint_t conv   = {false, {0}};
 
   /* Process left-to-right, no string reversal needed */
   if (ITOA_BASE10 == base) {
@@ -105,8 +105,8 @@ ConvUint_t utilAtoui(const char *pBuf, ITOA_BASE_t base) {
     }
   }
 
-  conv.val   = result;
-  conv.valid = true;
+  conv.val.u32 = result;
+  conv.valid   = true;
   return conv;
 }
 
@@ -117,7 +117,8 @@ ConvInt_t utilAtoi(const char *pBuf, ITOA_BASE_t base) {
   }
 
   ConvUint_t u    = utilAtoui(pBuf, base);
-  ConvInt_t  conv = {u.valid, isNegative ? -(int32_t)u.val : (int32_t)u.val};
+  ConvInt_t  conv = {u.valid,
+                     {isNegative ? -(int32_t)u.val.u32 : (int32_t)u.val.u32}};
   return conv;
 }
 
