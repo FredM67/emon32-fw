@@ -58,6 +58,7 @@ CFLAGS += $(INCLUDES) $(DEFINES)
 
 OBJS = $(addprefix $(BUILD)/, $(notdir %/$(subst .c,.o, $(SRCS))))
 OBJS += $(BUILD)/qfplib-m0-full.o
+OBJS += $(BUILD)/asm_math.o
 
 # Always update the build information. This forces this to run every time. Exit
 # if this fails - likely to be a path of Python version issue.
@@ -93,6 +94,10 @@ $(BUILD)/$(BIN).uf2: $(BUILD)/$(BIN).bin
 $(BUILD)/qfplib-m0-full.o:
 	@echo AS $@
 	@$(CC) $(CFLAGS) third_party/qfplib/qfplib-m0-full.s -c -o $@
+
+$(BUILD)/asm_math.o:
+	@echo AS $@
+	@$(CC) $(CFLAGS) src/asm_math.s -c -o $@
 
 %.o:
 	@echo CC $@
