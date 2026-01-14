@@ -85,21 +85,28 @@ The phase and voltage reference parameters (v1, v2) are only required for CT cha
 
 ```
 k4 1 90.0 1.5 1 1    # Enable CT4, cal=90.0, phase=1.5°, refs V1-V1
-s                     # Save configuration
+s                    # Save configuration
 ```
 
 ### Configure a 3-phase CT on L1-L2
 
 ```
 k4 1 90.0 4.2 1 2    # Enable CT4, references V1 and V2 (L1-L2 load)
-s                     # Save configuration
+s                    # Save configuration
 ```
 
 ### Configure a pulse input
 
 ```
-m1 1 r 1 50          # Enable OPA1, rising edge, pull-up on, 50ms debounce
-s                     # Save configuration
+m1 1 r 0 50          # Enable OPA1, rising edge, pull-up off, 50ms debounce
+s                    # Save configuration
+```
+
+### Configure a OneWire input
+
+```
+m2 1 o               # Enable OPA2 for OneWire, pull-up always on
+s                    # Save configuration
 ```
 
 ### Enable serial logging with JSON
