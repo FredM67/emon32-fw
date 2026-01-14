@@ -1022,13 +1022,13 @@ static void printSettingsKV(void) {
           VERSION_FW_REV);
   printf_("commit = %s\r\n", emon32_build_info().revision);
   printf_("assumedV = %d\r\n", config.baseCfg.assumedVrms);
-  for (int32_t i = 0; i < NUM_V; i++) {
+  for (size_t i = 0; i < NUM_V; i++) {
     printSettingV(i);
   }
-  for (int32_t i = 0; i < NUM_CT; i++) {
+  for (size_t i = 0; i < NUM_CT; i++) {
     printSettingCT(i);
   }
-  for (int32_t i = 0; i < NUM_OPA; i++) {
+  for (size_t i = 0; i < NUM_OPA; i++) {
     printSettingOPA(i);
   }
   printSettingRF();

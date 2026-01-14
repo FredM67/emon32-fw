@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "emon32_samd.h"
@@ -177,8 +178,8 @@ static void cumulativeProcess(Emon32Cumulative_t    *pPkt,
   /* Catch overflow of energy. This corresponds to ~2 GWh(!), so unlikely to
    * but handle safely.
    */
-  const uint32_t absE     = utilAbs(ep.E);
-  const uint32_t absELast = utilAbs(lastStoredEP.E);
+  const uint32_t absE     = (uint32_t)labs(ep.E);
+  const uint32_t absELast = (uint32_t)labs(lastStoredEP.E);
 
   const bool epOverflow =
       ((absE + absELast) > INT32_MAX) || (ep.P < lastStoredEP.P);
@@ -210,7 +211,7 @@ void debugPuts(const char *s) {
   if (pConfig->baseCfg.debugSerial) {
     char tBuf[12];
     serialPuts("DBG:");
-    utilItoa(tBuf, timerMillis(), ITOA_BASE10);
+    utilUtoa(tBuf, timerMillis(), ITOA_BASE10);
     serialPuts(tBuf);
     serialPuts(":");
     serialPuts(s);

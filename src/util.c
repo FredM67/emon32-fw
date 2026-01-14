@@ -14,27 +14,6 @@ static bool isnumeric(const char c) {
   return false;
 }
 
-uint32_t utilAbs(const int32_t x) { return (x < 0) ? -x : x; }
-
-void utilStrReverse(char *pBuf, size_t len) {
-  char     tmp;
-  uint32_t idxEnd = len - 1u;
-  for (uint32_t idx = 0; idx < (len / 2); idx++) {
-    tmp          = pBuf[idx];
-    pBuf[idx]    = pBuf[idxEnd];
-    pBuf[idxEnd] = tmp;
-    idxEnd--;
-  }
-}
-
-size_t utilStrlen(const char *pBuf) {
-  size_t charCnt = 0;
-  while (*pBuf++) {
-    charCnt++;
-  }
-  return charCnt;
-}
-
 /* Fast divide by 10 using shifts/adds only (no hardware divide) */
 static inline uint32_t fastDiv10(uint32_t n) {
   uint32_t q = (n >> 1) + (n >> 2);
@@ -46,11 +25,9 @@ static inline uint32_t fastDiv10(uint32_t n) {
   return q + ((r + 6) >> 4);
 }
 
-size_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
-  char     buf[12]; /* -2147483648 = 11 chars + null */
-  char    *p = &buf[11];
-  uint32_t uval;
-  bool     neg = false;
+size_t utilUtoa(char *pBuf, uint32_t val, ITOA_BASE_t base) {
+  char  buf[11]; /* 4294967295 = 10 chars + null */
+  char *p = &buf[10];
 
   *p = '\0';
 
@@ -62,35 +39,23 @@ size_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
   }
 
   if (ITOA_BASE10 == base) {
-    if (val < 0) {
-      neg  = true;
-      uval = (uint32_t)(-val);
-    } else {
-      uval = (uint32_t)val;
-    }
-
-    while (uval != 0) {
-      uint32_t q = fastDiv10(uval);
-      *--p       = (char)('0' + (uval - q * 10));
-      uval       = q;
-    }
-
-    if (neg) {
-      *--p = '-';
+    while (val != 0) {
+      uint32_t q = fastDiv10(val);
+      *--p       = (char)('0' + (val - q * 10));
+      val        = q;
     }
   } else {
     static const char itohex[] = "0123456789abcdef";
-    uint32_t          val_u    = (uint32_t)val;
 
-    while (0 != val_u) {
-      *--p = itohex[val_u & 0xFu];
-      val_u >>= 4;
+    while (0 != val) {
+      *--p = itohex[val & 0xFu];
+      val >>= 4;
     }
   }
 
   /* Copy to output buffer */
-  char    *dst = pBuf;
-  uint32_t len = 0;
+  char  *dst = pBuf;
+  size_t len = 0;
   while (*p) {
     *dst++ = *p++;
     len++;
@@ -98,6 +63,14 @@ size_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
   *dst = '\0';
 
   return len + 1u;
+}
+
+size_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
+  if ((ITOA_BASE10 == base) && (val < 0)) {
+    *pBuf = '-';
+    return 1u + utilUtoa(pBuf + 1, (uint32_t)(-val), base);
+  }
+  return utilUtoa(pBuf, (uint32_t)val, base);
 }
 
 ConvInt_t utilAtoi(const char *pBuf, ITOA_BASE_t base) {

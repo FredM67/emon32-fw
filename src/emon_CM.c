@@ -446,7 +446,7 @@ static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV,
   /* Calculate phase change over full set */
   const float phaseShift_deg =
       qfp_fmul((360.0f / 1E6f),
-               qfp_int2float(samplePeriodus * VCT_TOTAL * ecmCfg.mainsFreq));
+               qfp_uint2float(samplePeriodus * VCT_TOTAL * ecmCfg.mainsFreq));
   float phaseShiftSets = qfp_fdiv(phiCT_V, phaseShift_deg);
 
   const float phaseShiftSmpIdx =

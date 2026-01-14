@@ -16,12 +16,6 @@ typedef struct ConvInt_ {
   int32_t val;   /* converted integer value */
 } ConvInt_t;
 
-/*! @brief Return the absolute value of an integer
- *  @param [in] x : integer to convert
- *  @return absolute value of x
- */
-uint32_t utilAbs(const int32_t x);
-
 /*! @brief Convert null terminated string to float, returns the value.
  *  @param [in] pBuf : pointer to string buffer
  *  @return converted float and status
@@ -64,15 +58,3 @@ size_t utilItoa(char *pBuf, int32_t val, const ITOA_BASE_t base);
  *  @return the number of characters (including NULL).
  */
 size_t utilUtoa(char *pBuf, uint32_t val, const ITOA_BASE_t base);
-
-/*! @brief Returns the number of characters up to, but not including, NULL
- *  @param [in] pBuf : pointer to the NULL terminated string buffer
- *  @return number of characters, not including NULL
- */
-size_t utilStrlen(const char *pBuf);
-
-/*! @brief Reverse an array (typically string)
- *  @param [in] pBuf : pointer to the buffer
- *  @param [in] len : length of buffer to reverse
- */
-void utilStrReverse(char *pBuf, size_t len);
