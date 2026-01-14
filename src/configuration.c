@@ -1324,7 +1324,7 @@ void configCmdChar(const uint8_t c) {
 }
 
 void configFirmwareBoardInfo(void) {
-  serialPuts("\033c==== emonPi3 | emonTx6 ====\r\n\r\n");
+  serialPuts("==== emonPi3 | emonTx6 ====\r\n\r\n");
 
   serialPuts("> Board:\r\n");
   printf_("  - emonPi3/emonTx6 (arch. rev. %" PRIu32 ")\r\n",
@@ -1344,7 +1344,8 @@ void configFirmwareBoardInfo(void) {
   serialPuts(emon32_build_info_string());
   serialPuts("\r\n\r\n");
   serialPuts("  - Distributed under GPL3 license, see COPYING.md\r\n");
-  serialPuts("  - emon32 Copyright (C) 2023-25 Angus Logan\r\n");
+  serialPuts("  - emon32 Copyright (C) 2023-26 Angus Logan\r\n");
+  serialPuts("  - See CONTRIBUTORS.md\r\n");
   serialPuts("  - For Bear and Moose\r\n\r\n");
 }
 
