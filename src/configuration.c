@@ -1282,11 +1282,17 @@ static void parseAndZeroAccumulator(void) {
 
   /* ze1-12 - zero energy accumulator */
   if (inBuffer[1] == 'e' && inBuffer[2] >= '1' && inBuffer[2] <= '9') {
-    uint8_t num = inBuffer[2] - '0';
+    union {
+      int     i;
+      uint8_t u8;
+    } digit;
+    digit.i     = inBuffer[2] - '0';
+    uint8_t num = digit.u8;
     /* Check for two-digit number (ze10-12) */
     if (inBuffer[3] >= '0' && inBuffer[3] <= '9') {
       num *= 10;
-      num += inBuffer[3] - '0';
+      digit.i = inBuffer[3] - '0';
+      num += digit.u8;
     }
     if (num >= 1 && num <= NUM_CT) {
       zeroAccumulatorIndividual(num - 1); /* Convert to 0-indexed */

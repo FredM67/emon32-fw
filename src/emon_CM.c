@@ -331,7 +331,12 @@ RAMFUNC bool zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) {
   Polarity_t        polarityNow      = (smpV < 0) ? POL_NEG : POL_POS;
 
   /* Track peak voltage magnitude since last zero-crossing */
-  q15_t absV = (smpV < 0) ? -smpV : smpV;
+  union {
+    int   i;
+    q15_t q;
+  } abs;
+  abs.i      = (smpV < 0) ? -smpV : smpV;
+  q15_t absV = abs.q;
   if (absV > vPeakSinceLastZC) {
     vPeakSinceLastZC = absV;
   }
