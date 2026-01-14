@@ -46,7 +46,7 @@ static inline uint32_t fastDiv10(uint32_t n) {
   return q + ((r + 6) >> 4);
 }
 
-uint32_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
+size_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
   char     buf[12]; /* -2147483648 = 11 chars + null */
   char    *p = &buf[11];
   uint32_t uval;
@@ -148,7 +148,7 @@ bool utilCharPrintable(const char c) {
   return (((c >= 32) && (c <= 126)) || ('\r' == c) || ('\n' == c));
 }
 
-uint32_t utilFtoa(char *pBuf, float val) {
+size_t utilFtoa(char *pBuf, float val) {
   char     buf[16]; /* Enough for -2147483648.99 + null */
   char    *p = &buf[15];
   uint32_t units;
