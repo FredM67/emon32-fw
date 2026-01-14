@@ -16,18 +16,30 @@ typedef struct ConvInt_ {
   int32_t val;   /* converted integer value */
 } ConvInt_t;
 
+typedef struct ConvUint_ {
+  bool     valid; /* true if the value in val is valid */
+  uint32_t val;   /* converted unsigned integer value */
+} ConvUint_t;
+
 /*! @brief Convert null terminated string to float, returns the value.
  *  @param [in] pBuf : pointer to string buffer
  *  @return converted float and status
  */
 ConvFloat_t utilAtof(const char *pBuf);
 
-/*! @brief Convert null terminated string to integer, returns the value.
+/*! @brief Convert null terminated string to signed integer.
  *  @param [in] pBuf : pointer to string buffer
  *  @param [in] base : select base 10 or base 16 conversion
  *  @return converted integer and status
  */
 ConvInt_t utilAtoi(const char *pBuf, ITOA_BASE_t base);
+
+/*! @brief Convert null terminated string to unsigned integer.
+ *  @param [in] pBuf : pointer to string buffer
+ *  @param [in] base : select base 10 or base 16 conversion
+ *  @return converted unsigned integer and status
+ */
+ConvUint_t utilAtoui(const char *pBuf, ITOA_BASE_t base);
 
 /*! @brief Indicate if a character is printable
  *  @param [in] c : character to check
