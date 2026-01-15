@@ -25,7 +25,7 @@ static inline uint32_t fastDiv10(uint32_t n) {
   return q + ((r + 6) >> 4);
 }
 
-size_t utilUtoa(char *pBuf, uint32_t val, ITOA_BASE_t base) {
+size_t utilUtoa(char *pBuf, uint32_t val, const ITOA_BASE_t base) {
   char  buf[11]; /* 4294967295 = 10 chars + null */
   char *p = &buf[10];
 
@@ -65,7 +65,7 @@ size_t utilUtoa(char *pBuf, uint32_t val, ITOA_BASE_t base) {
   return len + 1u;
 }
 
-size_t utilItoa(char *pBuf, int32_t val, ITOA_BASE_t base) {
+size_t utilItoa(char *pBuf, int32_t val, const ITOA_BASE_t base) {
   if ((ITOA_BASE10 == base) && (val < 0)) {
     *pBuf = '-';
     return 1u + utilUtoa(pBuf + 1, (uint32_t)(-val), base);

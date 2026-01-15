@@ -166,7 +166,7 @@ static size_t strnCat(StrN_t *strD, const StrN_t *strS) {
 }
 
 size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
-                      bool json) {
+                      const bool json) {
   EMON32_ASSERT(pData);
   EMON32_ASSERT(pDst);
 
