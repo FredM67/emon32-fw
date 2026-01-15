@@ -1,5 +1,7 @@
-#include "driver_PORT.h"
+#include <stddef.h>
+
 #include "board_def.h"
+#include "driver_PORT.h"
 #include "emon32_samd.h"
 
 static void input(const uint8_t grp, const uint8_t pin, const bool high);
@@ -66,7 +68,7 @@ void portSetup(void) {
   extern const uint8_t pinsUnused[][2];
 
   /* GPIO outputs - also enable read buffer */
-  for (uint32_t i = 0; pinsGPIO_Out[i][0] != 0xFF; i++) {
+  for (size_t i = 0; pinsGPIO_Out[i][0] != 0xFF; i++) {
     portPinDir(pinsGPIO_Out[i][0], pinsGPIO_Out[i][1], PIN_DIR_OUT);
     /* RFM69 !SS must be HIGH */
     if ((GRP_SERCOM_SPI == pinsGPIO_Out[i][0]) &&
@@ -78,7 +80,7 @@ void portSetup(void) {
   }
 
   /* GPIO inputs - all inputs currently need pull ups, so default enable */
-  for (uint32_t i = 0; pinsGPIO_In[i][0] != 0xFF; i++) {
+  for (size_t i = 0; pinsGPIO_In[i][0] != 0xFF; i++) {
     if (GRP_OPA == pinsGPIO_In[i][0]) {
       uint8_t p = pinsGPIO_In[i][1];
       if ((PIN_OPA1 == p) || (PIN_OPA2 == p) || (PIN_OPA1_PU == p) ||
@@ -94,7 +96,7 @@ void portSetup(void) {
   input(GRP_DISABLE_EXT, PIN_DISABLE_EXT, false);
 
   /* Unused pins: input, pull down (Table 23-2) */
-  for (uint32_t i = 0; pinsUnused[i][0] != 0xFF; i++) {
+  for (size_t i = 0; pinsUnused[i][0] != 0xFF; i++) {
     portPinDir(pinsUnused[i][0], pinsUnused[i][1], PIN_DIR_IN);
     portPinCfg(pinsUnused[i][0], pinsUnused[i][1], PORT_PINCFG_PULLEN,
                PIN_CFG_SET);

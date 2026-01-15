@@ -178,7 +178,7 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
   /* V channels; only print V2/V3 if either active */
   uint32_t numV = (pData->pECM->activeCh & 0x6) ? NUM_V : 1;
 
-  for (uint32_t i = 0; i < numV; i++) {
+  for (size_t i = 0; i < numV; i++) {
     catId(&strn, (i + 1), STR_V, json);
     strn.n += strnCatFloat(&strn, pData->pECM->rmsV[i]);
   }
@@ -190,21 +190,21 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
                        ? NUM_CT
                        : (NUM_CT / 2);
 
-  for (uint32_t i = 0; i < numCT; i++) {
+  for (size_t i = 0; i < numCT; i++) {
     catId(&strn, (i + 1), STR_P, json);
     strn.n += strnCatInt(&strn, pData->pECM->CT[i].realPower);
   }
-  for (uint32_t i = 0; i < numCT; i++) {
+  for (size_t i = 0; i < numCT; i++) {
     catId(&strn, (i + 1), STR_E, json);
     strn.n += strnCatInt(&strn, pData->pECM->CT[i].wattHour);
   }
 
-  for (uint32_t i = 0; i < NUM_OPA; i++) {
+  for (size_t i = 0; i < NUM_OPA; i++) {
     catId(&strn, (i + 1), STR_PULSE, json);
     strn.n += strnCatUint(&strn, pData->pulseCnt[i]);
   }
 
-  for (uint32_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (size_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
     catId(&strn, (i + 1), STR_TEMP, json);
     strn.n +=
         strnCatFloat(&strn, tempAsFloat(TEMP_INTF_ONEWIRE, pData->temp[i]));
@@ -229,12 +229,12 @@ uint8_t dataPackPacked(const Emon32Dataset_t *pData, void *pPacked,
   PackedDataCommon_t *pCommon = pPacked;
   pCommon->msg                = pData->msgNum;
 
-  for (uint32_t v = 0; v < NUM_V; v++) {
+  for (size_t v = 0; v < NUM_V; v++) {
     pCommon->V[v] =
         (uint16_t)qfp_float2int_z(qfp_fmul(pData->pECM->rmsV[v], 100.0f));
   }
 
-  for (uint32_t i = 0; i < (NUM_CT / 2); i++) {
+  for (size_t i = 0; i < (NUM_CT / 2); i++) {
     pCommon->P[i] =
         (int16_t)pData->pECM->CT[i + ((NUM_CT / 2) * isUpper)].realPower;
     pCommon->E[i] = pData->pECM->CT[i + ((NUM_CT / 2) * isUpper)].wattHour;
@@ -242,13 +242,13 @@ uint8_t dataPackPacked(const Emon32Dataset_t *pData, void *pPacked,
 
   if (PACKED_LOWER == range) {
     PackedDataLower6_t *pLower = pPacked;
-    for (uint32_t p = 0; p < NUM_OPA; p++) {
+    for (size_t p = 0; p < NUM_OPA; p++) {
       pLower->pulse[p] = pData->pulseCnt[p];
     }
     return sizeof(*pLower);
   } else if (PACKED_UPPER == range) {
     PackedDataUpper6_t *pUpper = pPacked;
-    for (uint32_t t = 0; t < (TEMP_MAX_ONEWIRE / 2); t++) {
+    for (size_t t = 0; t < (TEMP_MAX_ONEWIRE / 2); t++) {
       /* Sent as 100x the temperature value. */
       pUpper->temp[t] = (int16_t)((pData->temp[t] * 6) + (pData->temp[t] >> 2));
     }

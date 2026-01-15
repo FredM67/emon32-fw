@@ -84,8 +84,8 @@ static I2CM_Status_t    writeBytes(wrLocal_t *wr, uint32_t n);
 static uint32_t eepromSizeBytes = EEPROM_SIZE;
 
 /* Precalculate wear limiting addresses. */
-static const uint32_t wlBlkCnt = (EEPROM_SIZE - EEPROM_WL_OFFSET) / WL_PKT_SIZE;
-static const uint32_t wlBlkSize = WL_PKT_SIZE;
+static const size_t wlBlkCnt  = (EEPROM_SIZE - EEPROM_WL_OFFSET) / WL_PKT_SIZE;
+static const size_t wlBlkSize = WL_PKT_SIZE;
 
 static uint8_t wlCurrentValid = 0; /* Current valid byte for wear levelling */
 static uint8_t wlIdxNxtWr     = 0; /* Index of the next wear levelled write */
@@ -249,7 +249,7 @@ uint32_t eepromDiscoverSize(void) {
     matchbytes = 0;
     index <<= 1;
     eepromRead(index, trial, 16);
-    for (uint32_t i = 0; i < 16; i++) {
+    for (size_t i = 0; i < 16; i++) {
       if (keys[i] == trial[i]) {
         matchbytes |= (1 << i);
       }
@@ -267,11 +267,11 @@ void eepromDump(void) {
   uint8_t eeprom[16];
 
   /* Pages */
-  for (uint32_t i = 0; i < (eepromSizeBytes / 16); i++) {
+  for (size_t i = 0; i < (eepromSizeBytes / 16); i++) {
     /* Bytes in page */
     eepromRead((i * 16), eeprom, 16);
-    printf_("%04lx: ", (i * 16));
-    for (uint32_t j = 0; j < 16; j++) {
+    printf_("%04x: ", (i * 16));
+    for (size_t j = 0; j < 16; j++) {
       printf_("%02x ", eeprom[j]);
     }
     printf_("\r\n");
@@ -299,7 +299,7 @@ void eepromInitBlock(uint32_t startAddr, const uint32_t val, size_t n) {
       return;
     }
 
-    for (uint32_t i = 0; i < EEPROM_PAGE_SIZE; i++) {
+    for (size_t i = 0; i < EEPROM_PAGE_SIZE; i++) {
       i2cm_s = i2cDataWrite(SERCOM_I2CM, (uint8_t)val);
       if (I2CM_SUCCESS != i2cm_s) {
         return;
@@ -444,7 +444,7 @@ void eepromWLClear(void) {
   wlHeader.res0        = 0;
   wlHeader.crc16_ccitt = calcCRC16_ccitt(wlData, wlData_n);
 
-  for (uint32_t i = 0; i < wlBlkCnt; i++) {
+  for (size_t i = 0; i < wlBlkCnt; i++) {
     uint32_t addr = EEPROM_WL_OFFSET + (i * wlBlkSize);
     eepromWrite(addr, &wlHeader, sizeof(wlHeader));
   }

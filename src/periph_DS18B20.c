@@ -118,8 +118,8 @@ static void oneWireReadBytes(void *pDst, const uint8_t n, const size_t opaIdx) {
 
   uint8_t *pData = (uint8_t *)pDst;
 
-  for (uint8_t i = 0; i < n; i++) {
-    for (uint8_t j = 0; j < 8; j++) {
+  for (size_t i = 0; i < n; i++) {
+    for (size_t j = 0; j < 8; j++) {
       /* Data received LSB first */
       *pData |= (oneWireReadBit(opaIdx) << j);
     }
@@ -185,7 +185,7 @@ static bool oneWireSearch(const size_t opaIdx) {
     oneWireWriteBytes(&CMD_SEARCH_ROM, 1, opaIdx);
 
     /* ...and commence the search! */
-    for (uint32_t i = 0; i < 64; i++) {
+    for (size_t i = 0; i < 64; i++) {
       idBit    = oneWireReadBit(opaIdx);
       cmpidBit = oneWireReadBit(opaIdx);
 
@@ -273,9 +273,9 @@ static void oneWireWriteBytes(const void *pSrc, const uint8_t n,
   EMON32_ASSERT(pSrc);
 
   uint8_t *pData = (uint8_t *)pSrc;
-  for (uint8_t i = 0; i < n; i++) {
+  for (size_t i = 0; i < n; i++) {
     uint8_t byte = *pData++;
-    for (uint8_t j = 0; j < 8; j++) {
+    for (size_t j = 0; j < 8; j++) {
       oneWireWriteBit((byte & 0x1), opaIdx);
       byte >>= 1;
     }
@@ -335,7 +335,7 @@ void ds18b20MapSensors(const uint64_t *pAddr) {
   }
 }
 
-uint8_t ds18b20MapToLogical(const unsigned int dev) { return devRemap[dev]; }
+uint8_t ds18b20MapToLogical(const size_t dev) { return devRemap[dev]; }
 
 bool ds18b20StartSample(const size_t opaIdx) {
   const uint8_t CMD_SKIP_ROM  = 0xCC;
@@ -351,7 +351,7 @@ bool ds18b20StartSample(const size_t opaIdx) {
   return true;
 }
 
-TempRead_t ds18b20ReadSample(const uint32_t dev) {
+TempRead_t ds18b20ReadSample(const size_t dev) {
   const uint8_t CMD_MATCH_ROM    = 0x55;
   const uint8_t CMD_READ_SCRATCH = 0xBE;
   const int16_t DS_T85DEG        = 1360;
@@ -376,7 +376,7 @@ TempRead_t ds18b20ReadSample(const uint32_t dev) {
   oneWireReadBytes(&scratch, 9, devTableOpa[dev]);
 
   /* Check CRC for received data */
-  for (int32_t i = 0; i < 8; i++) {
+  for (size_t i = 0; i < 8; i++) {
     calcCRC8(crcDS, pScratch[i]);
   }
   if (crcDS != scratch.crc) {
@@ -408,7 +408,7 @@ TempRead_t ds18b20ReadSample(const uint32_t dev) {
   return tempRes;
 }
 
-TempDev_t ds18b20ReadSerial(const uint32_t dev) {
+TempDev_t ds18b20ReadSerial(const size_t dev) {
   TempDev_t device;
 
   device.id   = devTableAddr[dev];

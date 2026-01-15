@@ -117,7 +117,7 @@ static void rfmPacketHandler(void) {
     rfmRx.ackRecv = ctl & RFM69_CTL_SENDACK;
     rfmRx.ackReq  = ctl & RFM69_CTL_REQACK;
 
-    for (uint8_t i = 0; i < rfmRx.dataLen; i++) {
+    for (size_t i = 0; i < rfmRx.dataLen; i++) {
       rxData[i] = spiRx();
     }
     spiDeSelect(sel);
@@ -246,7 +246,7 @@ static bool rfmRxDone(void) {
 static RFMSend_t rfmSendWithRetry(uint8_t n, const uint8_t retries,
                                   uint8_t *pRetryCount) {
 
-  for (uint8_t r = 0; r < retries; r++) {
+  for (size_t r = 0; r < retries; r++) {
     uint32_t tNow;
     uint32_t tSent;
 

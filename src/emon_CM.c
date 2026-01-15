@@ -484,7 +484,7 @@ static void calibrationPhase(CTCfg_t *pCfgCT, const VCfg_t *pCfgV,
 }
 
 void ecmClearEnergy(void) {
-  for (uint32_t i = 0; i < NUM_CT; i++) {
+  for (size_t i = 0; i < NUM_CT; i++) {
     datasetProc.CT[i].wattHour = 0;
     residualEnergy[i]          = 0.0f;
   }
@@ -520,11 +520,11 @@ void ecmFlush(void) {
 RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
   if (!ecmCfg.downsample) {
     /* No filtering, discard the second sample in the set */
-    for (uint32_t idxV = 0; idxV < NUM_V; idxV++) {
+    for (size_t idxV = 0; idxV < NUM_V; idxV++) {
       pDst->smpV[idxV] = applyCorrection(adcProc->samples[0].smp[idxV]);
     }
 
-    for (uint32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
+    for (size_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
       pDst->smpCT[mapLogCT[idxCT - NUM_V]] =
           applyCorrection(adcProc->samples[0].smp[idxCT + NUM_V]);
     }
@@ -548,7 +548,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
     /* Copy the packed raw ADC value into the unpacked buffer; samples[1] is
      * the most recent sample.
      */
-    for (uint32_t idxSmp = 0; idxSmp < VCT_TOTAL; idxSmp++) {
+    for (size_t idxSmp = 0; idxSmp < VCT_TOTAL; idxSmp++) {
       dspBuffer[idxInjPrev].smp[idxSmp] =
           applyCorrection(adcProc->samples[0].smp[idxSmp]);
       dspBuffer[idxInj].smp[idxSmp] =
@@ -591,7 +591,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
       idxSmp[i][1] = idxSmpEnd;
     }
 
-    for (uint32_t ch = 0; ch < VCT_TOTAL; ch++) {
+    for (size_t ch = 0; ch < VCT_TOTAL; ch++) {
       q15_t result;
       bool  active = (ch < NUM_V) ? channelActive[ch]
                                   : channelActive[mapLogCT[ch - NUM_V] + NUM_V];

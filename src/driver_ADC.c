@@ -111,7 +111,7 @@ static void adcConfigureDMAC(void) {
                      DMAC_CHCTRLB_TRIGSRC(ADC_DMAC_ID_RESRDY) |
                      DMAC_CHCTRLB_TRIGACT_BEAT;
 
-  for (uint32_t i = 0; i < 2; i++) {
+  for (size_t i = 0; i < 2; i++) {
     dmacDesc[i] = dmacGetDescriptor(dmaChan[i]);
 
     /* DSTADDR is the last address, rather than first! */
@@ -154,7 +154,7 @@ void adcDMACStop(void) { dmacChannelDisable(DMA_CHAN_ADC0); }
 void adcSetup(void) {
   extern uint8_t pinsADC[][2];
 
-  for (uint32_t i = 0; pinsADC[i][0] != 0xFF; i++) {
+  for (size_t i = 0; pinsADC[i][0] != 0xFF; i++) {
     portPinMux(pinsADC[i][0], pinsADC[i][1], PORT_PMUX_PMUXE_B_Val);
   }
 

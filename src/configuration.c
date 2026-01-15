@@ -135,14 +135,14 @@ static void configDefault(void) {
   config.dataTxCfg.rfmPwr     = RFM_PALEVEL_DEF;
   config.dataTxCfg.rfmFreq    = RFM_FREQ_DEF;
 
-  for (int32_t idxV = 0u; idxV < NUM_V; idxV++) {
+  for (size_t idxV = 0u; idxV < NUM_V; idxV++) {
     config.voltageCfg[idxV].voltageCal = 100.0f;
     config.voltageCfg[idxV].vActive    = (0 == idxV);
     config.voltageCfg[idxV].phase      = 0.0f;
   }
 
   /* 4.2 degree shift @ 50 Hz. Initialize ALL slots including reserved. */
-  for (int32_t idxCT = 0u; idxCT < (NUM_CT + CT_RES); idxCT++) {
+  for (size_t idxCT = 0u; idxCT < (NUM_CT + CT_RES); idxCT++) {
     config.ctCfg[idxCT].ctCal    = 100.0f;
     config.ctCfg[idxCT].phase    = 3.2f;
     config.ctCfg[idxCT].vChan1   = 0;
@@ -170,7 +170,7 @@ static void configDefault(void) {
   config.opaCfg[1].puEn      = true;
 
   /* Initialize reserved OPA slots */
-  for (int32_t idxOPA = NUM_OPA; idxOPA < (NUM_OPA + PULSE_RES); idxOPA++) {
+  for (size_t idxOPA = NUM_OPA; idxOPA < (NUM_OPA + PULSE_RES); idxOPA++) {
     config.opaCfg[idxOPA].func      = 0;
     config.opaCfg[idxOPA].opaActive = false;
     config.opaCfg[idxOPA].period    = 0;
@@ -305,7 +305,7 @@ static bool configureAnalog(void) {
 
     /* If the voltage phase was changed reconfigure all CTs as well */
     if (reconfigureCT) {
-      for (uint8_t i = 0; i < NUM_CT; i++) {
+      for (size_t i = 0; i < NUM_CT; i++) {
         ecmConfigChannel(i + NUM_V);
       }
     }
@@ -391,7 +391,7 @@ static void configureBackup(void) {
   printf_("\"assumedV\":%d,", config.baseCfg.assumedVrms);
   /* {v_config} list of dicts */
   serialPuts("\"v_config\":[");
-  for (int32_t i = 0; i < NUM_V; i++) {
+  for (size_t i = 0; i < NUM_V; i++) {
     utilFtoa(strBuf, config.voltageCfg[i].voltageCal);
     printf_("{\"active\":%s,\"cal\":%s}",
             (config.voltageCfg[i].vActive ? "true" : "false"), strBuf);
@@ -403,7 +403,7 @@ static void configureBackup(void) {
 
   /* {ct_config} list of dicts */
   serialPuts("\"ct_config\":[");
-  for (int32_t i = 0; i < NUM_CT; i++) {
+  for (size_t i = 0; i < NUM_CT; i++) {
     utilFtoa(strBuf, config.ctCfg[i].ctCal);
     printf_("{\"active\":%s,\"cal\":%s,",
             (config.ctCfg[i].ctActive ? "true" : "false"), strBuf);
@@ -516,14 +516,14 @@ static bool configure1WFreeze(void) {
 static void configure1WList(void) {
   uint64_t *pAddr = tempAddress1WGet();
 
-  for (uint8_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (size_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
 
     /* Only list DS18B20 devices */
     uint8_t id = (uint8_t)(pAddr[i] & 0xFF);
     if (0x28 == id) {
       printf_("%d [->%d] ", (i + 1),
               (tempMapToLogical(TEMP_INTF_ONEWIRE, i) + 1));
-      for (uint8_t j = 0; j < 8; j++) {
+      for (size_t j = 0; j < 8; j++) {
         printf_("%x%s", (uint8_t)((pAddr[i] >> (8 * j)) & 0xFF),
                 ((j == 7) ? "\r\n" : " "));
       }
@@ -979,9 +979,9 @@ static void printSettingsHR(void) {
           config.baseCfg.useJson ? "JSON" : "Key:Value");
   serialPuts("\r\n");
 
-  for (uint32_t i = 0; i < NUM_OPA; i++) {
+  for (size_t i = 0; i < NUM_OPA; i++) {
     bool enabled = config.opaCfg[i].opaActive;
-    printf_("OPA %lu (%sactive)\r\n", (i + 1), enabled ? "" : "in");
+    printf_("OPA %u (%sactive)\r\n", (i + 1), enabled ? "" : "in");
     if ('o' == config.opaCfg[i].func) {
       serialPuts("  - OneWire interface\r\n");
     } else {
@@ -1014,16 +1014,16 @@ static void printSettingsHR(void) {
       "| Ref | Channel | Active | Calibration |  Phase  | In 1 | In 2 |\r\n");
   serialPuts(
       "+=====+=========+========+=============+=========+======+======+\r\n");
-  for (int32_t i = 0; i < NUM_V; i++) {
-    printf_("| %2ld  |  V %2ld   | %c      | ", (i + 1), (i + 1),
+  for (size_t i = 0; i < NUM_V; i++) {
+    printf_("| %2d  |  V %2d   | %c      | ", (i + 1), (i + 1),
             (config.voltageCfg[i].vActive ? 'Y' : 'N'));
     putFloat(config.voltageCfg[i].voltageCal, 6);
     serialPuts("      |  ");
     putFloat(config.voltageCfg[i].phase, 6);
     serialPuts(" |      |      |\r\n");
   }
-  for (int32_t i = 0; i < NUM_CT; i++) {
-    printf_("| %2ld  | CT %2ld   | %c      | ", (i + 1 + NUM_V), (i + 1),
+  for (size_t i = 0; i < NUM_CT; i++) {
+    printf_("| %2d  | CT %2d   | %c      | ", (i + 1 + NUM_V), (i + 1),
             (config.ctCfg[i].ctActive ? 'Y' : 'N'));
     putFloat(config.ctCfg[i].ctCal, 6);
     serialPuts("      |  ");

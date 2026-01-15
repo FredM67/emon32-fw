@@ -300,7 +300,7 @@ void i2cBusRecovery(Sercom *sercom, const uint8_t grp, const uint8_t sdaPin,
   portPinDrv(grp, sdaPin, PIN_DRV_SET); /* Enable pull-up */
 
   /* Toggle SCL up to 9 times to release stuck slave */
-  for (int32_t i = 0; i < 9; i++) {
+  for (size_t i = 0; i < 9; i++) {
     if (portPinValue(grp, sdaPin)) {
       break; /* SDA released, we're done */
     }

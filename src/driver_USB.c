@@ -54,7 +54,7 @@ void usbCDCTask(void) {
   /* Flush write buffer and read any available characters */
   tud_cdc_write_flush();
   uint32_t nrx = tud_cdc_available();
-  for (uint32_t i = 0; i < nrx; i++) {
+  for (size_t i = 0; i < nrx; i++) {
     int32_t ch = tud_cdc_read_char();
     if (-1 == ch) {
       continue;

@@ -54,7 +54,7 @@ void pulseUpdate(void) {
   uint32_t   mask;
   PulseLvl_t level;
 
-  for (uint32_t i = 0; i < NUM_OPA; i++) {
+  for (size_t i = 0; i < NUM_OPA; i++) {
     if (pulseCfg[i].active) {
       mask  = (1 << pulseCfg[i].periods) - 1u;
       level = pulseLvlLast[i];

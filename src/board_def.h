@@ -37,7 +37,7 @@
 /* Temperature sensors
  * This is the maximum number of OneWire DS18B20 sensors that can be used
  */
-#define TEMP_MAX_ONEWIRE 8
+#define TEMP_MAX_ONEWIRE 8u
 
 /* EEPROM */
 /* Top of EEPROM address, not including R/W bit */

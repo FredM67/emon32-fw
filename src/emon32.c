@@ -107,14 +107,14 @@ static void cumulativeNVMLoad(Emon32Cumulative_t *pPkt,
   eepromWLReset(sizeof(*pPkt));
   eepromOK = (EEPROM_WL_OK == eepromReadWL(pPkt, 0));
 
-  for (uint32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
+  for (size_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
     int32_t wh = eepromOK ? pPkt->wattHour[idxCT] : 0;
 
     ecmCfg->ctCfg[idxCT].wattHourInit = wh;
     totalWh += wh;
   }
 
-  for (uint32_t idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
+  for (size_t idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
     uint32_t pulse = eepromOK ? pPkt->pulseCnt[idxPulse] : 0;
 
     pData->pulseCnt[idxPulse] = pulse;
@@ -134,11 +134,11 @@ static void cumulativeNVMStore(Emon32Cumulative_t    *pPkt,
   EMON32_ASSERT(pPkt);
   EMON32_ASSERT(pData);
 
-  for (uint32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
+  for (size_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
     pPkt->wattHour[idxCT] = pData->pECM->CT[idxCT].wattHour;
   }
 
-  for (uint32_t idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
+  for (size_t idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
     pPkt->pulseCnt[idxPulse] = pData->pulseCnt[idxPulse];
   }
 
@@ -247,12 +247,12 @@ void ecmConfigure(void) {
     ecmCfg->correction.valid = false;
   }
 
-  for (uint32_t i = 0; i < NUM_V; i++) {
+  for (size_t i = 0; i < NUM_V; i++) {
     ecmCfg->vCfg[i].voltageCalRaw = pConfig->voltageCfg[i].voltageCal;
     ecmCfg->vCfg[i].vActive       = pConfig->voltageCfg[i].vActive;
   }
 
-  for (uint32_t i = 0; i < NUM_CT; i++) {
+  for (size_t i = 0; i < NUM_CT; i++) {
     ecmCfg->ctCfg[i].phCal    = pConfig->ctCfg[i].phase;
     ecmCfg->ctCfg[i].ctCalRaw = pConfig->ctCfg[i].ctCal;
     ecmCfg->ctCfg[i].active   = pConfig->ctCfg[i].ctActive;
@@ -260,7 +260,7 @@ void ecmConfigure(void) {
     ecmCfg->ctCfg[i].vChan2   = pConfig->ctCfg[i].vChan2;
   }
 
-  for (uint32_t i = 0; i < NUM_CT; i++) {
+  for (size_t i = 0; i < NUM_CT; i++) {
     ecmCfg->mapCTLog[i] = ainRemap[i];
   }
 
@@ -502,7 +502,7 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
   tempMapDevices(TEMP_INTF_ONEWIRE, addrAlign8);
 
   /* Set all unused temperature slots to 300°C (4800 as Q4 fixed point) */
-  for (uint32_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (size_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
     pData->temp[i] = 4800;
   }
 
@@ -520,10 +520,10 @@ static void totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc) {
   pAcc->E = 0;
   pAcc->P = 0;
 
-  for (uint32_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
+  for (size_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
     pAcc->E += pData->pECM->CT[idxCT].wattHour;
   }
-  for (uint32_t idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
+  for (size_t idxPulse = 0; idxPulse < NUM_OPA; idxPulse++) {
     pAcc->P += pData->pulseCnt[idxPulse];
   }
 }
@@ -708,7 +708,7 @@ int main(void) {
         eepromWLClear();
         eepromWLReset(sizeof(nvmCumulative));
         ecmClearEnergy();
-        for (uint32_t i = 0; i < NUM_OPA; i++) {
+        for (size_t i = 0; i < NUM_OPA; i++) {
           pulseSetCount(i, 0);
         }
         emon32EventClr(EVT_CLEAR_ACCUM);
@@ -720,7 +720,7 @@ int main(void) {
        */
       if (evtPending(EVT_ECM_TRIG)) {
         if (numTempSensors > 0) {
-          for (uint8_t i = 0; i < NUM_OPA; i++) {
+          for (size_t i = 0; i < NUM_OPA; i++) {
             if (('o' == pConfig->opaCfg[i].func) &&
                 pConfig->opaCfg[i].opaActive) {
               (void)tempStartSample(TEMP_INTF_ONEWIRE, i);
@@ -734,7 +734,7 @@ int main(void) {
       /* Trigger a temperature sample 1 s before the report is due. */
       if (evtPending(EVT_ECM_PEND_1S)) {
         if (numTempSensors > 0) {
-          for (uint8_t i = 0; i < NUM_OPA; i++) {
+          for (size_t i = 0; i < NUM_OPA; i++) {
             if (('o' == pConfig->opaCfg[i].func) &&
                 pConfig->opaCfg[i].opaActive) {
               (void)tempStartSample(TEMP_INTF_ONEWIRE, i);
