@@ -3,6 +3,7 @@
 
 #ifndef HOSTED
 
+#include "asm_math.h"
 #include "qfplib-m0-full.h"
 
 #else
@@ -161,7 +162,7 @@ static RAMFUNC inline q15_t __STRUNCATE(int32_t val) {
 /***** END FIXED POINT FUNCIONS *****/
 
 static RAMFUNC float calcRMS(const CalcRMS_t *pSrc) {
-  uint64_t numSamplesSqr = (uint64_t)pSrc->numSamples * pSrc->numSamples;
+  uint64_t numSamplesSqr = usqr64(pSrc->numSamples);
   float    vcal          = pSrc->cal;
 
   uint32_t deltasSqr = (uint32_t)(pSrc->sDelta * pSrc->sDelta);
@@ -645,7 +646,7 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
   for (size_t idxV = 0; idxV < NUM_V; idxV++) {
     if (channelActive[idxV]) {
       int32_t V = sampleBuffer[idxInject].smpV[idxV];
-      accumCollecting->processV[idxV].sumV_sqr += (uint64_t)(V * V);
+      accumCollecting->processV[idxV].sumV_sqr += ssqr64(V);
       accumCollecting->processV[idxV].sumV_deltas += V;
     }
   }
@@ -659,11 +660,11 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
     int32_t v1v2 = v1 - v2;
     int32_t v2v3 = v2 - v3;
     int32_t v3v1 = v3 - v1;
-    accumCollecting->processV[3].sumV_sqr += (uint64_t)(v1v2 * v1v2);
+    accumCollecting->processV[3].sumV_sqr += ssqr64(v1v2);
     accumCollecting->processV[3].sumV_deltas += v1v2;
-    accumCollecting->processV[4].sumV_sqr += (uint64_t)(v2v3 * v2v3);
+    accumCollecting->processV[4].sumV_sqr += ssqr64(v2v3);
     accumCollecting->processV[4].sumV_deltas += v2v3;
-    accumCollecting->processV[5].sumV_sqr += (uint64_t)(v3v1 * v3v1);
+    accumCollecting->processV[5].sumV_sqr += ssqr64(v3v1);
     accumCollecting->processV[5].sumV_deltas += v3v1;
   }
 
@@ -686,7 +687,7 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
 
       accumCollecting->processCT[idxCT].sumPA[0] += (int64_t)(thisCT * lastV);
       accumCollecting->processCT[idxCT].sumPB[0] += (int64_t)(thisCT * thisV);
-      accumCollecting->processCT[idxCT].sumI_sqr += (uint64_t)(thisCT * thisCT);
+      accumCollecting->processCT[idxCT].sumI_sqr += ssqr64(thisCT);
       accumCollecting->processCT[idxCT].sumI_deltas += thisCT;
 
       /* L-L load */

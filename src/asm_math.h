@@ -18,6 +18,6 @@ uint64_t usqr64(uint32_t x);
  *  overhead of the compiler-generated 64-bit multiply sequence.
  *
  *  @param [in] x : 32-bit signed value to square
- *  @return 64-bit result (x * x)
+ *  @return 64-bit unsigned result (x * x), always non-negative
  */
-int64_t ssqr64(int32_t x);
+uint64_t ssqr64(int32_t x);
