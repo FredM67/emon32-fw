@@ -843,12 +843,12 @@ static size_t inBufferTok(void) {
 }
 
 static void printSettingCT(const size_t ch) {
-  printf_("iCal%x = ", (ch + 1));
+  printf_("iCal%u = ", (ch + 1));
   putFloat(config.ctCfg[ch].ctCal, 0);
-  printf_(", iLead%x = ", (ch + 1));
+  printf_(", iLead%u = ", (ch + 1));
   putFloat(config.ctCfg[ch].phase, 0);
-  printf_(", iActive%x = %s", (ch + 1), config.ctCfg[ch].ctActive ? "1" : "0");
-  printf_(", v1Chan%x = %d, v2Chan%x = %d\r\n", (ch + 1),
+  printf_(", iActive%u = %s", (ch + 1), config.ctCfg[ch].ctActive ? "1" : "0");
+  printf_(", v1Chan%u = %d, v2Chan%u = %d\r\n", (ch + 1),
           (config.ctCfg[ch].vChan1 + 1), (ch + 1),
           (config.ctCfg[ch].vChan2 + 1));
 }
@@ -864,7 +864,7 @@ static void printSettingJSON(void) {
 }
 
 static void printSettingOPA(const size_t ch) {
-  printf_("opa%x = ", (ch + 1));
+  printf_("opa%u = ", (ch + 1));
 
   /* OneWire */
   if ('o' == config.opaCfg[ch].func) {
@@ -908,11 +908,11 @@ static void printSettingRFFreq(void) {
 }
 
 static void printSettingV(const size_t ch) {
-  printf_("vCal%x = ", (ch + 1));
+  printf_("vCal%u = ", (ch + 1));
   putFloat(config.voltageCfg[ch].voltageCal, 0);
-  printf_(",vLead%x = ", (ch + 1));
+  printf_(", vLead%u = ", (ch + 1));
   putFloat(config.voltageCfg[ch].phase, 0);
-  printf_(", vActive%x = %s\r\n", (ch + 1),
+  printf_(", vActive%u = %s\r\n", (ch + 1),
           config.voltageCfg[ch].vActive ? "1" : "0");
 }
 
