@@ -9,7 +9,7 @@ eeprom: OBJS = test_eeprom.c ../src/eeprom.c
 
 .PHONY: clean all
 
-all: cm eeprom
+all: cm eeprom asm_math
 
 eeprom:
 	${CC} ${CFLAGS} $(DEFINES) -I$(INCLUDES) -o $@.test $(OBJS) ${LIBS}
