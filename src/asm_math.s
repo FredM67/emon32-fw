@@ -4,7 +4,7 @@
 .cpu cortex-m0plus
 .thumb
 
-.text
+.section .ramfunc,"ax",%progbits
 
 @ exported symbols
 .global usqr64
