@@ -792,7 +792,7 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
 
   /* Reused constants */
   const uint32_t numSamples    = accumProcessing->numSamples;
-  const uint64_t numSamplesSqr = (uint64_t)numSamples * numSamples;
+  const uint64_t numSamplesSqr = usqr64(numSamples);
   rms.numSamples               = numSamples;
 
   /* Choose if using the assumed time, or cycle locked real time */
