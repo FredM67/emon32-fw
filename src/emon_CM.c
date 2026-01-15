@@ -113,7 +113,8 @@ static bool         zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) RAMFUNC;
 static void    accumSwapClear(void);
 static int32_t floorf_(float f);
 static float   calibrationAmplitude(float cal, bool isV);
-static void    calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT);
+static void    calibrationPhase(CTCfg_t *pCfgCT, const VCfg_t *pCfgV,
+                                size_t idxCT);
 static void    configChannelV(size_t ch);
 static void    configChannelCT(size_t ch);
 static void    swapPtr(void **pIn1, void **pIn2);
@@ -441,7 +442,8 @@ static float calibrationAmplitude(float cal, bool isV) {
  *  @param [in] pCfgV : to pointer to array of V configuration structs
  *  @param [in] idxCT : physical index (0-based) of the CT
  */
-static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT) {
+static void calibrationPhase(CTCfg_t *pCfgCT, const VCfg_t *pCfgV,
+                             size_t idxCT) {
 
   /* Compensate for V phase */
   const float phiCT_V = qfp_fsub(pCfgCT->phCal, pCfgV[pCfgCT->vChan1].phase);
