@@ -685,8 +685,8 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
       int32_t thisV = sampleBuffer[thisVidx].smpV[v1];
       int32_t lastV = sampleBuffer[lastVidx].smpV[v1];
 
-      accumCollecting->processCT[idxCT].sumPA[0] += (int64_t)(thisCT * lastV);
-      accumCollecting->processCT[idxCT].sumPB[0] += (int64_t)(thisCT * thisV);
+      accumCollecting->processCT[idxCT].sumPA[0] += smul64(thisCT, lastV);
+      accumCollecting->processCT[idxCT].sumPB[0] += smul64(thisCT, thisV);
       accumCollecting->processCT[idxCT].sumI_sqr += ssqr64(thisCT);
       accumCollecting->processCT[idxCT].sumI_deltas += thisCT;
 
@@ -694,8 +694,8 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
       if (v1 != v2) {
         thisV = sampleBuffer[thisVidx].smpV[v2];
         lastV = sampleBuffer[lastVidx].smpV[v2];
-        accumCollecting->processCT[idxCT].sumPA[1] += (int64_t)(thisCT * lastV);
-        accumCollecting->processCT[idxCT].sumPB[1] += (int64_t)(thisCT * thisV);
+        accumCollecting->processCT[idxCT].sumPA[1] += smul64(thisCT, lastV);
+        accumCollecting->processCT[idxCT].sumPB[1] += smul64(thisCT, thisV);
       }
     }
   }
