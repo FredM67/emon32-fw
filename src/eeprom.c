@@ -828,9 +828,9 @@ eepromWrStatus_t eepromWriteWL(const void *pPktWr) {
    */
   idxWr = wlIdxNxtWr + 1u;
   if (idxWr == wlBlkCnt) {
-    uint32_t validByte;
+    uint8_t validByte;
     eepromRead(addrWr, &validByte, 1u);
-    wlCurrentValid = nextValidByte((uint8_t)validByte);
+    wlCurrentValid = nextValidByte(validByte);
     idxWr          = 0;
   }
 
