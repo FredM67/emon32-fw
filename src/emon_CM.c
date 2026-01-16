@@ -111,7 +111,7 @@ static float        calcRMS(CalcRMS_t *pSrc) RAMFUNC;
 static bool         zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) RAMFUNC;
 
 static void  accumSwapClear(void);
-static int   floorf_(float f);
+static int   floorf_(const float f);
 static float calibrationAmplitude(float cal, bool isV);
 static void  calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT);
 static void  configChannelV(int_fast8_t ch);
@@ -225,7 +225,7 @@ void configChannelCT(int_fast8_t ch) {
   ecmCfg.ctCfg[ch].ctCal =
       calibrationAmplitude(ecmCfg.ctCfg[ch].ctCalRaw, false);
 
-  calibrationPhase(&ecmCfg.ctCfg[ch], ecmCfg.vCfg, ch);
+  calibrationPhase(&ecmCfg.ctCfg[ch], ecmCfg.vCfg, ecmCfg.mapCTLog[ch]);
 }
 
 void configChannelV(int_fast8_t ch) {
@@ -376,42 +376,12 @@ RAMFUNC bool zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) {
  *  @param [in] f : float in
  *  @return integer floor of f
  */
-static int floorf_(float f) {
-  union {
-    float    x;
-    uint32_t ui;
-  } v;
-
-  v.x          = f;
-  uint32_t s   = v.ui >> 31;
-  int32_t  exp = ((v.ui >> 23) & 0xFF) - 127;
-
-  /* |f| < 1.0 */
-  if (0 > exp) {
-    if (s && (0.0f != f)) {
-      return -1;
-    } else {
-      return 0;
-    }
+static int floorf_(const float f) {
+  int32_t i = qfp_float2int_z(f);
+  if (qfp_int2float(i) > f) {
+    i -= 1;
   }
-
-  /* Already integer, or too large for fractional part */
-  if (exp >= 31) {
-    return (int)f;
-  }
-
-  uint32_t mnt   = (v.ui & 0x7FFFFFul) | 0x800000ul;
-  int      value = (23 <= exp) ? mnt << (exp - 23) : mnt >> (23 - exp);
-
-  if (s) {
-    return -value;
-  }
-
-  if (s && ((v.ui & ((1u << (23 - exp)) - 1u)) != 0)) {
-    value -= 1;
-  }
-
-  return value;
+  return i;
 }
 
 /*! @brief Turn an amplitude calibration value into a factor to change the
@@ -448,8 +418,11 @@ static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT) {
                qfp_int2float(samplePeriodus * VCT_TOTAL * ecmCfg.mainsFreq));
   float phaseShiftSets = qfp_fdiv(phiCT_V, phaseShift_deg);
 
-  float phaseShiftSmpIdx =
-      qfp_fdiv(qfp_int2float(idxCT - pCfgCT->vChan1 + NUM_V), (float)VCT_TOTAL);
+  /* After downsampling, the time between samples remains t_s _not_ 2*t_s.
+   * Consider samples to be bunched in the first half of the full sample window.
+   */
+  float phaseShiftSmpIdx = qfp_fdiv(
+      qfp_int2float(idxCT - pCfgCT->vChan1 + NUM_V), (float)VCT_TOTAL * 2.0f);
 
   phaseShiftSets = qfp_fadd(phaseShiftSets, phaseShiftSmpIdx);
 
@@ -670,7 +643,7 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
       size_t thisVidx =
           (idxInject - ecmCfg.ctCfg[idxCT].idxInterpolateV) & (PROC_DEPTH - 1u);
 
-      size_t lastVidx = (idxInject - 1u) & (PROC_DEPTH - 1u);
+      size_t lastVidx = (thisVidx - 1u) & (PROC_DEPTH - 1u);
 
       int32_t thisCT = sampleBuffer[thisCTidx].smpCT[idxCT];
 
