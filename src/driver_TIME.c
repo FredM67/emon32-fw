@@ -238,7 +238,7 @@ bool timerScheduleCallback(TimerCallback_t callback, uint32_t delay_us) {
   __disable_irq();
 
   /* Find an empty slot in the queue */
-  size_t slot = UINT32_MAX;
+  size_t slot = SIZE_MAX;
   for (size_t i = 0; i < TIMER_CALLBACK_QUEUE_SIZE; i++) {
     if (!callbackQueue[i].active) {
       slot                          = i;
@@ -253,7 +253,7 @@ bool timerScheduleCallback(TimerCallback_t callback, uint32_t delay_us) {
   /* Check if this is the next event (memory read only) */
   uint32_t time_until_new  = target_us - current_us;
   uint32_t time_until_next = nextScheduledEvent_us - current_us;
-  bool need_update = (slot != UINT32_MAX) && (time_until_new < time_until_next);
+  bool need_update = (slot != SIZE_MAX) && (time_until_new < time_until_next);
 
   if (need_update) {
     nextScheduledEvent_us = target_us;
@@ -268,7 +268,7 @@ bool timerScheduleCallback(TimerCallback_t callback, uint32_t delay_us) {
     timerSync(TIMER_TICK); /* Sync outside critical section */
   }
 
-  return (slot != UINT32_MAX);
+  return (slot != SIZE_MAX);
 }
 
 bool timerCancelCallback(TimerCallback_t callback) {
