@@ -113,7 +113,8 @@ static bool         zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) RAMFUNC;
 static void  accumSwapClear(void);
 static int   floorf_(const float f);
 static float calibrationAmplitude(float cal, bool isV);
-static void  calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT);
+static void  calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT,
+                              bool vChan2);
 static void  configChannelV(int_fast8_t ch);
 static void  configChannelCT(int_fast8_t ch);
 static void  swapPtr(void **pIn1, void **pIn2);
@@ -225,7 +226,10 @@ void configChannelCT(int_fast8_t ch) {
   ecmCfg.ctCfg[ch].ctCal =
       calibrationAmplitude(ecmCfg.ctCfg[ch].ctCalRaw, false);
 
-  calibrationPhase(&ecmCfg.ctCfg[ch], ecmCfg.vCfg, ecmCfg.mapCTLog[ch]);
+  calibrationPhase(&ecmCfg.ctCfg[ch], ecmCfg.vCfg, ecmCfg.mapCTLog[ch], false);
+  if (ecmCfg.ctCfg[ch].vChan1 != ecmCfg.ctCfg[ch].vChan2) {
+    calibrationPhase(&ecmCfg.ctCfg[ch], ecmCfg.vCfg, ecmCfg.mapCTLog[ch], true);
+  }
 }
 
 void configChannelV(int_fast8_t ch) {
@@ -406,11 +410,16 @@ static float calibrationAmplitude(float cal, bool isV) {
  *  @param [out] pCfgCT : pointer to CT configuration struct
  *  @param [in] pCfgV : to pointer to array of V configuration structs
  *  @param [in] idxCT : physical index (0-based) of the CT
+ *  @param [in] vChan2 : true for the 2nd V channel for L-L loads
  */
-static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT) {
+static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT,
+                             bool vChan2) {
+
+  size_t idxV  = !vChan2 ? pCfgCT->vChan1 : pCfgCT->vChan2;
+  size_t idxPh = !vChan2 ? 0u : 1u;
 
   /* Compensate for V phase */
-  float phiCT_V = qfp_fsub(pCfgCT->phCal, pCfgV[pCfgCT->vChan1].phase);
+  float phiCT_V = qfp_fsub(pCfgCT->phCal, pCfgV[idxV].phase);
 
   /* Calculate phase change over full set */
   float phaseShift_deg =
@@ -421,8 +430,9 @@ static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT) {
   /* After downsampling, the time between samples remains t_s _not_ 2*t_s.
    * Consider samples to be bunched in the first half of the full sample window.
    */
-  float phaseShiftSmpIdx = qfp_fdiv(
-      qfp_int2float(idxCT - pCfgCT->vChan1 + NUM_V), (float)VCT_TOTAL * 2.0f);
+  float phaseShiftSmpIdx =
+      qfp_fdiv(qfp_int2float(idxCT - idxV + NUM_V),
+               (float)VCT_TOTAL * (float)OVERSAMPLING_RATIO);
 
   phaseShiftSets = qfp_fadd(phaseShiftSets, phaseShiftSmpIdx);
 
@@ -437,7 +447,7 @@ static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT) {
   }
 
   phaseShiftSets = qfp_fsub(phaseShiftSets, qfp_int2float(floorPhaseShiftSets));
-  pCfgCT->phaseY = phaseShiftSets;
+  pCfgCT->phaseY[idxPh] = phaseShiftSets;
 
   float sampleRate_rad = qfp_fmul(phaseShift_deg, (TWO_PI / 360.0f));
   float phaseShift_rad = qfp_fmul(phaseShiftSets, phaseShift_deg);
@@ -447,7 +457,8 @@ static void calibrationPhase(CTCfg_t *pCfgCT, VCfg_t *pCfgV, size_t idxCT) {
       qfp_fsub(1.0f, qfp_fdiv(qfp_fmul(phaseShift_rad, phaseShift_rad), 2.0f));
   float rateSqr =
       qfp_fsub(1.0f, qfp_fdiv(qfp_fmul(sampleRate_rad, sampleRate_rad), 2.0f));
-  pCfgCT->phaseX = qfp_fsub(shiftXRate, qfp_fmul(pCfgCT->phaseY, rateSqr));
+  pCfgCT->phaseX[idxPh] =
+      qfp_fsub(shiftXRate, qfp_fmul(pCfgCT->phaseY[idxPh], rateSqr));
 }
 
 void ecmClearEnergy(void) {
@@ -819,9 +830,9 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
       // Power and energy
       float sumEnergy = qfp_fadd(
           (qfp_fmul(qfp_int642float(accumProcessing->processCT[idxCT].sumPA[0]),
-                    ecmCfg.ctCfg[idxCT].phaseX)),
+                    ecmCfg.ctCfg[idxCT].phaseX[0])),
           (qfp_fmul(qfp_int642float(accumProcessing->processCT[idxCT].sumPB[0]),
-                    ecmCfg.ctCfg[idxCT].phaseY)));
+                    ecmCfg.ctCfg[idxCT].phaseY[0])));
 
       int32_t vi_offset =
           rms.sDelta * accumProcessing->processV[idxV1].sumV_deltas;
@@ -841,10 +852,10 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
         sumEnergy = qfp_fadd(
             (qfp_fmul(
                 qfp_int642float(accumProcessing->processCT[idxCT].sumPA[1]),
-                ecmCfg.ctCfg[idxCT].phaseX)),
+                ecmCfg.ctCfg[idxCT].phaseX[1])),
             (qfp_fmul(
                 qfp_int642float(accumProcessing->processCT[idxCT].sumPB[1]),
-                ecmCfg.ctCfg[idxCT].phaseY)));
+                ecmCfg.ctCfg[idxCT].phaseY[1])));
 
         vi_offset = rms.sDelta * accumProcessing->processV[idxV2].sumV_deltas;
         float powerNow2 = qfp_fdiv(sumEnergy, qfp_int2float(numSamples));
