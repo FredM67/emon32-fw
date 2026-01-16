@@ -229,7 +229,6 @@ void ecmConfigure(void) {
 
   ECMCfg_t *ecmCfg = ecmConfigGet();
 
-  ecmCfg->downsample    = DOWNSAMPLE_DSP;
   ecmCfg->reportCycles  = pConfig->baseCfg.reportCycles;
   ecmCfg->mainsFreq     = pConfig->baseCfg.mainsFreq;
   ecmCfg->samplePeriod  = timerADCPeriod();

@@ -496,111 +496,99 @@ void ecmFlush(void) {
 }
 
 RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
-  if (!ecmCfg.downsample) {
-    /* No filtering, discard the second sample in the set */
-    for (int_fast8_t idxV = 0; idxV < NUM_V; idxV++) {
-      pDst->smpV[idxV] = applyCorrection(adcProc->samples[0].smp[idxV]);
-    }
+  /* The FIR half band filter is symmetric, so the coefficients are folded.
+   * Alternating coefficients are 0, so are not included in any outputs.
+   * For an ODD number of taps, the centre coefficent is handled
+   * individually, then the other taps in a loop.
+   *
+   * b_0 | b_2 | .. | b_X | .. | b_2 | b_0
+   *
+   * For an EVEN number of taps, loop across all the coefficients:
+   *
+   * b_0 | b_2 | .. | b_2 | b_0
+   */
+  static uint_fast8_t idxInj         = 0;
+  const uint32_t      downsampleTaps = DOWNSAMPLE_TAPS;
 
-    for (int_fast8_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
-      pDst->smpCT[mapLogCT[idxCT - NUM_V]] =
-          applyCorrection(adcProc->samples[0].smp[idxCT + NUM_V]);
-    }
-  } else {
-    /* The FIR half band filter is symmetric, so the coefficients are folded.
-     * Alternating coefficients are 0, so are not included in any outputs.
-     * For an ODD number of taps, the centre coefficent is handled
-     * individually, then the other taps in a loop.
-     *
-     * b_0 | b_2 | .. | b_X | .. | b_2 | b_0
-     *
-     * For an EVEN number of taps, loop across all the coefficients:
-     *
-     * b_0 | b_2 | .. | b_2 | b_0
-     */
-    static uint_fast8_t idxInj         = 0;
-    const uint32_t      downsampleTaps = DOWNSAMPLE_TAPS;
+  const uint_fast8_t idxInjPrev =
+      (0 == idxInj) ? (downsampleTaps - 1u) : (idxInj - 1u);
 
-    const uint_fast8_t idxInjPrev =
-        (0 == idxInj) ? (downsampleTaps - 1u) : (idxInj - 1u);
+  /* Copy the packed raw ADC value into the unpacked buffer; samples[1] is
+   * the most recent sample.
+   */
+  for (int_fast8_t idxSmp = 0; idxSmp < VCT_TOTAL; idxSmp++) {
+    dspBuffer[idxInjPrev].smp[idxSmp] =
+        applyCorrection(adcProc->samples[0].smp[idxSmp]);
+    dspBuffer[idxInj].smp[idxSmp] =
+        applyCorrection(adcProc->samples[1].smp[idxSmp]);
+  }
 
-    /* Copy the packed raw ADC value into the unpacked buffer; samples[1] is
-     * the most recent sample.
-     */
-    for (int_fast8_t idxSmp = 0; idxSmp < VCT_TOTAL; idxSmp++) {
-      dspBuffer[idxInjPrev].smp[idxSmp] =
-          applyCorrection(adcProc->samples[0].smp[idxSmp]);
-      dspBuffer[idxInj].smp[idxSmp] =
-          applyCorrection(adcProc->samples[1].smp[idxSmp]);
-    }
+  /* For an ODD number of taps, take the unique middle value to start. As
+   * the filter is symmetric, this is the final element in the array.
+   */
+  const q15_t  coeffMid = firCoeffs[COEFF_UNIQUE_NUM - 1u];
+  uint_fast8_t idxMid   = idxInj + (downsampleTaps / 2) + 1u;
+  if (idxMid >= downsampleTaps)
+    idxMid -= downsampleTaps;
 
-    /* For an ODD number of taps, take the unique middle value to start. As
-     * the filter is symmetric, this is the final element in the array.
-     */
-    const q15_t  coeffMid = firCoeffs[COEFF_UNIQUE_NUM - 1u];
-    uint_fast8_t idxMid   = idxInj + (downsampleTaps / 2) + 1u;
-    if (idxMid >= downsampleTaps)
-      idxMid -= downsampleTaps;
+  /* Loop over the FIR coefficients, sub loop through channels. The filter
+   * is folded so the symmetric FIR coefficients are used for both samples.
+   */
+  uint_fast8_t idxSmp[COEFF_UNIQUE_NUM - 1][2];
+  uint_fast8_t idxSmpStart = idxInj;
+  uint_fast8_t idxSmpEnd =
+      ((downsampleTaps - 1u) == idxInj) ? 0 : (idxInj + 1u);
+  if (idxSmpEnd >= downsampleTaps)
+    idxSmpEnd -= downsampleTaps;
 
-    /* Loop over the FIR coefficients, sub loop through channels. The filter
-     * is folded so the symmetric FIR coefficients are used for both samples.
-     */
-    uint_fast8_t idxSmp[COEFF_UNIQUE_NUM - 1][2];
-    uint_fast8_t idxSmpStart = idxInj;
-    uint_fast8_t idxSmpEnd =
-        ((downsampleTaps - 1u) == idxInj) ? 0 : (idxInj + 1u);
+  idxSmp[0][0] = idxSmpStart;
+  idxSmp[0][1] = idxSmpEnd;
+
+  /* Build a table of indices for the samples and coefficients. Converge
+   * toward the middle, checking for over/underflow */
+  for (size_t i = 1; i < (COEFF_UNIQUE_NUM - 1); i++) {
+    idxSmpStart -= 2u;
+    if (idxSmpStart > downsampleTaps)
+      idxSmpStart += downsampleTaps;
+
+    idxSmpEnd += 2u;
     if (idxSmpEnd >= downsampleTaps)
       idxSmpEnd -= downsampleTaps;
 
-    idxSmp[0][0] = idxSmpStart;
-    idxSmp[0][1] = idxSmpEnd;
+    idxSmp[i][0] = idxSmpStart;
+    idxSmp[i][1] = idxSmpEnd;
+  }
 
-    /* Build a table of indices for the samples and coefficients. Converge
-     * toward the middle, checking for over/underflow */
-    for (size_t i = 1; i < (COEFF_UNIQUE_NUM - 1); i++) {
-      idxSmpStart -= 2u;
-      if (idxSmpStart > downsampleTaps)
-        idxSmpStart += downsampleTaps;
+  for (int_fast8_t ch = 0; ch < VCT_TOTAL; ch++) {
+    q15_t result;
+    bool  active = (ch < NUM_V) ? channelActive[ch]
+                                : channelActive[mapLogCT[ch - NUM_V] + NUM_V];
 
-      idxSmpEnd += 2u;
-      if (idxSmpEnd >= downsampleTaps)
-        idxSmpEnd -= downsampleTaps;
+    if (active) {
+      int32_t intRes = coeffMid * dspBuffer[idxMid].smp[ch];
 
-      idxSmp[i][0] = idxSmpStart;
-      idxSmp[i][1] = idxSmpEnd;
-    }
-
-    for (int_fast8_t ch = 0; ch < VCT_TOTAL; ch++) {
-      q15_t result;
-      bool  active = (ch < NUM_V) ? channelActive[ch]
-                                  : channelActive[mapLogCT[ch - NUM_V] + NUM_V];
-
-      if (active) {
-        int32_t intRes = coeffMid * dspBuffer[idxMid].smp[ch];
-
-        for (size_t fir = 0; fir < (COEFF_UNIQUE_NUM - 1); fir++) {
-          const q15_t coeff = firCoeffs[fir];
-          intRes += coeff * (dspBuffer[idxSmp[fir][0]].smp[ch] +
-                             dspBuffer[idxSmp[fir][1]].smp[ch]);
-        }
-        result = __STRUNCATE(intRes);
-
-      } else {
-        result = 0;
+      for (size_t fir = 0; fir < (COEFF_UNIQUE_NUM - 1); fir++) {
+        const q15_t coeff = firCoeffs[fir];
+        intRes += coeff * (dspBuffer[idxSmp[fir][0]].smp[ch] +
+                           dspBuffer[idxSmp[fir][1]].smp[ch]);
       }
-      if (ch < NUM_V) {
-        pDst->smpV[ch] = result;
-      } else {
-        /* Map the logical input to the CT channel */
-        pDst->smpCT[mapLogCT[ch - NUM_V]] = result;
-      }
-    }
+      result = __STRUNCATE(intRes);
 
-    /* Each injection is 2 samples */
-    idxInj += 2u;
-    if (idxInj > (downsampleTaps - 1)) {
-      idxInj -= (downsampleTaps);
+    } else {
+      result = 0;
     }
+    if (ch < NUM_V) {
+      pDst->smpV[ch] = result;
+    } else {
+      /* Map the logical input to the CT channel */
+      pDst->smpCT[mapLogCT[ch - NUM_V]] = result;
+    }
+  }
+
+  /* Each injection is 2 samples */
+  idxInj += 2u;
+  if (idxInj > (downsampleTaps - 1)) {
+    idxInj -= (downsampleTaps);
   }
 }
 

@@ -87,7 +87,6 @@ typedef struct ECMCfg_ {
   uint32_t (*timeMicros)(void);          /* Time in microseconds now */
   uint32_t (*timeMicrosDelta)(uint32_t); /* Time delta in microseconds */
 
-  bool     downsample;    /* DSP enabled */
   int32_t  reportCycles;  /* Number of cycles before reporting */
   int32_t  mainsFreq;     /* Mains frequency */
   int32_t  samplePeriod;  /* Sampling period for each sample */
