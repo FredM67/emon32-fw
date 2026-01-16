@@ -1343,7 +1343,7 @@ void configCmdChar(const uint8_t c) {
 }
 
 void configFirmwareBoardInfo(void) {
-  serialPuts("\033c==== emonPi3 | emonTx6 ====\r\n\r\n");
+  serialPuts("==== emonPi3 | emonTx6 ====\r\n\r\n");
 
   serialPuts("> Board:\r\n");
   printf_("  - emonPi3/emonTx6 (arch. rev. %lu)\r\n", getBoardRevision());
@@ -1361,7 +1361,8 @@ void configFirmwareBoardInfo(void) {
   serialPuts(emon32_build_info_string());
   serialPuts("\r\n\r\n");
   serialPuts("  - Distributed under GPL3 license, see COPYING.md\r\n");
-  serialPuts("  - emon32 Copyright (C) 2023-25 Angus Logan\r\n");
+  serialPuts("  - emon32 Copyright (C) 2023-26 Angus Logan\r\n");
+  serialPuts("  - See CONTRIBUTORS.md\r\n");
   serialPuts("  - For Bear and Moose\r\n\r\n");
 }
 
@@ -1413,8 +1414,7 @@ void configProcessCmd(void) {
       " - f<n>        : line frequency (Hz)\r\n"
       " - g<n>        : set network group (default = 210)\r\n"
       " - j<n>        : JSON serial format. n = 0: OFF, n = 1: ON\r\n"
-      " - k<x> <a> <y.y> <z.z> v1 v2\r\n"
-      "   - Configure an analog input\r\n"
+      " - k<x> <a> <y.y> <z.z> v1 v2 : Configure an analog input\r\n"
       "   - x:        : channel (1-3 -> V; 4... -> CT)\r\n"
       "   - a:        : channel active. a = 0: DISABLED, a = 1: ENABLED\r\n"
       "   - y.y       : V/CT calibration constant\r\n"
@@ -1423,13 +1423,12 @@ void configProcessCmd(void) {
       "   - v2        : CT voltage channel 2\r\n"
       " - l           : list settings\r\n"
       " - lh          : list settings and accumulators (human readable)\r\n"
-      " - m<v> <w> <x> <y> <z>\r\n"
-      "   - Configure a OneWire/pulse input.\r\n"
-      "     - v : channel index\r\n"
-      "     - w : channel active. a = 0: DISABLED, a = 1: ENABLED\r\n"
-      "     - x : function select. w = [b,f,r]: pulse, w = o: OneWire.\r\n"
-      "     - y : pull-up. y = 0: OFF, y = 1: ON\r\n"
-      "     - z : minimum period (ms). Ignored if w = 0\r\n"
+      " - m<v> <w> <x> <y> <z> : Configure OPA1,2 for OneWire or Pulse\r\n"
+      "   - v : OPA index. [1,2]\r\n"
+      "   - w : OPA active. a = 0: DISABLED, a = 1: ENABLED\r\n"
+      "   - x : function select. w = [b,f,r]: pulse, w = o: OneWire.\r\n"
+      "   - y : pull-up. y = 0: OFF, y = 1: ON\r\n"
+      "   - z : minimum period (ms). Ignored if w = 0\r\n"
       " - n<n>        : set node ID [1..60]\r\n"
       " - o<x>        : configure OneWire addressing\r\n"
       "   - x = f   : reset and find OneWire devices\r\n"
