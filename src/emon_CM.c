@@ -518,7 +518,8 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
     static uint8_t idxInj         = 0;
     const uint8_t  downsampleTaps = DOWNSAMPLE_TAPS;
 
-    uint32_t idxInjPrev = (0 == idxInj) ? (downsampleTaps - 1u) : (idxInj - 1u);
+    const uint32_t idxInjPrev =
+        (0 == idxInj) ? (downsampleTaps - 1u) : (idxInj - 1u);
 
     /* Copy the packed raw ADC value into the unpacked buffer; samples[1] is
      * the most recent sample.
