@@ -162,12 +162,12 @@ static RAMFUNC inline q15_t __STRUNCATE(int32_t val) {
 /***** END FIXED POINT FUNCIONS *****/
 
 static RAMFUNC float calcRMS(const CalcRMS_t *pSrc) {
-  uint64_t numSamplesSqr = usqr64(pSrc->numSamples);
-  float    vcal          = pSrc->cal;
+  const uint64_t numSamplesSqr = usqr64(pSrc->numSamples);
+  const float    vcal          = pSrc->cal;
 
-  uint32_t deltasSqr = (uint32_t)(pSrc->sDelta * pSrc->sDelta);
+  const uint32_t deltasSqr = (uint32_t)(pSrc->sDelta * pSrc->sDelta);
 
-  float offsetCorr =
+  const float offsetCorr =
       qfp_fdiv(qfp_uint2float(deltasSqr), qfp_uint642float(numSamplesSqr));
 
   float rms =
