@@ -710,6 +710,7 @@ int main(void) {
         for (size_t i = 0; i < NUM_OPA; i++) {
           pulseSetCount(i, 0);
         }
+        serialPuts("    - Accumulators cleared.\r\n");
         emon32EventClr(EVT_CLEAR_ACCUM);
       }
 
