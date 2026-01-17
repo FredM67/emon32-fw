@@ -430,7 +430,7 @@ static void calibrationPhase(CTCfg_t *pCfgCT, const VCfg_t *pCfgV,
    * Consider samples to be bunched in the first half of the full sample window.
    */
   float phaseShiftSmpIdx = qfp_fdiv(
-      qfp_int2float(idxCT - pCfgCT->vChan1 + NUM_V), (float)VCT_TOTAL * 2.0f);
+      qfp_uint2float(idxCT - pCfgCT->vChan1 + NUM_V), (float)VCT_TOTAL * 2.0f);
 
   phaseShiftSets = qfp_fadd(phaseShiftSets, phaseShiftSmpIdx);
 
