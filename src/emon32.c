@@ -530,7 +530,22 @@ static void totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc) {
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
                          char *txBuffer) {
 
-  (void)dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
+  CHActive_t chsActive;
+
+  for (size_t i = 0; i < NUM_V; i++) {
+    chsActive.V[i] = pConfig->voltageCfg[i].vActive;
+  }
+
+  for (size_t i = 0; i < NUM_CT; i++) {
+    chsActive.CT[i] = pConfig->ctCfg[i].ctActive;
+  }
+
+  for (size_t i = 0; i < NUM_OPA; i++) {
+    uint8_t func       = pConfig->opaCfg[i].func;
+    chsActive.pulse[i] = ('r' == func) || ('f' == func) || ('b' == func);
+  }
+
+  (void)dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json, chsActive);
 
   if (pOpt->useRFM) {
 
