@@ -444,7 +444,7 @@ void eepromWLClear(void) {
 
   /* Write one valid record with zeroed data using existing write logic */
   memset(wlData, 0, WL_PKT_SIZE);
-  eepromWriteWL(wlData, 0);
+  eepromWriteWL(wlData);
 }
 
 void eepromWLReset(const size_t len) {

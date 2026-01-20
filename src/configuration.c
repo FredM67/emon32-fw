@@ -169,13 +169,14 @@ static void configDefault(void) {
   config.opaCfg[1].period    = 0;
   config.opaCfg[1].puEn      = true;
 
-  /* Initialize reserved OPA slots */
-  for (size_t idxOPA = NUM_OPA; idxOPA < (NUM_OPA + PULSE_RES); idxOPA++) {
-    config.opaCfg[idxOPA].func      = 0;
-    config.opaCfg[idxOPA].opaActive = false;
-    config.opaCfg[idxOPA].period    = 0;
-    config.opaCfg[idxOPA].puEn      = false;
-  }
+  /* OPA3
+   *   - Pulse input
+   *   - Disabled
+   */
+  config.opaCfg[2].func      = 'r';
+  config.opaCfg[2].opaActive = false;
+  config.opaCfg[2].period    = 100;
+  config.opaCfg[2].puEn      = false;
 
   config.crc16_ccitt = calcCRC16_ccitt(&config, (sizeof(config) - 2u));
 }
@@ -252,8 +253,9 @@ static bool configureAnalog(void) {
 
   ch = convU.val.u32 - 1u;
 
+  /* CT requires at least V1 */
   if (ch >= NUM_V) {
-    if ((0 == posV1) || (0 == posV2)) {
+    if (0 == posV1) {
       return false;
     }
   }
@@ -323,14 +325,19 @@ static bool configureAnalog(void) {
 
   vCh1 = convU.val.u8;
 
-  convU = utilAtoui(inBuffer + posV2, ITOA_BASE10);
-  if (!convU.valid) {
-    return false;
+  /* V2 is optional - for L-L loads, use two voltage channels */
+  if (posV2) {
+    convU = utilAtoui(inBuffer + posV2, ITOA_BASE10);
+    if (!convU.valid) {
+      return false;
+    }
+    if (!convU.val.u32 || convU.val.u32 > NUM_V) {
+      return false;
+    }
+    vCh2 = convU.val.u8;
+  } else {
+    vCh2 = vCh1;
   }
-  if (!convU.val.u32 || convU.val.u32 > NUM_V) {
-    return false;
-  }
-  vCh2 = convU.val.u8;
 
   /* CT configuration - assume 10/200 A min/max CTs */
   if ((calAmpl < 10.0f) || (calAmpl) > 200.0f) {
@@ -484,8 +491,17 @@ static bool configureLineFrequency(void) {
     return false;
   }
 
-  printf_("> Mains frequency set to: %d\r\n", config.baseCfg.mainsFreq);
   config.baseCfg.mainsFreq = convU.val.u8;
+
+  /* Recalculate all CT interpolation values */
+  ECMCfg_t *ecmCfg  = ecmConfigGet();
+  ecmCfg->mainsFreq = convU.val.u8;
+  for (size_t i = 0; i < NUM_CT; i++) {
+    ecmConfigChannel(i + NUM_V);
+  }
+  ecmFlush();
+
+  printf_("> Mains frequency set to: %d\r\n", config.baseCfg.mainsFreq);
   return true;
 }
 
@@ -638,11 +654,15 @@ static bool configureOPA(void) {
   /* Check for the function. Must be a valid type and if a pulse must also have
    * a hysteresis period applied. */
   func = inBuffer[posFunc];
-  if (!(('b' == func) || ('f' == func) || ('o' == func) || ('r' == func))) {
+
+  bool isPulse   = ('b' == func) || ('f' == func) || ('r' == func);
+  bool isOneWire = ('o' == func);
+
+  if (!(isPulse || isOneWire)) {
     return false;
   }
 
-  if ('o' != func) {
+  if (isPulse) {
     convU = utilAtoui((inBuffer + posPu), ITOA_BASE10);
     if (!convU.valid) {
       return false;
@@ -661,7 +681,12 @@ static bool configureOPA(void) {
     period = convU.val.u8;
   }
 
-  if ('o' == func) {
+  /* OPA3 can only be a pulse or analog input */
+  if ((2 == ch) && !isPulse) {
+    return false;
+  }
+
+  if (isOneWire) {
     config.opaCfg[ch].func = 'o';
     printSettingOPA(ch);
     return true;
@@ -1271,7 +1296,7 @@ static void zeroAccumulatorIndividual(uint8_t idx) {
   __enable_irq();
 }
 
-/*! @brief Parse z command and zero accumulators (z, ze1-12, zp1-2) */
+/*! @brief Parse z command and zero accumulators (z, ze1-12, zp1-3) */
 static void parseAndZeroAccumulator(void) {
   /* z - zero all */
   if (inBuffer[1] == '\0') {
@@ -1301,7 +1326,7 @@ static void parseAndZeroAccumulator(void) {
     return;
   }
 
-  /* zp1-2 - zero pulse accumulator */
+  /* zp1-3 - zero pulse accumulator */
   if (inBuffer[1] == 'p' && inBuffer[2] >= '1' &&
       inBuffer[2] <= '0' + NUM_OPA) {
     uint8_t num = inBuffer[2] - '0';
@@ -1315,7 +1340,7 @@ static void parseAndZeroAccumulator(void) {
   }
 
   /* Invalid format */
-  serialPuts("Invalid command. Use z, ze1-12, or zp1-2.\r\n");
+  serialPuts("Invalid command. Use z, ze1-12, or zp1-3.\r\n");
 }
 
 void configCmdChar(const uint8_t c) {
@@ -1418,16 +1443,16 @@ void configProcessCmd(void) {
       "   - a:        : channel active. a = 0: DISABLED, a = 1: ENABLED\r\n"
       "   - y.y       : V/CT calibration constant\r\n"
       "   - z.z       : V/CT phase calibration value\r\n"
-      "   - v1        : CT voltage channel 1\r\n"
-      "   - v2        : CT voltage channel 2\r\n"
+      "   - v1        : voltage 1\r\n"
+      "   - v2        : voltage 2 (optional)\r\n"
       " - l           : list settings\r\n"
       " - lh          : list settings and accumulators (human readable)\r\n"
-      " - m<v> <w> <x> <y> <z> : Configure OPA1,2 for OneWire or Pulse\r\n"
-      "   - v : OPA index. [1,2]\r\n"
-      "   - w : OPA active. a = 0: DISABLED, a = 1: ENABLED\r\n"
-      "   - x : function select. w = [b,f,r]: pulse, w = o: OneWire.\r\n"
+      " - m<v> <w> <x> <y> <z> : Configure OPA1-3 for OneWire or Pulse\r\n"
+      "   - v : OPA index. [1-3]\r\n"
+      "   - w : OPA active. w = 0: DISABLED, w = 1: ENABLED\r\n"
+      "   - x : function select. x = [b,f,r]: pulse, x = o: OneWire.\r\n"
       "   - y : pull-up. y = 0: OFF, y = 1: ON\r\n"
-      "   - z : minimum period (ms). Ignored if w = 0\r\n"
+      "   - z : minimum period (ms). Ignored if x = 0\r\n"
       " - n<n>        : set node ID [1..60]\r\n"
       " - o<x>        : configure OneWire addressing\r\n"
       "   - x = f   : reset and find OneWire devices\r\n"
@@ -1443,9 +1468,9 @@ void configProcessCmd(void) {
       " - w<n>        : RF active. n = 0: OFF, n = 1: ON\r\n"
       " - x<n>        : 433 MHz compatibility. n = 0: 433.92 MHz, n = 1: "
       "433.00 MHz\r\n"
-      " - z           : zero all accumulators (E1-E12, pulse1-2)\r\n"
+      " - z           : zero all accumulators (E1-E12, pulse1-3)\r\n"
       " - ze<n>       : zero individual energy accumulator (n=1-12)\r\n"
-      " - zp<n>       : zero individual pulse accumulator (n=1-2)\r\n\r\n";
+      " - zp<n>       : zero individual pulse accumulator (n=1-3)\r\n\r\n";
 
   /* Convert \r or \n to 0, and get the length until then. */
   while (!termFound && (arglen < IN_BUFFER_W)) {
@@ -1497,7 +1522,6 @@ void configProcessCmd(void) {
      */
     if (configureLineFrequency()) {
       unsavedChange = true;
-      resetReq      = true;
       emon32EventSet(EVT_CONFIG_CHANGED);
     }
     break;
@@ -1558,7 +1582,6 @@ void configProcessCmd(void) {
     serialPuts("> Restored default values.\r\n");
 
     unsavedChange = true;
-    resetReq      = true;
     emon32EventSet(EVT_CONFIG_CHANGED);
     break;
   case 's':
@@ -1572,11 +1595,7 @@ void configProcessCmd(void) {
     serialPuts("Done!\r\n");
 
     unsavedChange = false;
-    if (!resetReq) {
-      emon32EventSet(EVT_CONFIG_SAVED);
-    } else {
-      emon32EventSet(EVT_SAFE_RESET_REQ);
-    }
+    emon32EventSet(EVT_CONFIG_SAVED);
     break;
   case 't':
     emon32EventSet(EVT_ECM_TRIG);

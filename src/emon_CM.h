@@ -71,8 +71,8 @@ typedef struct VCfg_ {
 } VCfg_t;
 
 typedef struct CTCfgUnpacked_ {
-  float    phaseX;
-  float    phaseY;
+  float    phaseX[2];
+  float    phaseY[2];
   float    phCal;
   float    ctCal;
   float    ctCalRaw;
