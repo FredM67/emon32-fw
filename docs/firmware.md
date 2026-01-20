@@ -36,7 +36,7 @@ make bossac
 
 ### emonTx6
 
-To update the emonTx6's firmware, the following steps are taken:
+To update the emonTx6's firmware from a desktop, the following steps are taken:
 
 1. Connect a USB cable to the emonTx6's USB-C socket.
 2. Open a serial connection using, for example, `minicom` (e.g. `minicom -D /dev/ttyACM0 -b 115200`) or the Arduino serial monitor.
@@ -45,6 +45,17 @@ To update the emonTx6's firmware, the following steps are taken:
 5. The emonTx6's LED will slowly pulse red and a drive called `EMONBOOT` will appear in the file manager.
 6. Drag and drop the firmware image ending `.uf2` to the `EMONBOOT` folder.
 7. The emonTx6 will reboot and enter the application.
+
+You can also update from a command line environment in Linux with the following steps:
+
+1. Connect a USB cable to the emonTx6's USB-C socket.
+2. In `emon32-fw/scripts`, run `flash-emontx6.sh`.
+
+By default, this will use a locally built UF2. If you want to use a different UF2 file, for example downloaded from OEM, you should run:
+
+```{bash}
+flash-emontx6.sh --uf2 <path/to/file>
+```
 
 ### Changing the bootloader
 
@@ -58,7 +69,7 @@ When configured as an emonPi3, the bootloader is accessed through the internal s
 4. The emonPi3's LED will slowly pulse green indicating it is in the bootloader.
 5. To check the bootloader is responsive, run `bossac -p /dev/ttyS0 -i`.
 6. To upload the compiled firmare, in the `emon32-fw` folder run `bossac -p /dev/ttyS0 -e -w -v -R --offset=0x2000 bin/bootloaders/change-bootloader-usb.bin`.
-7. You can now upload the firmware as described above, skipping steps 1-4 as it will already be in the bootloader.
+7. After connecting a cable to the USB-C port, you can now upload the firmware as described above, skipping steps 2-4 as it will already be in the bootloader.
 
 #### To change from an emonTx6 to an emonPi3
 
