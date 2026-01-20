@@ -9,9 +9,9 @@
 
 typedef enum PulseLvl_ { PULSE_LVL_LOW, PULSE_LVL_HIGH } PulseLvl_t;
 
-static uint32_t   pulseCount[NUM_OPA];
+static uint8_t    pinValue[NUM_OPA];
+static uint64_t   pulseCount[NUM_OPA];
 static PulseCfg_t pulseCfg[NUM_OPA];
-static uint32_t   pinValue[NUM_OPA];
 static PulseLvl_t pulseLvlLast[NUM_OPA];
 
 PulseCfg_t *pulseGetCfg(const size_t index) {
@@ -36,9 +36,12 @@ void pulseInit(const size_t index) {
   } else {
     portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_IN);
     portPinCfg(GRP_OPA, opaPUs[index], PORT_PINCFG_PULLEN, PIN_CFG_CLR);
-    portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_CLR);
+
+    /* Enable weak pull down */
+    portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_SET);
+    portPinDrv(GRP_OPA, pin, PIN_DRV_CLR);
   }
-  pinValue[index] = (uint32_t)portPinValue(GRP_OPA, pin);
+  pinValue[index] = (uint8_t)portPinValue(GRP_OPA, pin);
 
   /* Use the first read value as the current state */
   pulseLvlLast[index] = (PulseLvl_t)pinValue[index];
@@ -48,7 +51,9 @@ void pulseSetCount(const size_t index, const uint32_t value) {
   pulseCount[index] = value;
 }
 
-uint32_t pulseGetCount(const size_t index) { return pulseCount[index]; }
+uint32_t pulseGetCount(const size_t index) {
+  return (uint32_t)pulseCount[index];
+}
 
 void pulseUpdate(void) {
   uint32_t   mask;
@@ -60,7 +65,7 @@ void pulseUpdate(void) {
       level = pulseLvlLast[i];
 
       pinValue[i] <<= 1;
-      pinValue[i] += (uint32_t)portPinValue(pulseCfg[i].grp, pulseCfg[i].pin);
+      pinValue[i] += (uint8_t)portPinValue(pulseCfg[i].grp, pulseCfg[i].pin);
 
       if (0 == (pinValue[i] & mask)) {
         level = PULSE_LVL_LOW;

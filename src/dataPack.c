@@ -253,7 +253,7 @@ uint8_t dataPackPacked(const Emon32Dataset_t *pData, void *pPacked,
 
   if (PACKED_LOWER == range) {
     PackedDataLower6_t *pLower = pPacked;
-    for (size_t p = 0; p < NUM_OPA; p++) {
+    for (size_t p = 0; p < 2u; p++) {
       pLower->pulse[p] = pData->pulseCnt[p];
     }
     return sizeof(*pLower);
