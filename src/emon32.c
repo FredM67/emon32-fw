@@ -345,13 +345,15 @@ static bool evtPending(EVTSRC_t evt) { return (evtPend & (1u << evt)) != 0; }
  */
 static void pulseConfigure(void) {
 
-  uint8_t pinsPulse[][2] = {{GRP_OPA, PIN_OPA1}, {GRP_OPA, PIN_OPA2}};
+  uint8_t pinsPulse[][NUM_OPA] = {
+      {GRP_OPA, PIN_OPA1}, {GRP_OPA, PIN_OPA2}, {GRP_OPA, PIN_OPA3}};
 
   for (uint32_t i = 0; i < NUM_OPA; i++) {
     PulseCfg_t *pulseCfg = pulseGetCfg(i);
 
-    if ((0 != pulseCfg) && ('o' != pConfig->opaCfg[i].func) &&
-        (pConfig->opaCfg[i].opaActive)) {
+    EMON32_ASSERT(pulseCfg);
+
+    if (('o' != pConfig->opaCfg[i].func) && (pConfig->opaCfg[i].opaActive)) {
       pulseCfg->edge    = (PulseEdge_t)pConfig->opaCfg[i].func;
       pulseCfg->grp     = pinsPulse[i][0];
       pulseCfg->pin     = pinsPulse[i][1];
@@ -474,13 +476,14 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
 
   tempInitClear();
 
-  for (int32_t i = 0; i < NUM_OPA; i++) {
+  for (size_t i = 0; i < NUM_OPA; i++) {
     if (('o' == pConfig->opaCfg[i].func)) {
 
       /* If configured as OneWire device always enable the PU even if inactive
        * as an external device may be handling the port */
       portPinDrv(GRP_OPA, opaPUs[i], PIN_DRV_SET);
       portPinDir(GRP_OPA, opaPUs[i], PIN_DIR_OUT);
+      portPinCfg(GRP_OPA, opaPins[i], PORT_PINCFG_PULLEN, PIN_CFG_CLR);
       portPinDrv(GRP_OPA, opaPins[i], PIN_DRV_CLR);
 
       if (pConfig->opaCfg[i].opaActive) {
@@ -721,7 +724,7 @@ int main(void) {
         eepromWLClear();
         eepromWLReset(sizeof(nvmCumulative));
         ecmClearEnergy();
-        for (int32_t i = 0; i < NUM_OPA; i++) {
+        for (size_t i = 0; i < NUM_OPA; i++) {
           pulseSetCount(i, 0);
         }
         serialPuts("    - Accumulators cleared.\r\n");
@@ -734,7 +737,7 @@ int main(void) {
        */
       if (evtPending(EVT_ECM_TRIG)) {
         if (numTempSensors > 0) {
-          for (int32_t i = 0; i < NUM_OPA; i++) {
+          for (size_t i = 0; i < NUM_OPA; i++) {
             if (('o' == pConfig->opaCfg[i].func) &&
                 pConfig->opaCfg[i].opaActive) {
               (void)tempStartSample(TEMP_INTF_ONEWIRE, i);
@@ -748,7 +751,7 @@ int main(void) {
       /* Trigger a temperature sample 1 s before the report is due. */
       if (evtPending(EVT_ECM_PEND_1S)) {
         if (numTempSensors > 0) {
-          for (int32_t i = 0; i < NUM_OPA; i++) {
+          for (size_t i = 0; i < NUM_OPA; i++) {
             if (('o' == pConfig->opaCfg[i].func) &&
                 pConfig->opaCfg[i].opaActive) {
               (void)tempStartSample(TEMP_INTF_ONEWIRE, i);
@@ -820,11 +823,6 @@ int main(void) {
       }
       if (evtPending(EVT_CONFIG_SAVED)) {
         emon32EventClr(EVT_CONFIG_SAVED);
-      }
-
-      if (evtPending(EVT_SAFE_RESET_REQ)) {
-        cumulativeNVMStore(&nvmCumulative, &dataset, true);
-        NVIC_SystemReset();
       }
     }
 
