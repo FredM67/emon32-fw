@@ -101,13 +101,12 @@ static void initFields(StrN_t *pD, char *pS, const size_t m) {
   memset(pD->str, 0, m);
 }
 
-/*! @brief Convert float and append to fat string
+/*! @brief Copy from tmpStr to fat string with bounds checking
  *  @param [out] strD : pointer to destination fat string
- *  @param [in] v : value to convert and append
- *  @return number of characters appended
+ *  @param [in] len : length of string in tmpStr (excluding null)
+ *  @return number of characters copied
  */
-static size_t strnCatFloat(StrN_t *strD, const float v) {
-  const size_t len    = utilFtoa(tmpStr, v) - 1u; /* exclude null terminator */
+static size_t strnCatFromTmp(StrN_t *strD, const size_t len) {
   const size_t space  = strD->m - strD->n;
   const size_t toCopy = (len < space) ? len : space;
 
@@ -115,32 +114,16 @@ static size_t strnCatFloat(StrN_t *strD, const float v) {
   return toCopy;
 }
 
-/*! @brief Convert integer and append to fat string
- *  @param [out] strD : pointer to destination fat string
- *  @param [in] v : value to convert and append
- *  @return number of characters appended
- */
-static size_t strnCatInt(StrN_t *strD, const int32_t v) {
-  const size_t len   = utilItoa(tmpStr, v, ITOA_BASE10) - 1u; /* exclude null */
-  const size_t space = strD->m - strD->n;
-  const size_t toCopy = (len < space) ? len : space;
-
-  memcpy(strD->str + strD->n, tmpStr, toCopy);
-  return toCopy;
+static size_t strnCatFloat(StrN_t *strD, const float v) {
+  return strnCatFromTmp(strD, utilFtoa(tmpStr, v) - 1u);
 }
 
-/*! @brief Convert unsigned integer and append to fat string
- *  @param [out] strD : pointer to destination fat string
- *  @param [in] v : value to convert and append
- *  @return number of characters appended
- */
-static size_t strnCatUint(StrN_t *strD, const uint32_t v) {
-  const size_t len   = utilUtoa(tmpStr, v, ITOA_BASE10) - 1u; /* exclude null */
-  const size_t space = strD->m - strD->n;
-  const size_t toCopy = (len < space) ? len : space;
+static size_t strnCatInt(StrN_t *strD, const int32_t v) {
+  return strnCatFromTmp(strD, utilItoa(tmpStr, v, ITOA_BASE10) - 1u);
+}
 
-  memcpy(strD->str + strD->n, tmpStr, toCopy);
-  return toCopy;
+static size_t strnCatUint(StrN_t *strD, const uint32_t v) {
+  return strnCatFromTmp(strD, utilUtoa(tmpStr, v, ITOA_BASE10) - 1u);
 }
 
 /*! @brief Concatenate two fat strings
