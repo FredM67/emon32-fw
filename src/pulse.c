@@ -63,7 +63,7 @@ void pulseUpdate(void) {
       level = pulseLvlLast[i];
 
       pinValue[i] <<= 1;
-      pinValue[i] += (uint32_t)portPinValue(pulseCfg[i].grp, pulseCfg[i].pin);
+      pinValue[i] += (uint8_t)portPinValue(pulseCfg[i].grp, pulseCfg[i].pin);
 
       if (0 == (pinValue[i] & mask)) {
         level = PULSE_LVL_LOW;
