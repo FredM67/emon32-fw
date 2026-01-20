@@ -23,7 +23,7 @@
 #define SAMPLE_RATE        4800
 #define SAMPLES_IN_SET     2
 #define SAMPLE_BUF_DEPTH   2
-#define OVERSAMPLING_RATIO 2u
+#define OVERSAMPLING_RATIO 2
 
 #define ADC_VREF     1.024f
 #define ADC_RES_BITS 11
@@ -36,19 +36,19 @@
 /* Temperature sensors
  * This is the maximum number of OneWire DS18B20 sensors that can be used
  */
-#define TEMP_MAX_ONEWIRE 8u
+#define TEMP_MAX_ONEWIRE 8
 
 /* EEPROM */
 /* Top of EEPROM address, not including R/W bit */
-#define EEPROM_BASE_ADDR   0x50u
+#define EEPROM_BASE_ADDR   0x50
 /* Maximum number of bytes in a single page */
 #define EEPROM_PAGE_SIZE   16u
 /* Worst case EEPROM write time (microseconds) */
 #define EEPROM_WR_TIME     5000ul
 /* Size of configuration area */
-#define EEPROM_CONFIG_SIZE 320u
+#define EEPROM_CONFIG_SIZE 320
 /* Size of the EEPROM in bytes */
-#define EEPROM_SIZE        1024u
+#define EEPROM_SIZE        1024
 /* Offset of wear levelled area */
 #define EEPROM_WL_OFFSET   (EEPROM_CONFIG_SIZE)
 

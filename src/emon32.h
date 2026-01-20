@@ -57,7 +57,7 @@ typedef struct __attribute__((__packed__)) Emon32Cumulative_ {
 
 typedef struct __attribute__((__packed__)) PackedDataCommon_ {
   uint32_t msg;
-  uint16_t V[NUM_V];
+  int16_t  V[NUM_V];
   int16_t  P[NUM_CT / 2];
   int32_t  E[NUM_CT / 2];
 } PackedDataCommon_t;
