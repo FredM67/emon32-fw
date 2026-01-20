@@ -1,7 +1,6 @@
 #pragma once
 
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 
 #include "board_def.h"
@@ -133,4 +132,4 @@ VersionInfo_t configVersion(void);
  *  @param[in] idx : index of the word to fetch
  *  @return word idx from the unique ID
  */
-uint32_t getUniqueID(const size_t idx);
+uint32_t getUniqueID(int32_t idx);

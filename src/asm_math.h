@@ -18,17 +18,6 @@ uint64_t usqr64(uint32_t x);
  *  overhead of the compiler-generated 64-bit multiply sequence.
  *
  *  @param [in] x : 32-bit signed value to square
- *  @return 64-bit unsigned result (x * x), always non-negative
+ *  @return 64-bit result (x * x)
  */
-uint64_t ssqr64(int32_t x);
-
-/*! @brief Compute the product of two 32-bit signed integers with 64-bit result.
- *
- *  This is an optimized assembly routine for Cortex-M0+ that avoids the
- *  overhead of the compiler-generated 64-bit multiply sequence.
- *
- *  @param [in] a : 32-bit signed factor
- *  @param [in] b : 32-bit signed factor
- *  @return 64-bit signed result (a * b)
- */
-int64_t smul64(int32_t a, int32_t b);
+int64_t ssqr64(int32_t x);
