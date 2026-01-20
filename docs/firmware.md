@@ -19,12 +19,12 @@ The easiest way to update the emonPi3's firmware is to use the firmware upload t
 
 To update the emonPi3 using the command line, you can use the [BOSSA](https://github.com/shumatech/BOSSA) application. The following steps are taken:
 
-- Open a serial connection using, for example, `minicom` to `/dev/ttyS0` (`minicom -D /dev/ttyS0 -b 115200`)
-- Enter 'e' and then press Enter.
-- You will be prompted to reboot to enter the bootloader. Any unsaved configuration changes at this point will be lost. Press 'y' to continue, or any other key to cancel.
-- The emonPi3's LED will slowly pulse green indicating it is in the bootloader.
-- To check the bootloader is responsive, run `bossac -p /dev/ttyS0 -i`.
-- To upload the compiled firmare, run `bossac -p /dev/ttyS0 -e -w -v -R --offset=0x2000 path/to/bin`.
+1. Open a serial connection using, for example, `minicom` to `/dev/ttyS0` (`minicom -D /dev/ttyS0 -b 115200`)
+2. Enter 'e' and then press Enter.
+3. You will be prompted to reboot to enter the bootloader. Any unsaved configuration changes at this point will be lost. Press 'y' to continue, or any other key to cancel.
+4. The emonPi3's LED will slowly pulse green indicating it is in the bootloader.
+5. To check the bootloader is responsive, run `bossac -p /dev/ttyS0 -i`.
+6. To upload the compiled firmare, run `bossac -p /dev/ttyS0 -e -w -v -R --offset=0x2000 path/to/bin`.
 
 If BOSSA is not installed, it can be installed by:
 
@@ -38,19 +38,37 @@ make bossac
 
 To update the emonTx6's firmware, the following steps are taken:
 
-- Connect a USB cable to the emonTx6's USB-C socket.
-- Open a serial connection using, for example, `minicom` (e.g. `minicom -D /dev/ttyACM0 -b 115200`) or the Arduino serial monitor.
-- Enter 'e' and then press Enter.
-- You will be prompted to reboot to enter the bootloader. Any unsaved configuration changes at this point will be lost. Press 'y' to continue, or any other key to cancel.
-- The emonTx6's LED will slowly pulse red and a drive called `EMONBOOT` will appear in the file manager.
-- Drag and drop the firmware image ending `.uf2` to the `EMONBOOT` folder.
-- The emonTx6 will reboot and enter the application.
+1. Connect a USB cable to the emonTx6's USB-C socket.
+2. Open a serial connection using, for example, `minicom` (e.g. `minicom -D /dev/ttyACM0 -b 115200`) or the Arduino serial monitor.
+3. Enter 'e' and then press Enter.
+4. You will be prompted to reboot to enter the bootloader. Any unsaved configuration changes at this point will be lost. Press 'y' to continue, or any other key to cancel.
+5. The emonTx6's LED will slowly pulse red and a drive called `EMONBOOT` will appear in the file manager.
+6. Drag and drop the firmware image ending `.uf2` to the `EMONBOOT` folder.
+7. The emonTx6 will reboot and enter the application.
 
 ### Changing the bootloader
 
 When configured as an emonPi3, the bootloader is accessed through the internal serial port. When configured as an emonTx6, the bootloader is accessed through the USB-C port. To change between the two modes, the bootloader needs to be updated.
 
 To change from an emonPi3 to an emonTx6:
+
+1. Open a serial connection using, for example, `minicom` to `/dev/ttyS0` (`minicom -D /dev/ttyS0 -b 115200`)
+2. Enter 'e' and then press Enter.
+3. You will be prompted to reboot to enter the bootloader. Any unsaved configuration changes at this point will be lost. Press 'y' to continue, or any other key to cancel.
+4. The emonPi3's LED will slowly pulse green indicating it is in the bootloader.
+5. To check the bootloader is responsive, run `bossac -p /dev/ttyS0 -i`.
+6. To upload the compiled firmare, in the `emon32-fw` folder run `bossac -p /dev/ttyS0 -e -w -v -R --offset=0x2000 bin/bootloaders/change-bootloader-usb.bin`.
+7. You can now upload the firmware as described above, skipping steps 1-4 as it will already be in the bootloader.
+
+To change from an emonTx6 to an emonPi3:
+
+1. Connect a USB cable to the emonTx6's USB-C socket.
+2. Open a serial connection using, for example, `minicom` (e.g. `minicom -D /dev/ttyACM0 -b 115200`) or the Arduino serial monitor.
+3. Enter 'e' and then press Enter.
+4. You will be prompted to reboot to enter the bootloader. Any unsaved configuration changes at this point will be lost. Press 'y' to continue, or any other key to cancel.
+5. The emonTx6's LED will slowly pulse red and a drive called `EMONBOOT` will appear in the file manager.
+6. Drag and drop `bin/bootloaders/bootloader-change-uart.uf2` to `EMONBOOT`.
+7. You can now upload the firmware as described above, skipping steps 1-4 as it will already be in the bootloader.
 
 ## Development
 
