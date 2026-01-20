@@ -71,8 +71,8 @@ typedef struct VCfg_ {
 } VCfg_t;
 
 typedef struct CTCfgUnpacked_ {
-  float    phaseX;
-  float    phaseY;
+  float    phaseX[2];
+  float    phaseY[2];
   float    phCal;
   float    ctCal;
   float    ctCalRaw;
@@ -88,7 +88,6 @@ typedef struct ECMCfg_ {
   uint32_t (*timeMicros)(void);          /* Time in microseconds now */
   uint32_t (*timeMicrosDelta)(uint32_t); /* Time delta in microseconds */
 
-  bool     downsample;    /* DSP enabled */
   uint32_t reportCycles;  /* Number of cycles before reporting */
   uint32_t mainsFreq;     /* Mains frequency */
   uint32_t samplePeriod;  /* Sampling period for each sample */

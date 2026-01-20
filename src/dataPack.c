@@ -166,7 +166,7 @@ static size_t strnCat(StrN_t *strD, const StrN_t *strS) {
 }
 
 size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
-                      const bool json) {
+                      const bool json, const CHActive_t *pChsActive) {
   EMON32_ASSERT(pData);
   EMON32_ASSERT(pDst);
 
@@ -179,35 +179,46 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
   uint32_t numV = (pData->pECM->activeCh & 0x6) ? NUM_V : 1;
 
   for (size_t i = 0; i < numV; i++) {
-    catId(&strn, (i + 1), STR_V, json);
-    strn.n += strnCatFloat(&strn, pData->pECM->rmsV[i]);
+    if (!json || pChsActive->V[i]) {
+      catId(&strn, (i + 1), STR_V, json);
+      strn.n += strnCatFloat(&strn, pData->pECM->rmsV[i]);
+    }
   }
 
   /* CT channels (power and energy)
    * Only print onboard CTs 7-12 if any are present
    */
-  uint32_t numCT = (pData->pECM->activeCh & (0x3f << (NUM_V + (NUM_CT / 2))))
-                       ? NUM_CT
-                       : (NUM_CT / 2);
+  const uint32_t numCT =
+      (pData->pECM->activeCh & (0x3f << (NUM_V + (NUM_CT / 2)))) ? NUM_CT
+                                                                 : (NUM_CT / 2);
 
   for (size_t i = 0; i < numCT; i++) {
-    catId(&strn, (i + 1), STR_P, json);
-    strn.n += strnCatInt(&strn, pData->pECM->CT[i].realPower);
+    if (!json || pChsActive->CT[i]) {
+      catId(&strn, (i + 1), STR_P, json);
+      strn.n += strnCatInt(&strn, pData->pECM->CT[i].realPower);
+    }
   }
   for (size_t i = 0; i < numCT; i++) {
-    catId(&strn, (i + 1), STR_E, json);
-    strn.n += strnCatInt(&strn, pData->pECM->CT[i].wattHour);
+    if (!json || pChsActive->CT[i]) {
+      catId(&strn, (i + 1), STR_E, json);
+      strn.n += strnCatInt(&strn, pData->pECM->CT[i].wattHour);
+    }
   }
 
   for (size_t i = 0; i < NUM_OPA; i++) {
-    catId(&strn, (i + 1), STR_PULSE, json);
-    strn.n += strnCatUint(&strn, pData->pulseCnt[i]);
+    if (!json || pChsActive->pulse[i]) {
+      catId(&strn, (i + 1), STR_PULSE, json);
+      strn.n += strnCatUint(&strn, pData->pulseCnt[i]);
+    }
   }
 
   for (size_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
-    catId(&strn, (i + 1), STR_TEMP, json);
-    strn.n +=
-        strnCatFloat(&strn, tempAsFloat(TEMP_INTF_ONEWIRE, pData->temp[i]));
+    bool isPresent = (pData->temp[i] != 4800);
+    if (!json || isPresent) {
+      catId(&strn, (i + 1), STR_TEMP, json);
+      strn.n +=
+          strnCatFloat(&strn, tempAsFloat(TEMP_INTF_ONEWIRE, pData->temp[i]));
+    }
   }
 
   /* Terminate with } for JSON and \r\n */
@@ -242,7 +253,7 @@ uint8_t dataPackPacked(const Emon32Dataset_t *pData, void *pPacked,
 
   if (PACKED_LOWER == range) {
     PackedDataLower6_t *pLower = pPacked;
-    for (size_t p = 0; p < NUM_OPA; p++) {
+    for (size_t p = 0; p < 2u; p++) { /* Only 2 fit in RFM buffer */
       pLower->pulse[p] = pData->pulseCnt[p];
     }
     return sizeof(*pLower);

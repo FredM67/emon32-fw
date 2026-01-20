@@ -169,13 +169,14 @@ static void configDefault(void) {
   config.opaCfg[1].period    = 0;
   config.opaCfg[1].puEn      = true;
 
-  /* Initialize reserved OPA slots */
-  for (size_t idxOPA = NUM_OPA; idxOPA < (NUM_OPA + PULSE_RES); idxOPA++) {
-    config.opaCfg[idxOPA].func      = 0;
-    config.opaCfg[idxOPA].opaActive = false;
-    config.opaCfg[idxOPA].period    = 0;
-    config.opaCfg[idxOPA].puEn      = false;
-  }
+  /* OPA3
+   *   - Pulse input
+   *   - Disabled
+   */
+  config.opaCfg[2].func      = 'r';
+  config.opaCfg[2].opaActive = false;
+  config.opaCfg[2].period    = 100;
+  config.opaCfg[2].puEn      = false;
 
   config.crc16_ccitt = calcCRC16_ccitt(&config, (sizeof(config) - 2u));
 }
@@ -1123,8 +1124,7 @@ static void handleConfirmation(char c) {
 
   case CONFIRM_ZERO_ACCUM:
     if ('y' == c) {
-      eepromInitBlock(EEPROM_WL_OFFSET, 0, (1024u - EEPROM_WL_OFFSET));
-      serialPuts("    - Accumulators cleared.\r\n");
+      serialPuts("    - Clearing accumulators...\r\n");
       emon32EventSet(EVT_CLEAR_ACCUM);
     } else {
       serialPuts("    - Cancelled.\r\n");

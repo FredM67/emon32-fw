@@ -230,7 +230,6 @@ void ecmConfigure(void) {
 
   ECMCfg_t *ecmCfg = ecmConfigGet();
 
-  ecmCfg->downsample    = DOWNSAMPLE_DSP;
   ecmCfg->reportCycles  = pConfig->baseCfg.reportCycles;
   ecmCfg->mainsFreq     = pConfig->baseCfg.mainsFreq;
   ecmCfg->samplePeriod  = timerADCPeriod();
@@ -347,7 +346,8 @@ static bool evtPending(EVTSRC_t evt) { return (evtPend & (1u << evt)) != 0; }
  */
 static void pulseConfigure(void) {
 
-  uint8_t pinsPulse[][2] = {{GRP_OPA, PIN_OPA1}, {GRP_OPA, PIN_OPA2}};
+  const uint8_t pinsPulse[][2] = {
+      {GRP_OPA, PIN_OPA1}, {GRP_OPA, PIN_OPA2}, {GRP_OPA, PIN_OPA3}};
 
   for (size_t i = 0; i < NUM_OPA; i++) {
     PulseCfg_t *pulseCfg = pulseGetCfg(i);
@@ -466,8 +466,9 @@ static void tempReadEvt(Emon32Dataset_t *pData, const uint32_t numT) {
  *  @return number of temperature sensors found
  */
 static uint32_t tempSetup(Emon32Dataset_t *pData) {
-  const uint8_t opaPins[NUM_OPA] = {PIN_OPA1, PIN_OPA2};
-  const uint8_t opaPUs[NUM_OPA]  = {PIN_OPA1_PU, PIN_OPA2_PU};
+  const uint8_t opaPins[NUM_OPA] = {PIN_OPA1, PIN_OPA2, PIN_OPA3};
+  /* OPA1 and OPA2 have dedicated pull-up pins; OPA3 does not */
+  const uint8_t opaPUs[]         = {PIN_OPA1_PU, PIN_OPA2_PU};
 
   uint32_t       numTempSensors = 0;
   DS18B20_conf_t dsCfg          = {0};
@@ -481,8 +482,11 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
 
       /* If configured as OneWire device always enable the PU even if inactive
        * as an external device may be handling the port */
-      portPinDrv(GRP_OPA, opaPUs[i], PIN_DRV_SET);
-      portPinDir(GRP_OPA, opaPUs[i], PIN_DIR_OUT);
+      if (i < 2u) {
+        /* OPA1/OPA2 have dedicated pull-up pins */
+        portPinDrv(GRP_OPA, opaPUs[i], PIN_DRV_SET);
+        portPinDir(GRP_OPA, opaPUs[i], PIN_DIR_OUT);
+      }
       portPinDrv(GRP_OPA, opaPins[i], PIN_DRV_CLR);
 
       if (pConfig->opaCfg[i].opaActive) {
@@ -531,7 +535,22 @@ static void totalEnergy(const Emon32Dataset_t *pData, EPAccum_t *pAcc) {
 static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
                          char *txBuffer) {
 
-  (void)dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json);
+  CHActive_t chsActive;
+
+  for (size_t i = 0; i < NUM_V; i++) {
+    chsActive.V[i] = pConfig->voltageCfg[i].vActive;
+  }
+
+  for (size_t i = 0; i < NUM_CT; i++) {
+    chsActive.CT[i] = pConfig->ctCfg[i].ctActive;
+  }
+
+  for (size_t i = 0; i < NUM_OPA; i++) {
+    uint8_t func       = pConfig->opaCfg[i].func;
+    chsActive.pulse[i] = ('r' == func) || ('f' == func) || ('b' == func);
+  }
+
+  (void)dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json, &chsActive);
 
   if (pOpt->useRFM) {
 
@@ -711,6 +730,7 @@ int main(void) {
         for (size_t i = 0; i < NUM_OPA; i++) {
           pulseSetCount(i, 0);
         }
+        serialPuts("    - Accumulators cleared.\r\n");
         emon32EventClr(EVT_CLEAR_ACCUM);
       }
 

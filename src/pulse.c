@@ -24,19 +24,31 @@ PulseCfg_t *pulseGetCfg(const size_t index) {
 }
 
 void pulseInit(const size_t index) {
+  /* OPA1 and OPA2 have dedicated pull-up pins; OPA3 does not */
   const uint8_t opaPUs[] = {PIN_OPA1_PU, PIN_OPA2_PU};
 
   const uint8_t pin = pulseCfg[index].pin;
 
   /* Enable pull up if configured and allow a delay to charge RC */
-  if (pulseCfg[index].puEn) {
-    portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_OUT);
-    portPinDrv(GRP_OPA, opaPUs[index], PIN_DRV_SET);
-    timerDelay_ms(1);
+  if (index < 2u) {
+    /* OPA1/OPA2 with dedicated pull-up pins */
+    if (pulseCfg[index].puEn) {
+      portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_OUT);
+      portPinDrv(GRP_OPA, opaPUs[index], PIN_DRV_SET);
+      timerDelay_ms(1);
+    } else {
+      portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_IN);
+      portPinCfg(GRP_OPA, opaPUs[index], PORT_PINCFG_PULLEN, PIN_CFG_CLR);
+      portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_CLR);
+    }
   } else {
-    portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_IN);
-    portPinCfg(GRP_OPA, opaPUs[index], PORT_PINCFG_PULLEN, PIN_CFG_CLR);
-    portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_CLR);
+    /* OPA3 - use internal pull-up/down on the pin itself */
+    if (pulseCfg[index].puEn) {
+      portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_SET);
+      portPinDrv(GRP_OPA, pin, PIN_DRV_SET);
+    } else {
+      portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_CLR);
+    }
   }
   pinValue[index] = (uint32_t)portPinValue(GRP_OPA, pin);
 
