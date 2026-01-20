@@ -10,7 +10,7 @@
 typedef enum PulseLvl_ { PULSE_LVL_LOW, PULSE_LVL_HIGH } PulseLvl_t;
 
 static uint8_t    pinValue[NUM_OPA];
-static uint64_t   pulseCount[NUM_OPA];
+static uint32_t   pulseCount[NUM_OPA];
 static PulseCfg_t pulseCfg[NUM_OPA];
 static PulseLvl_t pulseLvlLast[NUM_OPA];
 
@@ -51,9 +51,7 @@ void pulseSetCount(const size_t index, const uint32_t value) {
   pulseCount[index] = value;
 }
 
-uint32_t pulseGetCount(const size_t index) {
-  return (uint32_t)pulseCount[index];
-}
+uint32_t pulseGetCount(const size_t index) { return pulseCount[index]; }
 
 void pulseUpdate(void) {
   uint32_t   mask;
