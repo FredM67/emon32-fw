@@ -50,7 +50,7 @@ To update the emonTx6's firmware, the following steps are taken:
 
 When configured as an emonPi3, the bootloader is accessed through the internal serial port. When configured as an emonTx6, the bootloader is accessed through the USB-C port. To change between the two modes, the bootloader needs to be updated.
 
-To change from an emonPi3 to an emonTx6:
+#### To change from an emonPi3 to an emonTx6
 
 1. Open a serial connection using, for example, `minicom` to `/dev/ttyS0` (`minicom -D /dev/ttyS0 -b 115200`)
 2. Enter 'e' and then press Enter.
@@ -60,7 +60,7 @@ To change from an emonPi3 to an emonTx6:
 6. To upload the compiled firmare, in the `emon32-fw` folder run `bossac -p /dev/ttyS0 -e -w -v -R --offset=0x2000 bin/bootloaders/change-bootloader-usb.bin`.
 7. You can now upload the firmware as described above, skipping steps 1-4 as it will already be in the bootloader.
 
-To change from an emonTx6 to an emonPi3:
+#### To change from an emonTx6 to an emonPi3
 
 1. Connect a USB cable to the emonTx6's USB-C socket.
 2. Open a serial connection using, for example, `minicom` (e.g. `minicom -D /dev/ttyACM0 -b 115200`) or the Arduino serial monitor.
