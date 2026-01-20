@@ -477,7 +477,7 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
 
   tempInitClear();
 
-  for (size_t i = 0; i < NUM_OPA; i++) {
+  for (uint8_t i = 0; i < NUM_OPA; i++) {
     if (('o' == pConfig->opaCfg[i].func)) {
 
       /* If configured as OneWire device always enable the PU even if inactive
@@ -488,7 +488,7 @@ static uint32_t tempSetup(Emon32Dataset_t *pData) {
       portPinDrv(GRP_OPA, opaPins[i], PIN_DRV_CLR);
 
       if (pConfig->opaCfg[i].opaActive) {
-        dsCfg.opaIdx = (uint8_t)i;
+        dsCfg.opaIdx = i;
         dsCfg.pin    = opaPins[i];
         dsCfg.pinPU  = opaPUs[i];
         numTempSensors += tempInitSensors(TEMP_INTF_ONEWIRE, &dsCfg);

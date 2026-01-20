@@ -1,7 +1,15 @@
 #!/bin/bash
 set -e
 
-# Change working directory to the parent directory of this script 
+# Ensure running on Linux
+if [[ "$(uname -s)" != "Linux" ]]; then
+    echo "ERROR: This script must be run on a Linux system."
+    echo "Detected OS: $(uname -s)"
+    exit 1
+fi
+
+
+# Change working directory to the parent directory of this script
 cd "$(dirname "$0")/.."
 
 UF2_FILE="build/emon32.uf2"
@@ -18,9 +26,18 @@ while [[ $# -gt 0 ]]; do
             DO_BUILD=1
             shift
             ;;
+        --uf2)
+            if [[ -z "${2:-}" ]]; then
+                echo "ERROR: --uf2 requires a path argument"
+                echo "Usage: $0 [--uf2 <path>]"
+                exit 1
+            fi
+            UF2_FILE="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--build]"
+            echo "Usage: $0 [--build] [--uf2 <path>]"
             exit 1
             ;;
     esac

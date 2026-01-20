@@ -75,7 +75,7 @@ static void     enterBootloader(void);
 static uint32_t getBoardRevision(void);
 static char    *getLastReset(void);
 static void     handleConfirmation(char c);
-static void     inBufferClear(size_t n);
+static void     inBufferClear(const size_t n);
 static size_t   inBufferTok(void);
 static void     printSettingCT(const size_t ch);
 static void     printSettingDatalog(void);
@@ -841,7 +841,7 @@ uint32_t getUniqueID(const size_t idx) {
   return *(volatile uint32_t *)id_addr_lut[idx];
 }
 
-static void inBufferClear(size_t n) {
+static void inBufferClear(const size_t n) {
   inBufferIdx = 0;
   (void)memset(inBuffer, 0, n);
 }
