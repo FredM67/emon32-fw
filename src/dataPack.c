@@ -106,10 +106,10 @@ static void initFields(StrN_t *pD, char *pS, const size_t m) {
  *  @param [in] v : value to convert and append
  *  @return number of characters appended
  */
-static size_t strnCatFloat(StrN_t *strD, float v) {
-  size_t len    = utilFtoa(tmpStr, v) - 1u; /* exclude null terminator */
-  size_t space  = strD->m - strD->n;
-  size_t toCopy = (len < space) ? len : space;
+static size_t strnCatFloat(StrN_t *strD, const float v) {
+  const size_t len    = utilFtoa(tmpStr, v) - 1u; /* exclude null terminator */
+  const size_t space  = strD->m - strD->n;
+  const size_t toCopy = (len < space) ? len : space;
 
   memcpy(strD->str + strD->n, tmpStr, toCopy);
   return toCopy;
@@ -120,10 +120,10 @@ static size_t strnCatFloat(StrN_t *strD, float v) {
  *  @param [in] v : value to convert and append
  *  @return number of characters appended
  */
-static size_t strnCatInt(StrN_t *strD, int32_t v) {
-  size_t len    = utilItoa(tmpStr, v, ITOA_BASE10) - 1u; /* exclude null */
-  size_t space  = strD->m - strD->n;
-  size_t toCopy = (len < space) ? len : space;
+static size_t strnCatInt(StrN_t *strD, const int32_t v) {
+  const size_t len   = utilItoa(tmpStr, v, ITOA_BASE10) - 1u; /* exclude null */
+  const size_t space = strD->m - strD->n;
+  const size_t toCopy = (len < space) ? len : space;
 
   memcpy(strD->str + strD->n, tmpStr, toCopy);
   return toCopy;
@@ -134,10 +134,10 @@ static size_t strnCatInt(StrN_t *strD, int32_t v) {
  *  @param [in] v : value to convert and append
  *  @return number of characters appended
  */
-static size_t strnCatUint(StrN_t *strD, uint32_t v) {
-  size_t len    = utilUtoa(tmpStr, v, ITOA_BASE10) - 1u; /* exclude null */
-  size_t space  = strD->m - strD->n;
-  size_t toCopy = (len < space) ? len : space;
+static size_t strnCatUint(StrN_t *strD, const uint32_t v) {
+  const size_t len   = utilUtoa(tmpStr, v, ITOA_BASE10) - 1u; /* exclude null */
+  const size_t space = strD->m - strD->n;
+  const size_t toCopy = (len < space) ? len : space;
 
   memcpy(strD->str + strD->n, tmpStr, toCopy);
   return toCopy;
@@ -176,7 +176,7 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
   catMsg(&strn, pData->msgNum, json);
 
   /* V channels; only print V2/V3 if either active */
-  uint32_t numV = (pData->pECM->activeCh & 0x6) ? NUM_V : 1;
+  const uint32_t numV = (pData->pECM->activeCh & 0x6) ? NUM_V : 1;
 
   for (size_t i = 0; i < numV; i++) {
     if (!json || pChsActive->V[i]) {
@@ -188,9 +188,9 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
   /* CT channels (power and energy)
    * Only print onboard CTs 7-12 if any are present
    */
-  uint32_t numCT = (pData->pECM->activeCh & (0x3f << (NUM_V + (NUM_CT / 2))))
-                       ? NUM_CT
-                       : (NUM_CT / 2);
+  const uint32_t numCT =
+      (pData->pECM->activeCh & (0x3f << (NUM_V + (NUM_CT / 2)))) ? NUM_CT
+                                                                 : (NUM_CT / 2);
 
   for (size_t i = 0; i < numCT; i++) {
     if (!json || pChsActive->CT[i]) {
@@ -213,7 +213,7 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
   }
 
   for (size_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
-    bool isPresent = (pData->temp[i] != 4800);
+    const bool isPresent = (pData->temp[i] != 4800);
     if (!json || isPresent) {
       catId(&strn, (i + 1), STR_TEMP, json);
       strn.n +=
