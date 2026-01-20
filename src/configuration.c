@@ -110,7 +110,6 @@ static uint8_t                 clearAccumIdx =
     UINT8_MAX; /* UINT8_MAX=all, 0-11=E1-E12, 12-13=P1-P2 */
 static size_t inBufferIdx   = 0;
 static bool   cmdPending    = false;
-static bool   resetReq      = false;
 static bool   unsavedChange = false;
 
 /*! @brief Set all configuration values to defaults */
