@@ -3,7 +3,6 @@
 
 #ifndef HOSTED
 
-#include "asm_math.h"
 #include "qfplib-m0-full.h"
 
 #else
@@ -46,56 +45,34 @@ static bool useAssumedV              = false;
  * Local typedefs
  *************************************/
 
-/* @typedef
- * @brief This struct contains V and CT phase information
- */
-typedef struct PhaseCal_ {
-  int32_t low;       /* RESERVED */
-  float   phaseLow;  /* Phase error at and below low limit */
-  int32_t high;      /* RESERVED */
-  float   phaseHigh; /* RESERVED */
-} PhaseCal_t;
-
-typedef struct PhaseData_ {
-  int32_t positionOfV;         /* Voltage index */
-  float   phaseErrorV;         /* Voltage phase error (degrees) */
-  int32_t positionOfC;         /* CT index */
-  float   phaseErrorC;         /* CT phase error (degrees) */
-  int32_t relativeCSample;     /* Position of current relative to this */
-  int32_t relativeLastVSample; /* Position of previous V */
-  int32_t relativeThisVSample; /* Position of next V */
-  float   x;                   /* Coefficient for interpolation */
-  float   y;                   /* Coefficient for interpolation */
-} PhaseData_t;
-
 typedef enum Polarity_ { POL_POS, POL_NEG } Polarity_t;
 
 typedef struct VAccumulator_ {
-  uint64_t sumV_sqr;
-  int32_t  sumV_deltas;
+  int64_t sumV_sqr;
+  int32_t sumV_deltas;
 } VAccumulator_t;
 
 typedef struct CTAccumulator_ {
-  int64_t  sumPA[2];
-  int64_t  sumPB[2];
-  uint64_t sumI_sqr;
-  int32_t  sumI_deltas;
+  int64_t sumPA[2];
+  int64_t sumPB[2];
+  int64_t sumI_sqr;
+  int32_t sumI_deltas;
 } CTAccumulator_t;
 
 typedef struct Accumulator_ {
   VAccumulator_t  processV[NUM_V * 2]; /* Additional space for 3-phase L-L */
   CTAccumulator_t processCT[NUM_CT];
-  uint32_t        numSamples;
-  uint32_t        cycles;
+  int32_t         numSamples;
+  int32_t         cycles;
   uint32_t        tStart_us;
   uint32_t        tDelta_us;
 } Accumulator_t;
 
 typedef struct CalcRMS_ {
-  float    cal;
-  uint64_t sSqr;
-  int32_t  sDelta;
-  uint32_t numSamples;
+  float   cal;
+  int64_t sSqr;
+  int32_t sDelta;
+  int32_t numSamples;
 } CalcRMS_t;
 
 typedef struct RawSampleSetUnpacked {
@@ -108,7 +85,7 @@ typedef struct RawSampleSetUnpacked {
 
 static inline q15_t __STRUNCATE(int32_t val) RAMFUNC;
 static q15_t        applyCorrection(q15_t smp) RAMFUNC;
-static float        calcRMS(const CalcRMS_t *pSrc) RAMFUNC;
+static float        calcRMS(CalcRMS_t *pSrc) RAMFUNC;
 static bool         zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) RAMFUNC;
 
 static void    accumSwapClear(void);
@@ -153,7 +130,7 @@ static uint32_t t_ZClast = 0;
  */
 static RAMFUNC inline q15_t __STRUNCATE(int32_t val) {
   int32_t roundUp = 0;
-  if (0 != (val & (1 << 14))) {
+  if (0 != (val & (1u << 14))) {
     roundUp = 1;
   }
   return (q15_t)((val >> 15) + roundUp);
@@ -161,17 +138,17 @@ static RAMFUNC inline q15_t __STRUNCATE(int32_t val) {
 
 /***** END FIXED POINT FUNCIONS *****/
 
-static RAMFUNC float calcRMS(const CalcRMS_t *pSrc) {
-  const uint64_t numSamplesSqr = usqr64(pSrc->numSamples);
-  const float    vcal          = pSrc->cal;
+static RAMFUNC float calcRMS(CalcRMS_t *pSrc) {
+  int64_t numSamplesSqr = (int64_t)pSrc->numSamples * pSrc->numSamples;
+  float   vcal          = pSrc->cal;
 
-  const uint32_t deltasSqr = (uint32_t)(pSrc->sDelta * pSrc->sDelta);
+  int32_t deltasSqr = pSrc->sDelta * pSrc->sDelta;
 
-  const float offsetCorr =
-      qfp_fdiv(qfp_uint2float(deltasSqr), qfp_uint642float(numSamplesSqr));
+  float offsetCorr =
+      qfp_fdiv(qfp_int2float(deltasSqr), qfp_int642float(numSamplesSqr));
 
   float rms =
-      qfp_fdiv(qfp_uint642float(pSrc->sSqr), qfp_uint2float(pSrc->numSamples));
+      qfp_fdiv(qfp_int642float(pSrc->sSqr), qfp_int2float(pSrc->numSamples));
 
   rms = qfp_fsub(rms, offsetCorr);
   rms = qfp_fsqrt(rms);
@@ -191,21 +168,18 @@ static void swapPtr(void **pIn1, void **pIn2) {
  * Configuration
  *****************************************************************************/
 
-static ECMCfg_t ecmCfg           = {0};
-static bool     processTrigger   = false;
-static uint8_t  mapLogCT[NUM_CT] = {0};
-static uint8_t  discardCycles    = EQUIL_CYCLES;
-static bool     initDone         = false;
-static bool     inAutoPhase      = false;
-static uint32_t samplePeriodus;
-static float    sampleIntervalRad;
+static ECMCfg_t    ecmCfg           = {0};
+static bool        processTrigger   = false;
+static int_fast8_t mapLogCT[NUM_CT] = {0};
+static int_fast8_t discardCycles    = EQUIL_CYCLES;
+static bool        initDone         = false;
 
 ECMCfg_t *ecmConfigGet(void) { return &ecmCfg; }
 
-void ecmConfigChannel(const size_t ch) {
+void ecmConfigChannel(int_fast8_t ch) {
   if (ch < NUM_V) {
     configChannelV(ch);
-    if ((NUM_V == 3u) && channelActive[1] && channelActive[2]) {
+    if ((NUM_V == 3) && channelActive[1] && channelActive[2]) {
       threePhase = true;
     } else {
       threePhase = false;
@@ -248,24 +222,12 @@ void configChannelV(const size_t ch) {
 
 void ecmConfigInit(void) {
 
-  /* Calculate the angular sampling rate in radians.
-   *  - Sample rate, f_smp, in Hz: 1E6 / (t_s * OS_R * VCT)
-   *  - Sample rate in °: 360 * f_mains / f_smp
-   *  - Sample rate in rad: 2π / 360 * °
-   *  => 2π / 1E6 * f_mains * t_s * OS_R * VCT (360s cancel)
-   */
-  samplePeriodus       = ecmCfg.samplePeriod * OVERSAMPLING_RATIO;
-  uint32_t setPeriodus = samplePeriodus * VCT_TOTAL;
-
-  sampleIntervalRad =
-      qfp_fmul((TWO_PI / 1E6f), qfp_uint2float(ecmCfg.mainsFreq * setPeriodus));
-
   /* Map the logical channel back to the CT to unwind the data */
-  for (uint8_t i = 0; i < NUM_CT; i++) {
+  for (int_fast8_t i = 0; i < NUM_CT; i++) {
     mapLogCT[ecmCfg.mapCTLog[i]] = i;
   }
 
-  for (size_t i = 0; i < NUM_V; i++) {
+  for (int_fast8_t i = 0; i < NUM_V; i++) {
     configChannelV(i);
   }
 
@@ -275,7 +237,7 @@ void ecmConfigInit(void) {
   }
 
   /* Configure each CT channel and load the initial Wh value from NVM. */
-  for (size_t i = 0; i < NUM_CT; i++) {
+  for (int_fast8_t i = 0; i < NUM_CT; i++) {
     configChannelCT(i);
     datasetProc.CT[i].wattHour = ecmCfg.ctCfg[i].wattHourInit;
   }
@@ -283,7 +245,7 @@ void ecmConfigInit(void) {
   initDone = true;
 }
 
-void ecmConfigReportCycles(uint32_t reportCycles) {
+void ecmConfigReportCycles(int32_t reportCycles) {
   ecmCfg.reportCycles = reportCycles;
 }
 
@@ -312,7 +274,7 @@ static RAMFUNC q15_t applyCorrection(q15_t smp) {
     int32_t result = smp + ecmCfg.correction.offset;
     result *= ecmCfg.correction.gain;
     result >>= 11;
-    return (q15_t)result;
+    return result;
   } else {
     return smp;
   }
@@ -329,19 +291,14 @@ static void accumSwapClear(void) {
  *  @return true for positive crossing, false otherwise
  */
 RAMFUNC bool zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) {
-  static Polarity_t polarityLast     = POL_POS;
-  static int8_t     hystCnt          = ZC_HYST;
-  static q15_t      vPeakSinceLastZC = 0;
-  static uint32_t   lastZC_us        = 0;
-  Polarity_t        polarityNow      = (smpV < 0) ? POL_NEG : POL_POS;
+  static Polarity_t  polarityLast     = POL_POS;
+  static int_fast8_t hystCnt          = ZC_HYST;
+  static q15_t       vPeakSinceLastZC = 0;
+  static uint32_t    lastZC_us        = 0;
+  Polarity_t         polarityNow      = (smpV < 0) ? POL_NEG : POL_POS;
 
   /* Track peak voltage magnitude since last zero-crossing */
-  union {
-    int   i;
-    q15_t q;
-  } abs;
-  abs.i      = (smpV < 0) ? -smpV : smpV;
-  q15_t absV = abs.q;
+  q15_t absV = (smpV < 0) ? -smpV : smpV;
   if (absV > vPeakSinceLastZC) {
     vPeakSinceLastZC = absV;
   }
@@ -386,7 +343,7 @@ RAMFUNC bool zeroCrossingSW(q15_t smpV, uint32_t timeNow_us) {
  *  @param [in] f : float in
  *  @return integer floor of f
  */
-static int32_t floorf_(const float f) {
+static int floorf_(const float f) {
   int32_t i = qfp_float2int_z(f);
   if (qfp_int2float(i) > f) {
     i -= 1;
@@ -427,10 +384,17 @@ static void calibrationPhase(CTCfg_t *pCfgCT, const VCfg_t *pCfgV,
   /* Compensate for V phase */
   const float phiCT_V = qfp_fsub(pCfgCT->phCal, pCfgV[idxV].phase);
 
-  /* Calculate phase change over full set */
-  const float phaseShift_deg =
+  /* Calculate phase change over full set
+   *  - Sample rate, f_smp, in Hz: 1E6 / (t_s * OS_R * VCT)
+   *  - Sample rate in °: 360 * f_mains / f_smp
+   *  - Sample rate in rad: 2π / 360 * °
+   *  => 2π / 1E6 * f_mains * t_s * OS_R * VCT (360s cancel)
+   */
+  int32_t samplePeriodus = ecmCfg.samplePeriod * OVERSAMPLING_RATIO;
+
+  float phaseShift_deg =
       qfp_fmul((360.0f / 1E6f),
-               qfp_uint2float(samplePeriodus * VCT_TOTAL * ecmCfg.mainsFreq));
+               qfp_int2float(samplePeriodus * VCT_TOTAL * ecmCfg.mainsFreq));
   float phaseShiftSets = qfp_fdiv(phiCT_V, phaseShift_deg);
 
   /* After downsampling, the time between samples remains t_s _not_ 2*t_s.
@@ -441,14 +405,14 @@ static void calibrationPhase(CTCfg_t *pCfgCT, const VCfg_t *pCfgV,
 
   phaseShiftSets = qfp_fadd(phaseShiftSets, phaseShiftSmpIdx);
 
-  const int32_t floorPhaseShiftSets = floorf_(phaseShiftSets);
+  int floorPhaseShiftSets = floorf_(phaseShiftSets);
 
   if (0 <= floorPhaseShiftSets) {
-    pCfgCT->idxInterpolateCT = (uint32_t)(1 + floorPhaseShiftSets);
+    pCfgCT->idxInterpolateCT = 1 + floorPhaseShiftSets;
     pCfgCT->idxInterpolateV  = 0;
   } else {
     pCfgCT->idxInterpolateCT = 0;
-    pCfgCT->idxInterpolateV  = (uint32_t)(-(1 + floorPhaseShiftSets));
+    pCfgCT->idxInterpolateV  = -(1 + floorPhaseShiftSets);
   }
 
   phaseShiftSets = qfp_fsub(phaseShiftSets, qfp_int2float(floorPhaseShiftSets));
@@ -467,28 +431,17 @@ static void calibrationPhase(CTCfg_t *pCfgCT, const VCfg_t *pCfgV,
 }
 
 void ecmClearEnergy(void) {
-  for (size_t i = 0; i < NUM_CT; i++) {
+  for (int32_t i = 0; i < NUM_CT; i++) {
     datasetProc.CT[i].wattHour = 0;
     residualEnergy[i]          = 0.0f;
   }
 }
 
-void ecmClearEnergyChannel(const size_t idx) {
-  if (idx < NUM_CT) {
+void ecmClearEnergyChannel(int32_t idx) {
+  if (idx >= 0 && idx < NUM_CT) {
     datasetProc.CT[idx].wattHour = 0;
     residualEnergy[idx]          = 0.0f;
   }
-}
-
-void ecmPhaseCalibrate(AutoPhaseRes_t *pDst) {
-  pDst->success = false;
-  if (!(channelActive[pDst->idxCt + NUM_V])) {
-    return;
-  }
-  inAutoPhase = true;
-
-  pDst->success = true;
-  inAutoPhase   = false;
 }
 
 void ecmFlush(void) {
@@ -512,16 +465,16 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
    *
    * b_0 | b_2 | .. | b_2 | b_0
    */
-  static uint8_t idxInj         = 0;
-  const uint8_t  downsampleTaps = DOWNSAMPLE_TAPS;
+  static uint_fast8_t idxInj         = 0;
+  const uint32_t      downsampleTaps = DOWNSAMPLE_TAPS;
 
-  const uint32_t idxInjPrev =
+  const uint_fast8_t idxInjPrev =
       (0 == idxInj) ? (downsampleTaps - 1u) : (idxInj - 1u);
 
   /* Copy the packed raw ADC value into the unpacked buffer; samples[1] is
    * the most recent sample.
    */
-  for (size_t idxSmp = 0; idxSmp < VCT_TOTAL; idxSmp++) {
+  for (int_fast8_t idxSmp = 0; idxSmp < VCT_TOTAL; idxSmp++) {
     dspBuffer[idxInjPrev].smp[idxSmp] =
         applyCorrection(adcProc->samples[0].smp[idxSmp]);
     dspBuffer[idxInj].smp[idxSmp] =
@@ -564,7 +517,7 @@ RAMFUNC void ecmFilterSample(SampleSet_t *pDst) {
     idxSmp[i][1] = idxSmpEnd;
   }
 
-  for (size_t ch = 0; ch < VCT_TOTAL; ch++) {
+  for (int_fast8_t ch = 0; ch < VCT_TOTAL; ch++) {
     q15_t result;
     bool  active = (ch < NUM_V) ? channelActive[ch]
                                 : channelActive[mapLogCT[ch - NUM_V] + NUM_V];
@@ -617,7 +570,7 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
   for (size_t idxV = 0; idxV < NUM_V; idxV++) {
     if (channelActive[idxV]) {
       int32_t V = sampleBuffer[idxInject].smpV[idxV];
-      accumCollecting->processV[idxV].sumV_sqr += ssqr64(V);
+      accumCollecting->processV[idxV].sumV_sqr += (int64_t)(V * V);
       accumCollecting->processV[idxV].sumV_deltas += V;
     }
   }
@@ -631,11 +584,11 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
     int32_t v1v2 = v1 - v2;
     int32_t v2v3 = v2 - v3;
     int32_t v3v1 = v3 - v1;
-    accumCollecting->processV[3].sumV_sqr += ssqr64(v1v2);
+    accumCollecting->processV[3].sumV_sqr += (int64_t)(v1v2 * v1v2);
     accumCollecting->processV[3].sumV_deltas += v1v2;
-    accumCollecting->processV[4].sumV_sqr += ssqr64(v2v3);
+    accumCollecting->processV[4].sumV_sqr += (int64_t)(v2v3 * v2v3);
     accumCollecting->processV[4].sumV_deltas += v2v3;
-    accumCollecting->processV[5].sumV_sqr += ssqr64(v3v1);
+    accumCollecting->processV[5].sumV_sqr += (int64_t)(v3v1 * v3v1);
     accumCollecting->processV[5].sumV_deltas += v3v1;
   }
 
@@ -656,17 +609,17 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
       int32_t thisV = sampleBuffer[thisVidx].smpV[v1];
       int32_t lastV = sampleBuffer[lastVidx].smpV[v1];
 
-      accumCollecting->processCT[idxCT].sumPA[0] += smul64(thisCT, lastV);
-      accumCollecting->processCT[idxCT].sumPB[0] += smul64(thisCT, thisV);
-      accumCollecting->processCT[idxCT].sumI_sqr += ssqr64(thisCT);
+      accumCollecting->processCT[idxCT].sumPA[0] += (int64_t)(thisCT * lastV);
+      accumCollecting->processCT[idxCT].sumPB[0] += (int64_t)(thisCT * thisV);
+      accumCollecting->processCT[idxCT].sumI_sqr += (int64_t)(thisCT * thisCT);
       accumCollecting->processCT[idxCT].sumI_deltas += thisCT;
 
       /* L-L load */
       if (v1 != v2) {
         thisV = sampleBuffer[thisVidx].smpV[v2];
         lastV = sampleBuffer[lastVidx].smpV[v2];
-        accumCollecting->processCT[idxCT].sumPA[1] += smul64(thisCT, lastV);
-        accumCollecting->processCT[idxCT].sumPB[1] += smul64(thisCT, thisV);
+        accumCollecting->processCT[idxCT].sumPA[1] += (int64_t)(thisCT * lastV);
+        accumCollecting->processCT[idxCT].sumPB[1] += (int64_t)(thisCT * thisV);
       }
     }
   }
@@ -762,9 +715,9 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
   t_start = (*ecmCfg.timeMicros)();
 
   /* Reused constants */
-  const uint32_t numSamples    = accumProcessing->numSamples;
-  const uint64_t numSamplesSqr = usqr64(numSamples);
-  rms.numSamples               = numSamples;
+  const int32_t numSamples    = accumProcessing->numSamples;
+  const int64_t numSamplesSqr = numSamples * numSamples;
+  rms.numSamples              = numSamples;
 
   /* Choose if using the assumed time, or cycle locked real time */
   const uint32_t t_dividend =
@@ -772,7 +725,7 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
   const float timeTotal = qfp_fdiv(qfp_uint2float(t_dividend), 1000000.0f);
   datasetProc.wallTime  = timeTotal;
 
-  for (size_t idxV = 0; idxV < NUM_V; idxV++) {
+  for (int_fast8_t idxV = 0; idxV < NUM_V; idxV++) {
     if (channelActive[idxV]) {
       rms.cal    = ecmCfg.vCfg[idxV].voltageCal;
       rms.sDelta = accumProcessing->processV[idxV].sumV_deltas;
@@ -793,7 +746,7 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
   }
 
   if (threePhase) {
-    for (size_t i = 0; i < 3; i++) {
+    for (int_fast8_t i = 0; i < 3; i++) {
       rms.cal    = ecmCfg.vCfg[i].voltageCal;
       rms.sDelta = accumProcessing->processV[i + NUM_V].sumV_deltas;
       rms.sSqr   = accumProcessing->processV[i + NUM_V].sumV_sqr;
@@ -809,7 +762,7 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
     }
   }
 
-  for (size_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
+  for (int_fast8_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
     if (channelActive[idxCT + NUM_V]) {
       int32_t idxV1 = ecmCfg.ctCfg[idxCT].vChan1;
       int32_t idxV2 = ecmCfg.ctCfg[idxCT].vChan2;
@@ -834,10 +787,9 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
       if (useAssumedV) {
         powerNow = qfp_fmul(datasetProc.CT[idxCT].rmsI, ecmCfg.assumedVrms);
       } else {
-        powerNow = qfp_fdiv(sumEnergy, qfp_uint2float(numSamples));
-        powerNow =
-            qfp_fsub(powerNow, qfp_fdiv(qfp_int2float(vi_offset),
-                                        qfp_uint642float(numSamplesSqr)));
+        powerNow = qfp_fdiv(sumEnergy, qfp_int2float(numSamples));
+        powerNow = qfp_fsub(powerNow, qfp_fdiv(qfp_int2float(vi_offset),
+                                               qfp_int642float(numSamplesSqr)));
         powerNow = qfp_fmul(powerNow,
                             qfp_fmul(rms.cal, ecmCfg.vCfg[idxV1].voltageCal));
       }
@@ -852,10 +804,10 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
                 ecmCfg.ctCfg[idxCT].phaseY[1])));
 
         vi_offset = rms.sDelta * accumProcessing->processV[idxV2].sumV_deltas;
-        float powerNow2 = qfp_fdiv(sumEnergy, qfp_uint2float(numSamples));
+        float powerNow2 = qfp_fdiv(sumEnergy, qfp_int2float(numSamples));
         powerNow2 =
             qfp_fsub(powerNow2, qfp_fdiv(qfp_int2float(vi_offset),
-                                         qfp_uint642float(numSamplesSqr)));
+                                         qfp_int642float(numSamplesSqr)));
         powerNow2 = qfp_fmul(powerNow2,
                              qfp_fmul(rms.cal, ecmCfg.vCfg[idxV2].voltageCal));
         powerNow  = qfp_fsub(powerNow, powerNow2);

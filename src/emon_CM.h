@@ -1,7 +1,6 @@
 #pragma once
 
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 
 #include "board_def.h"
@@ -94,7 +93,7 @@ typedef struct ECMCfg_ {
   uint32_t reportTime_us; /* Report time in microseconds */
   float    assumedVrms;   /* Assume RMS voltage if not found */
 
-  uint8_t mapCTLog[NUM_CT]; /* Map of CT to microcontroller pins */
+  int_fast8_t mapCTLog[NUM_CT]; /* Map of CT to microcontroller pins */
 
   GainOffset_t correction; /* Gain and offset correction */
 
@@ -118,18 +117,18 @@ typedef struct ECMDataset_ {
 } ECMDataset_t;
 
 typedef struct ECMPerformance_ {
-  uint32_t numSlices;
-  uint32_t microsSlices;
-  uint32_t numCycles;
-  uint32_t microsCycles;
-  uint32_t numDatasets;
-  uint32_t microsDatasets;
+  int32_t numSlices;
+  int32_t microsSlices;
+  int32_t numCycles;
+  int32_t microsCycles;
+  int32_t numDatasets;
+  int32_t microsDatasets;
 } ECMPerformance_t;
 
 typedef struct AutoPhaseRes_ {
-  uint32_t idxCt;
-  float    phase;
-  bool     success;
+  int32_t idxCt;
+  float   phase;
+  bool    success;
 } AutoPhaseRes_t;
 
 /******************************************************************************
@@ -142,7 +141,7 @@ void ecmClearEnergy(void);
 /*! @brief Clear accumulated energy for a single channel
  *  @param [in] idx : channel index (0 to NUM_CT-1)
  */
-void ecmClearEnergyChannel(const size_t idx);
+void ecmClearEnergyChannel(int32_t idx);
 
 /*! @brief Get the pointer to the configuration struct
  *  @return pointer to Emon CM configuration struct
@@ -152,7 +151,7 @@ ECMCfg_t *ecmConfigGet(void);
 /*! @brief Configure a channel.
  *  @param [in] ch : channel, logical index.
  */
-void ecmConfigChannel(const size_t ch);
+void ecmConfigChannel(int_fast8_t ch);
 
 /*! @brief Having set all configuration values, calculate all required constant
  *         values
@@ -162,7 +161,7 @@ void ecmConfigInit(void);
 /*! @brief Set cycles between reports
  *  @param [in] reportCycles : cycles between reports
  */
-void ecmConfigReportCycles(uint32_t reportCycles);
+void ecmConfigReportCycles(int32_t reportCycles);
 
 /*! @brief Returns a pointer to the ADC data buffer
  *  @return pointer to the active ADC data buffer.

@@ -1,20 +1,18 @@
-#include <stddef.h>
-
+#include "pulse.h"
 #include "board_def.h"
 #include "driver_PORT.h"
 #include "driver_TIME.h"
 #include "emon32.h"
 #include "emon32_samd.h"
-#include "pulse.h"
 
 typedef enum PulseLvl_ { PULSE_LVL_LOW, PULSE_LVL_HIGH } PulseLvl_t;
 
-static uint32_t   pulseCount[NUM_OPA];
+static uint8_t    pinValue[NUM_OPA];
+static uint64_t   pulseCount[NUM_OPA];
 static PulseCfg_t pulseCfg[NUM_OPA];
-static uint32_t   pinValue[NUM_OPA];
 static PulseLvl_t pulseLvlLast[NUM_OPA];
 
-PulseCfg_t *pulseGetCfg(const size_t index) {
+PulseCfg_t *pulseGetCfg(const uint32_t index) {
   /* If no pulse counters attached or index out of range, return 0 */
   if ((0 == NUM_OPA) || (index > (NUM_OPA - 1u))) {
     return 0;
@@ -24,49 +22,40 @@ PulseCfg_t *pulseGetCfg(const size_t index) {
 }
 
 void pulseInit(const size_t index) {
-  /* OPA1 and OPA2 have dedicated pull-up pins; OPA3 does not */
-  const uint8_t opaPUs[] = {PIN_OPA1_PU, PIN_OPA2_PU};
+  const uint_fast8_t opaPUs[] = {PIN_OPA1_PU, PIN_OPA2_PU};
 
-  const uint8_t pin = pulseCfg[index].pin;
+  const uint32_t pin = pulseCfg[index].pin;
 
   /* Enable pull up if configured and allow a delay to charge RC */
-  if (index < 2u) {
-    /* OPA1/OPA2 with dedicated pull-up pins */
-    if (pulseCfg[index].puEn) {
-      portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_OUT);
-      portPinDrv(GRP_OPA, opaPUs[index], PIN_DRV_SET);
-      timerDelay_ms(1);
-    } else {
-      portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_IN);
-      portPinCfg(GRP_OPA, opaPUs[index], PORT_PINCFG_PULLEN, PIN_CFG_CLR);
-      portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_CLR);
-    }
+  if (pulseCfg[index].puEn) {
+    portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_OUT);
+    portPinDrv(GRP_OPA, opaPUs[index], PIN_DRV_SET);
+    timerDelay_ms(1);
   } else {
-    /* OPA3 - use internal pull-up/down on the pin itself */
-    if (pulseCfg[index].puEn) {
-      portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_SET);
-      portPinDrv(GRP_OPA, pin, PIN_DRV_SET);
-    } else {
-      portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_CLR);
-    }
+    portPinDir(GRP_OPA, opaPUs[index], PIN_DIR_IN);
+    portPinCfg(GRP_OPA, opaPUs[index], PORT_PINCFG_PULLEN, PIN_CFG_CLR);
+
+    /* Enable weak pull down */
+    portPinCfg(GRP_OPA, pin, PORT_PINCFG_PULLEN, PIN_CFG_SET);
+    portPinDrv(GRP_OPA, pin, PIN_DRV_CLR);
   }
-  pinValue[index] = (uint32_t)portPinValue(GRP_OPA, pin);
+  pinValue[index] = (uint8_t)portPinValue(GRP_OPA, pin);
 
   /* Use the first read value as the current state */
   pulseLvlLast[index] = (PulseLvl_t)pinValue[index];
 }
 
-void pulseSetCount(const size_t index, const uint32_t value) {
+void pulseSetCount(const uint32_t index, const uint64_t value) {
   pulseCount[index] = value;
 }
 
-uint32_t pulseGetCount(const size_t index) { return pulseCount[index]; }
+uint64_t pulseGetCount(const uint32_t index) { return pulseCount[index]; }
 
 void pulseUpdate(void) {
   uint32_t   mask;
   PulseLvl_t level;
 
-  for (size_t i = 0; i < NUM_OPA; i++) {
+  for (uint32_t i = 0; i < NUM_OPA; i++) {
     if (pulseCfg[i].active) {
       mask  = (1 << pulseCfg[i].periods) - 1u;
       level = pulseLvlLast[i];
