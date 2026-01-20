@@ -166,7 +166,7 @@ static size_t strnCat(StrN_t *strD, const StrN_t *strS) {
 }
 
 size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
-                      const bool json, const CHActive_t chsActive) {
+                      const bool json, const CHActive_t *pChsActive) {
   EMON32_ASSERT(pData);
   EMON32_ASSERT(pDst);
 
@@ -179,7 +179,7 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
   uint32_t numV = (pData->pECM->activeCh & 0x6) ? NUM_V : 1;
 
   for (size_t i = 0; i < numV; i++) {
-    if (!json || chsActive.V[i]) {
+    if (!json || pChsActive->V[i]) {
       catId(&strn, (i + 1), STR_V, json);
       strn.n += strnCatFloat(&strn, pData->pECM->rmsV[i]);
     }
@@ -193,20 +193,20 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
                        : (NUM_CT / 2);
 
   for (size_t i = 0; i < numCT; i++) {
-    if (!json || chsActive.CT[i]) {
+    if (!json || pChsActive->CT[i]) {
       catId(&strn, (i + 1), STR_P, json);
       strn.n += strnCatInt(&strn, pData->pECM->CT[i].realPower);
     }
   }
   for (size_t i = 0; i < numCT; i++) {
-    if (!json || chsActive.CT[i]) {
+    if (!json || pChsActive->CT[i]) {
       catId(&strn, (i + 1), STR_E, json);
       strn.n += strnCatInt(&strn, pData->pECM->CT[i].wattHour);
     }
   }
 
   for (size_t i = 0; i < NUM_OPA; i++) {
-    if (!json || chsActive.pulse[i]) {
+    if (!json || pChsActive->pulse[i]) {
       catId(&strn, (i + 1), STR_PULSE, json);
       strn.n += strnCatUint(&strn, pData->pulseCnt[i]);
     }

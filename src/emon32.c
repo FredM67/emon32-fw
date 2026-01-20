@@ -548,7 +548,7 @@ static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
     chsActive.pulse[i] = ('r' == func) || ('f' == func) || ('b' == func);
   }
 
-  (void)dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json, chsActive);
+  (void)dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json, &chsActive);
 
   if (pOpt->useRFM) {
 
