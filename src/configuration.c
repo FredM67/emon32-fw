@@ -106,7 +106,8 @@ static char           inBuffer[IN_BUFFER_W];
 /* Async confirmation state */
 static volatile ConfirmState_t confirmState        = CONFIRM_IDLE;
 static volatile uint32_t       confirmStartTime_ms = 0;
-static int8_t clearAccumIdx = -1; /* -1=all, 0-11=E1-E12, 12-13=P1-P2 */
+static uint8_t                 clearAccumIdx =
+    UINT8_MAX; /* UINT8_MAX=all, 0-11=E1-E12, 12-13=P1-P2 */
 static size_t inBufferIdx   = 0;
 static bool   cmdPending    = false;
 static bool   unsavedChange = false;
@@ -1159,16 +1160,15 @@ static void handleConfirmation(char c) {
       /* Read current NVM data */
       if (EEPROM_WL_OK == eepromReadWL(&cumulative, &idx)) {
         /* Clear the specific accumulator */
-        size_t accumIdx = (size_t)clearAccumIdx;
-        if (accumIdx < NUM_CT) {
-          cumulative.wattHour[accumIdx] = 0;
-          ecmClearEnergyChannel(accumIdx);
-          printf_("    - Accumulator E%d cleared.\r\n", (int)accumIdx + 1);
+        if (clearAccumIdx < NUM_CT) {
+          cumulative.wattHour[clearAccumIdx] = 0;
+          ecmClearEnergyChannel(clearAccumIdx);
+          printf_("    - Accumulator E%d cleared.\r\n", clearAccumIdx + 1);
         } else {
-          cumulative.pulseCnt[accumIdx - NUM_CT] = 0;
-          pulseSetCount(accumIdx - NUM_CT, 0);
+          cumulative.pulseCnt[clearAccumIdx - NUM_CT] = 0;
+          pulseSetCount(clearAccumIdx - NUM_CT, 0);
           printf_("    - Accumulator pulse%d cleared.\r\n",
-                  (int)(accumIdx - NUM_CT + 1));
+                  clearAccumIdx - NUM_CT + 1);
         }
         /* Write back to NVM */
         eepromWriteWLAsync(&cumulative, &idx);
@@ -1181,7 +1181,7 @@ static void handleConfirmation(char c) {
     __disable_irq();
     confirmState        = CONFIRM_IDLE;
     confirmStartTime_ms = 0;
-    clearAccumIdx       = -1;
+    clearAccumIdx       = UINT8_MAX;
     __enable_irq();
     break;
 
@@ -1261,7 +1261,7 @@ void configCheckConfirmationTimeout(void) {
 
 /*! @brief Zero all accumulators (async confirmation) */
 static void zeroAccumulators(void) {
-  clearAccumIdx = -1; /* -1 means all accumulators */
+  clearAccumIdx = UINT8_MAX; /* UINT8_MAX means all accumulators */
   serialPuts(
       "> Zero accumulators. This can not be undone. 'y' to proceed.\r\n");
   __disable_irq();
@@ -1274,7 +1274,7 @@ static void zeroAccumulators(void) {
  *  @param [in] idx : accumulator index (0-11=E1-E12, 12-13=P1-P2)
  */
 static void zeroAccumulatorIndividual(uint8_t idx) {
-  clearAccumIdx = (int8_t)idx;
+  clearAccumIdx = idx;
   if (idx < NUM_CT) {
     printf_(
         "> Zero accumulator E%d. This can not be undone. 'y' to proceed.\r\n",
