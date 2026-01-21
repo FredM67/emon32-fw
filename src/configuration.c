@@ -246,11 +246,11 @@ static bool configureAnalog(void) {
     return false;
   }
 
-  if (convU.val.u32 >= VCT_TOTAL) {
+  if (--convU.val.u32 >= VCT_TOTAL) {
     return false;
   }
 
-  ch = convU.val.u32 - 1u;
+  ch = convU.val.u32;
 
   /* CT requires at least V1 */
   if (ch >= NUM_V) {
