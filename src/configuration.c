@@ -948,7 +948,7 @@ static void printSettingJSON(void) {
   printf_("json = %s\r\n", config.baseCfg.useJson ? "on" : "off");
 }
 
-static void printSettingOPA(const int32_t ch) {
+static void printSettingOPA(const size_t ch) {
   printf_("opa%d ", (ch + 1));
 
   /* OneWire */
