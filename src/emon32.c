@@ -544,7 +544,8 @@ static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
 
   for (size_t i = 0; i < NUM_OPA; i++) {
     uint8_t func       = pConfig->opaCfg[i].func;
-    chsActive.pulse[i] = ('r' == func) || ('f' == func) || ('b' == func);
+    bool    isPulse    = ('r' == func) || ('f' == func) || ('b' == func);
+    chsActive.pulse[i] = pConfig->opaCfg[i].opaActive && isPulse;
   }
 
   (void)dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pOpt->json, chsActive);
