@@ -4,7 +4,7 @@
 
 ## Schematic
 
-![emonPi3 / emonTx6 v1.0 schematic](img/schematic.png)
+![emonPi3 / emonTx6 v1.0 schematic](img/emonpi3_schematic.png)
 
 ## Voltage sensor pinout
 
