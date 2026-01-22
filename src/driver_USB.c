@@ -60,12 +60,11 @@ void usbCDCTask(void) {
       continue;
     }
     /* Check if we're waiting for a confirmation (bootloader, zero, etc.) */
-    if (configHandleConfirmation((uint8_t)ch)) {
+    if (configHandleConfirmation(ch)) {
       continue;
     }
     /* Normal command processing */
-    configCmdChar((uint8_t)ch);
-    usbCDCTxChar((uint8_t)ch);
+    configCmdChar(ch);
   }
 }
 
