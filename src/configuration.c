@@ -948,8 +948,8 @@ static void printSettingJSON(void) {
   printf_("json = %s\r\n", config.baseCfg.useJson ? "on" : "off");
 }
 
-static void printSettingOPA(const size_t ch) {
-  printf_("opa%u = ", (ch + 1));
+static void printSettingOPA(const int32_t ch) {
+  printf_("opa%d ", (ch + 1));
 
   /* OneWire */
   if ('o' == config.opaCfg[ch].func) {
@@ -959,7 +959,7 @@ static void printSettingOPA(const size_t ch) {
   }
 
   /* Pulse */
-  printf_("active %s, pulse, pullUp = %s, pulsePeriod = %d\r\n",
+  printf_("active = %s, pulse, pullUp = %s, pulsePeriod = %d\r\n",
           (config.opaCfg[ch].opaActive ? "1" : "0"),
           config.opaCfg[ch].puEn ? "on" : "off", config.opaCfg[ch].period);
 }
