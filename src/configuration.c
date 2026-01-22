@@ -936,9 +936,13 @@ static void printSettingOPA(const int32_t ch) {
     return;
   }
 
-  /* Pulse */
-  printf_("active = %s, pulse, pullUp = %s, pulsePeriod = %d\r\n",
-          (config.opaCfg[ch].opaActive ? "1" : "0"),
+  /* Pulse - show edge type */
+  const char *edgeStr = ('r' == config.opaCfg[ch].func)   ? "rising"
+                        : ('f' == config.opaCfg[ch].func) ? "falling"
+                                                          : "both";
+
+  printf_("active = %s, pulse = %s, pullUp = %s, pulsePeriod = %d\r\n",
+          (config.opaCfg[ch].opaActive ? "1" : "0"), edgeStr,
           config.opaCfg[ch].puEn ? "on" : "off", config.opaCfg[ch].period);
 }
 
