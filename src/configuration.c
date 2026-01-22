@@ -870,7 +870,7 @@ static void printSettingJSON(void) {
 }
 
 static void printSettingOPA(const int32_t ch) {
-  printf_("opa%d = ", (ch + 1));
+  printf_("opa%d ", (ch + 1));
 
   /* OneWire */
   if ('o' == config.opaCfg[ch].func) {
