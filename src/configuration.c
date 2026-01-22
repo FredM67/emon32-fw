@@ -880,7 +880,7 @@ static void printSettingOPA(const int32_t ch) {
   }
 
   /* Pulse */
-  printf_("active %s, pulse, pullUp = %s, pulsePeriod = %d\r\n",
+  printf_("active = %s, pulse, pullUp = %s, pulsePeriod = %d\r\n",
           (config.opaCfg[ch].opaActive ? "1" : "0"),
           config.opaCfg[ch].puEn ? "on" : "off", config.opaCfg[ch].period);
 }
