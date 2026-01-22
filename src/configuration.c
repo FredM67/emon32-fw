@@ -98,7 +98,23 @@ static void     zeroAccumulators(void);
  * Local variables
  *************************************/
 
-#define IN_BUFFER_W 64
+#define IN_BUFFER_W  64
+#define ERROR_PREFIX "> Error: "
+
+static void serialPutsError(const char *msg) {
+  serialPuts(ERROR_PREFIX);
+  serialPuts(msg);
+  serialPuts("\r\n");
+}
+
+static void printfError(const char *fmt, ...) {
+  va_list args;
+  serialPuts(ERROR_PREFIX);
+  va_start(args, fmt);
+  vprintf_(fmt, args);
+  va_end(args);
+  serialPuts("\r\n");
+}
 
 static Emon32Config_t config;
 static char           inBuffer[IN_BUFFER_W];
@@ -238,21 +254,25 @@ static bool configureAnalog(void) {
    */
   convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
   if (!convI.valid) {
+    serialPutsError("Invalid channel number.");
     return false;
   }
   ch = convI.val - 1;
 
   if ((ch < 0) || (ch >= VCT_TOTAL)) {
+    printfError("Channel out of range (valid: 1-%d).", VCT_TOTAL);
     return false;
   }
 
   if ((0 == posCalib) || (0 == posActive) || (0 == posPhase)) {
+    serialPutsError("Missing required parameters.");
     return false;
   }
 
   /* CT requires at least V1 */
   if (ch >= NUM_V) {
     if (0 == posV1) {
+      serialPutsError("CT requires voltage channel reference.");
       return false;
     }
   }
@@ -262,18 +282,21 @@ static bool configureAnalog(void) {
 
   convI = utilAtoi(inBuffer + posActive, ITOA_BASE10);
   if (!convI.valid) {
+    serialPutsError("Invalid active value (valid: 0 or 1).");
     return false;
   }
   active = (bool)convI.val;
 
   convF = utilAtof(inBuffer + posCalib);
   if (!convF.valid) {
+    serialPutsError("Invalid calibration value.");
     return false;
   }
   calAmpl = convF.val;
 
   convF = utilAtof(inBuffer + posPhase);
   if (!convF.valid) {
+    serialPutsError("Invalid phase value.");
     return false;
   }
   calPhase = convF.val;
@@ -281,6 +304,7 @@ static bool configureAnalog(void) {
   if (NUM_V > ch) {
 
     if ((calAmpl <= 25.0f) || (calAmpl >= 150.0f)) {
+      serialPutsError("vCal out of range (valid: 25-150).");
       return false;
     }
 
@@ -309,6 +333,7 @@ static bool configureAnalog(void) {
 
   convI = utilAtoi(inBuffer + posV1, ITOA_BASE10);
   if (!convI.valid) {
+    serialPutsError("Invalid v1 value.");
     return false;
   }
   vCh1 = convI.val;
@@ -317,6 +342,7 @@ static bool configureAnalog(void) {
   if (posV2) {
     convI = utilAtoi(inBuffer + posV2, ITOA_BASE10);
     if (!convI.valid) {
+      serialPutsError("Invalid v2 value.");
       return false;
     }
     vCh2 = convI.val;
@@ -325,11 +351,13 @@ static bool configureAnalog(void) {
   }
 
   if ((vCh1 < 1) || (vCh1 > NUM_V) || (vCh2 < 1) || (vCh2 > NUM_V)) {
+    printfError("vChan out of range (valid: 1-%d).", NUM_V);
     return false;
   }
 
   /* CT configuration - assume 10/200 A min/max CTs */
   if ((calAmpl < 10.0f) || (calAmpl) > 200.0f) {
+    serialPutsError("iCal out of range (valid: 10-200).");
     return false;
   }
 
@@ -420,30 +448,35 @@ static void configureBackup(void) {
 static bool configureDatalog(void) {
   ConvFloat_t convF = utilAtof(inBuffer + 1);
   /* Set the datalog period (s) in range 0.5 <= t <= 600 */
-  if (convF.valid) {
-    if ((convF.val < 0.5f) || (convF.val > 600.0f)) {
-      serialPuts("> Log report time out of range.\r\n");
-    } else {
-      config.baseCfg.reportTime = convF.val;
-      config.baseCfg.reportCycles =
-          configTimeToCycles(convF.val, config.baseCfg.mainsFreq);
-      ecmConfigReportCycles(config.baseCfg.reportCycles);
-
-      printSettingDatalog();
-      return true;
-    }
+  if (!convF.valid) {
+    serialPutsError("Invalid datalog value.");
+    return false;
   }
-  return false;
+
+  if ((convF.val < 0.5f) || (convF.val > 600.0f)) {
+    serialPutsError("Datalog out of range (valid: 0.5-600).");
+    return false;
+  }
+
+  config.baseCfg.reportTime = convF.val;
+  config.baseCfg.reportCycles =
+      configTimeToCycles(convF.val, config.baseCfg.mainsFreq);
+  ecmConfigReportCycles(config.baseCfg.reportCycles);
+
+  printSettingDatalog();
+  return true;
 }
 
 static bool configureGroupID(void) {
   ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
 
   if (!convI.valid) {
+    serialPutsError("Invalid group ID value.");
     return false;
   }
 
   if ((convI.val < 0) || (convI.val > 255)) {
+    serialPutsError("Group ID out of range (valid: 0-255).");
     return false;
   }
 
@@ -456,10 +489,12 @@ static bool configureJSON(void) {
   ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
 
   if (!convI.valid) {
+    serialPutsError("Invalid JSON value.");
     return false;
   }
 
   if (!((0 == convI.val) || (1 == convI.val))) {
+    serialPutsError("JSON value must be 0 or 1.");
     return false;
   }
 
@@ -474,10 +509,12 @@ static bool configureLineFrequency(void) {
    */
   ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
   if (!convI.valid) {
+    serialPutsError("Invalid frequency value.");
     return false;
   }
 
   if (!((50 == convI.val) || (60 == convI.val))) {
+    serialPutsError("Frequency must be 50 or 60.");
     return false;
   }
 
@@ -543,15 +580,18 @@ static bool configure1WSave(void) {
   size_t  ch;
 
   if (8 != inBufferTok()) {
+    serialPutsError("1-Wire save requires 8 address bytes.");
     return false;
   }
 
   ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
   if (!convI.valid) {
+    serialPutsError("Invalid 1-Wire channel value.");
     return false;
   }
 
   if ((convI.val < 1) || (convI.val > (TEMP_MAX_ONEWIRE))) {
+    printfError("1-Wire channel out of range (valid: 1-%d).", TEMP_MAX_ONEWIRE);
     return false;
   }
   ch = convI.val - 1u;
@@ -568,6 +608,7 @@ static bool configure1WSave(void) {
   for (size_t i = 0; i < 8; i++) {
     convI = utilAtoi(&inBuffer[pos[i]], ITOA_BASE16);
     if (!convI.valid) {
+      serialPutsError("Invalid 1-Wire address byte.");
       return false;
     }
     addr |= ((uint64_t)convI.val << (8u * i));
@@ -615,17 +656,20 @@ static bool configureOPA(void) {
   /* Channel index */
   convI = utilAtoi(inBuffer + posCh, ITOA_BASE10);
   if (!convI.valid) {
+    serialPutsError("Invalid OPA channel value.");
     return false;
   }
   ch = convI.val - 1;
 
   if ((ch < 0) || (ch >= NUM_OPA)) {
+    printfError("OPA channel out of range (valid: 1-%d).", NUM_OPA);
     return false;
   }
 
   /* Check if the channel is active or inactive */
   convI = utilAtoi(inBuffer + posActive, ITOA_BASE10);
   if (!convI.valid) {
+    serialPutsError("Invalid OPA active value.");
     return false;
   }
   active = (bool)convI.val;
@@ -645,18 +689,21 @@ static bool configureOPA(void) {
   bool isOneWire = ('o' == func);
 
   if (!(isPulse || isOneWire)) {
+    serialPutsError("Invalid OPA function (valid: b/f/r/o).");
     return false;
   }
 
   if (isPulse) {
     convI = utilAtoi((inBuffer + posPu), ITOA_BASE10);
     if (!convI.valid) {
+      serialPutsError("Invalid OPA pull-up value.");
       return false;
     }
     pu = (bool)convI.val;
 
     convI = utilAtoi((inBuffer + posPeriod), ITOA_BASE10);
     if (!convI.valid) {
+      serialPutsError("Invalid OPA period value.");
       return false;
     }
     period = convI.val;
@@ -664,6 +711,7 @@ static bool configureOPA(void) {
 
   /* OPA3 can only be a pulse or analog input */
   if ((2 == ch) && !isPulse) {
+    serialPutsError("OPA3 only supports pulse input.");
     return false;
   }
 
@@ -688,10 +736,12 @@ static bool configureNodeID(void) {
    */
   ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
   if (!convI.valid) {
+    serialPutsError("Invalid node ID value.");
     return false;
   }
 
   if ((convI.val < 1) || (convI.val > 60)) {
+    serialPutsError("Node ID out of range (valid: 1-60).");
     return false;
   }
 
@@ -705,6 +755,7 @@ static bool configureRFEnable(void) {
   int32_t val = inBuffer[1] - '0';
 
   if (!((0 == val) || (1 == val))) {
+    serialPutsError("RF enable must be 0 or 1.");
     return false;
   }
 
@@ -718,11 +769,13 @@ static bool configureRF433(void) {
   int32_t val = inBuffer[1] - '0';
 
   if (!((0 == val) || (1 == val))) {
+    serialPutsError("RF 433 value must be 0 or 1.");
     return false;
   }
 
   /* Only applies to 433 MHz ISM band */
   if (!((config.dataTxCfg.rfmFreq == 2) || (config.dataTxCfg.rfmFreq == 3))) {
+    serialPutsError("RF 433 only applies to 433 MHz band.");
     return false;
   }
 
@@ -741,10 +794,12 @@ static bool configureRFPower(void) {
    */
   ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
   if (!convI.valid) {
+    serialPutsError("Invalid RF power value.");
     return false;
   }
 
   if ((convI.val < 0) || (convI.val > 31)) {
+    serialPutsError("RF power out of range (valid: 0-31).");
     return false;
   }
 
@@ -760,10 +815,12 @@ static bool configureSerialLog(void) {
   ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
 
   if (!convI.valid) {
+    serialPutsError("Invalid serial log value.");
     return false;
   }
 
   if (!((0 == convI.val) || (1 == convI.val))) {
+    serialPutsError("Serial log must be 0 or 1.");
     return false;
   }
 
@@ -1301,7 +1358,7 @@ static void parseAndZeroAccumulator(void) {
     if (num >= 1 && num <= NUM_CT) {
       zeroAccumulatorIndividual(num - 1); /* Convert to 0-indexed */
     } else {
-      printf_("Invalid energy accumulator index. Use ze1-%d.\r\n", NUM_CT);
+      printfError("Invalid energy accumulator index (valid: ze1-%d).", NUM_CT);
     }
     return;
   }
@@ -1314,13 +1371,13 @@ static void parseAndZeroAccumulator(void) {
       zeroAccumulatorIndividual(NUM_CT + num - 1); /* Pulse index starts after
                                                        energy */
     } else {
-      printf_("Invalid pulse accumulator index. Use zp1-%d.\r\n", NUM_OPA);
+      printfError("Invalid pulse accumulator index (valid: zp1-%d).", NUM_OPA);
     }
     return;
   }
 
   /* Invalid format */
-  serialPuts("Invalid command. Use z, ze1-12, or zp1-3.\r\n");
+  serialPutsError("Invalid command. Use z, ze1-12, or zp1-3.");
 }
 
 void configCmdChar(const uint8_t c) {
