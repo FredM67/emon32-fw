@@ -26,7 +26,7 @@ _Static_assert((sizeof(bool) == 1), "bool must be 1 byte");
  * Firmware version
  *********************************/
 #define VERSION_FW_MAJ 0u
-#define VERSION_FW_MIN 2u
+#define VERSION_FW_MIN 99u
 #define VERSION_FW_REV 0u
 
 /*********************************
