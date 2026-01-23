@@ -44,6 +44,7 @@ The following details the available commands and their function.
   - e.g. k1 1 101.3
   - k4 1 20.0 3.20 1 1
 - **l** list the settings
+- **lh** list settings and accumulators (human readable)
 - **m\<v\> \<w\> \<x\> \<y\> \<z\>** OneWire and pulse configuration:
   - v : channel index
   - w : 0 for DISABLED, 1 for ENABLED. If DISABLED, no other arguments needed.
@@ -51,11 +52,19 @@ The following details the available commands and their function.
   - y : 0 for no pull up, 1 for pull up (ignored for OneWire)
   - z : minimum pulse period (ms) (ignored for OneWire)
 - **n\<n\>** sets the node ID \[1..60\]
+- **o\<x\>** configure OneWire addressing:
+  - x = f : reset and find OneWire devices
+  - x = l : list current addresses
+  - x = s : save current addresses
+  - x = \<n\> : save address to index n
 - **p\<n\>** sets the RF power level
 - **r** restore default settings
 - **s** save settings to EEPROM
 - **t** trigger a report on the next mains cycle
+- **u** store current accumulator values to NVM
 - **v** show firmware and board information
 - **w\<n\>** n = 0 for OFF, n= 1 for ON, enable wireless transmission
 - **x\<n\>** n = 0 for 433.92 MHz, n = 1 for 433.00 MHz compatibility
-- **z** zero energy accumulators
+- **z** zero all accumulators (E1-E12, pulse1-3)
+- **ze\<n\>** zero individual energy accumulator (n=1-12)
+- **zp\<n\>** zero individual pulse accumulator (n=1-3)
