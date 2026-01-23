@@ -1,0 +1,29 @@
+# Interfacers for the emonTx6's channels. Node N sends CT1-6, node N+1 sends
+# temperature and pulse values, node N+2 sends CT7-12. Temperature/pulse and
+# CT7-12 are only sent if any of temp/pulse or CT7-12 respectively are present
+# and active. The indices below ([20,21,22]) are valid when using the emonTx6's
+# default node value of 20; change these to reflect your own system.
+
+[[20]]
+nodename = emonTx6_20
+[[[rx]]]
+names =     MSG, Vrms1, Vrms2, Vrms3, P1, P2, P3, P4, P5, P6, E1, E2, E3, E4, E5, E6
+datacodes = L, h, h, h, h, h, h, h, h, h, l, l, l, l, l, l
+scales =    1.0, 0.01, 0.01, 0.01, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+units =     n, V, V, V, W, W, W, W, W, W, Wh, Wh, Wh, Wh, Wh, Wh
+
+[[21]]
+nodename = emonTx6_21
+[[[rx]]]
+names =     MSG, T1, T2, T3, T4, T5, T6, T7, T8, pulse1, pulse2, pulse3
+datacodes = L, h, h, h, h, h, h, h, h, L, L, L
+scales =    1.0, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 1.0, 1.0, 1.0
+units =     n, C, C, C, C, C, C, C, C, p, p, p
+
+[[22]]
+nodename = emonTx6_22
+[[[rx]]]
+names =     MSG, Vrms1, Vrms2, Vrms3, P7, P8, P9, P10, P11, P12, E7, E8, E9, E10, E11, E12
+datacodes = L, h, h, h, h, h, h, h, h, h, l, l, l, l, l, l
+scales =    1.0, 0.01, 0.01, 0.01, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+units =     n, V, V, V, W, W, W, W, W, W, Wh, Wh, Wh, Wh, Wh, Wh

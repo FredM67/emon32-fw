@@ -219,38 +219,31 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst, const size_t m,
 uint8_t dataPackPacked(const Emon32Dataset_t *pData, void *pPacked,
                        const PackedRange_t range) {
 
-  /* Both upper and lower packets share the same initial data structure.
-   * Differentiate for pulse or temperature readings. */
-
-  bool isUpper = (PACKED_UPPER == range);
-
-  PackedDataCommon_t *pCommon = pPacked;
-  pCommon->msg                = pData->msgNum;
-
-  for (size_t v = 0; v < NUM_V; v++) {
-    pCommon->V[v] =
-        (uint16_t)qfp_float2int_z(qfp_fmul(pData->pECM->rmsV[v], 100.0f));
-  }
-
-  for (size_t i = 0; i < (NUM_CT / 2); i++) {
-    pCommon->P[i] =
-        (int16_t)pData->pECM->CT[i + ((NUM_CT / 2) * isUpper)].realPower;
-    pCommon->E[i] = pData->pECM->CT[i + ((NUM_CT / 2) * isUpper)].wattHour;
-  }
-
-  if (PACKED_LOWER == range) {
-    PackedDataLower6_t *pLower = pPacked;
-    for (size_t p = 0; p < 2u; p++) {
-      pLower->pulse[p] = pData->pulseCnt[p];
+  if (PACKED_TEMP_PULSE == range) {
+    PackedDataTempPulse_t *pP = (PackedDataTempPulse_t *)pPacked;
+    pP->msg                   = pData->msgNum;
+    for (size_t t = 0; t < TEMP_MAX_ONEWIRE; t++) {
+      pP->temp[t] = (int16_t)((pData->temp[t] * 6) + (pData->temp[t] >> 2));
     }
-    return sizeof(*pLower);
-  } else if (PACKED_UPPER == range) {
-    PackedDataUpper6_t *pUpper = pPacked;
-    for (size_t t = 0; t < (TEMP_MAX_ONEWIRE / 2); t++) {
-      /* Sent as 100x the temperature value. */
-      pUpper->temp[t] = (int16_t)((pData->temp[t] * 6) + (pData->temp[t] >> 2));
+    for (size_t p = 0; p < NUM_OPA; p++) {
+      pP->pulse[p] = pData->pulseCnt[p];
     }
-    return sizeof(*pUpper);
+    return sizeof(*pP);
+  } else {
+    PackedDataCT_t *pP = (PackedDataCT_t *)pPacked;
+    pP->msg            = pData->msgNum;
+    for (size_t v = 0; v < NUM_V; v++) {
+      pP->V[v] =
+          (uint16_t)qfp_float2int_z(qfp_fmul(pData->pECM->rmsV[v], 100.0f));
+    }
+
+    const size_t isCT7_12 = (size_t)(PACKED_CT7_12 == range);
+    for (size_t i = 0; i < (NUM_CT / 2); i++) {
+      pP->P[i] =
+          (int16_t)pData->pECM->CT[i + ((NUM_CT / 2) * isCT7_12)].realPower;
+      pP->E[i] = pData->pECM->CT[i + ((NUM_CT / 2) * isCT7_12)].wattHour;
+    }
+    return sizeof(*pP);
   }
 
   return 0u;

@@ -12,9 +12,9 @@ typedef struct CHActive_ {
 } CHActive_t;
 
 typedef enum PackedRange_ {
-  PACKED_ALL,
-  PACKED_UPPER,
-  PACKED_LOWER
+  PACKED_CT1_6,
+  PACKED_TEMP_PULSE,
+  PACKED_CT7_12,
 } PackedRange_t;
 
 /*! @brief Packs the emon_CM packet into serial format.

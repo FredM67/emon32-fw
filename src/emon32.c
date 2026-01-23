@@ -558,19 +558,54 @@ static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
     }
 
     if (sercomExtIntfEnabled()) {
-      uint8_t   retryCount = 0;
-      RFMSend_t rfmResult;
-      uint8_t   nPacked = dataPackPacked(pSrc, rfmGetBuffer(), PACKED_LOWER);
+      uint8_t   retryCount    = 0;
+      RFMSend_t rfmResult     = RFM_FAILED;
+      bool      sendTempPulse = false;
+      bool      sendCT7_12    = false;
+
+      /* Only send temperature + pulse if found or active */
+      for (size_t t = 0; t < TEMP_MAX_ONEWIRE; t++) {
+        if (4800 != pSrc->temp[t]) {
+          sendTempPulse = true;
+          break;
+        }
+      }
+      for (size_t p = 0; p < NUM_OPA; p++) {
+        const uint8_t func    = pConfig->opaCfg[p].func;
+        const bool    isPulse = ('r' == func) || ('f' == func) || ('b' == func);
+        if (isPulse && pConfig->opaCfg[p].opaActive) {
+          sendTempPulse = true;
+          break;
+        }
+      }
+
+      /* Only send CT7-12 if any are active */
+      for (size_t i = (NUM_CT / 2); i < (NUM_CT / 2); i++) {
+        if (pConfig->ctCfg[i].ctActive) {
+          sendCT7_12 = true;
+          break;
+        }
+      }
 
       rfmSetAddress(pOpt->node);
 
-      rfmResult = rfmSendBuffer(nPacked, RFM_RETRIES, &retryCount);
+      uint8_t nPacked = dataPackPacked(pSrc, rfmGetBuffer(), PACKED_CT1_6);
+      rfmResult       = rfmSendBuffer(nPacked, RFM_RETRIES, &retryCount);
 
-      if (RFM_SUCCESS == rfmResult) {
-        nPacked = dataPackPacked(pSrc, rfmGetBuffer(), PACKED_UPPER);
-        rfmSetAddress(pOpt->node + 1);
+      if ((RFM_SUCCESS == rfmResult) && sendTempPulse) {
+        rfmSetAddress(pOpt->node + 1u);
 
-        rfmResult = rfmSendBuffer(nPacked, RFM_RETRIES, &retryCount);
+        retryCount = 0;
+        nPacked    = dataPackPacked(pSrc, rfmGetBuffer(), PACKED_TEMP_PULSE);
+        rfmResult  = rfmSendBuffer(nPacked, RFM_RETRIES, &retryCount);
+      }
+
+      if ((RFM_SUCCESS == rfmResult) && sendCT7_12) {
+        rfmSetAddress(pOpt->node + 2u);
+
+        retryCount = 0;
+        nPacked    = dataPackPacked(pSrc, rfmGetBuffer(), PACKED_CT7_12);
+        rfmResult  = rfmSendBuffer(nPacked, RFM_RETRIES, &retryCount);
       }
     }
 

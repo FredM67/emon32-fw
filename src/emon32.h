@@ -54,6 +54,18 @@ typedef struct __attribute__((__packed__)) Emon32Cumulative_ {
 /* This struct must match the OEM definitions found at:
  * https://docs.openenergymonitor.org/electricity-monitoring/networking/sending-data-between-nodes-rfm.html
  */
+typedef struct __attribute__((__packed__)) PackedDataCT_ {
+  uint32_t msg;           /* Message number */
+  uint16_t V[NUM_V];      /* Voltages */
+  int16_t  P[NUM_CT / 2]; /* Powers */
+  int32_t  E[NUM_CT / 2]; /* Energies */
+} PackedDataCT_t;
+
+typedef struct __attribute__((__packed__)) PackedDataTempPulse_ {
+  uint32_t msg;
+  int16_t  temp[TEMP_MAX_ONEWIRE];
+  uint32_t pulse[NUM_OPA];
+} PackedDataTempPulse_t;
 
 typedef struct __attribute__((__packed__)) PackedDataCommon_ {
   uint32_t msg;
@@ -62,22 +74,11 @@ typedef struct __attribute__((__packed__)) PackedDataCommon_ {
   int32_t  E[NUM_CT / 2];
 } PackedDataCommon_t;
 
-typedef struct __attribute__((__packed__)) PackedDataLower6_ {
-  PackedDataCommon_t common;
-  uint32_t           pulse[2];
-} PackedDataLower6_t;
-
-typedef struct __attribute__((__packed__)) PackedDataUpper6_ {
-  PackedDataCommon_t common;
-  int16_t            temp[4];
-} PackedDataUpper6_t;
-
-/* Maximum size of RFM69CW buffer is 61 bytes. Node, number, and CRC included.
+/* Maximum size of RFM69CW data buffer is 61 bytes.
  */
-_Static_assert((sizeof(PackedDataLower6_t) + 4) < 62,
-               "PackedDataLower6_t > 61 bytes");
-_Static_assert((sizeof(PackedDataUpper6_t) + 4) < 62,
-               "PackedDataUpper6_t > 61 bytes");
+_Static_assert((sizeof(PackedDataCT_t)) < 62, "PackedDataCT_t > 61 bytes");
+_Static_assert((sizeof(PackedDataTempPulse_t)) < 62,
+               "PackedDataTempPulse_t > 61 bytes");
 
 /* EVTSRC_t contains all the event/interrupts sources. This value is shifted
  * to provide a vector of set events as bits.
