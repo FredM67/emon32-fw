@@ -932,7 +932,8 @@ static void printSettingCT(const size_t ch) {
   putFloat(config.ctCfg[ch].ctCal, 0);
   printf_(", iLead%u = ", (ch + 1));
   putFloat(config.ctCfg[ch].phase, 0);
-  printf_(", iActive%u = %s", (ch + 1), config.ctCfg[ch].ctActive ? "1" : "0");
+  printf_(", iActive%u = %s", (ch + 1),
+          config.ctCfg[ch].ctActive ? "on" : "off");
   printf_(", v1Chan%u = %d, v2Chan%u = %d\r\n", (ch + 1),
           (config.ctCfg[ch].vChan1 + 1), (ch + 1),
           (config.ctCfg[ch].vChan2 + 1));
@@ -954,7 +955,7 @@ static void printSettingOPA(const size_t ch) {
   /* OneWire */
   if ('o' == config.opaCfg[ch].func) {
     printf_("active = %s, onewire\r\n",
-            config.opaCfg[ch].opaActive ? "1" : "0");
+            config.opaCfg[ch].opaActive ? "on" : "off");
     return;
   }
 
@@ -964,7 +965,7 @@ static void printSettingOPA(const size_t ch) {
                                                           : "both";
 
   printf_("active = %s, pulse = %s, pullUp = %s, pulsePeriod = %d\r\n",
-          (config.opaCfg[ch].opaActive ? "1" : "0"), edgeStr,
+          (config.opaCfg[ch].opaActive ? "on" : "off"), edgeStr,
           config.opaCfg[ch].puEn ? "on" : "off", config.opaCfg[ch].period);
 }
 
@@ -1002,7 +1003,7 @@ static void printSettingV(const size_t ch) {
   printf_(", vLead%u = ", (ch + 1));
   putFloat(config.voltageCfg[ch].phase, 0);
   printf_(", vActive%u = %s\r\n", (ch + 1),
-          config.voltageCfg[ch].vActive ? "1" : "0");
+          config.voltageCfg[ch].vActive ? "on" : "off");
 }
 
 static void printAccumulators(void) {
