@@ -52,7 +52,7 @@ static void     configDefault(void);
 static void     configEchoQueueChar(const uint8_t c);
 static void     configEchoQueueStr(const char *s);
 static void     configInitialiseNVM(void);
-static int32_t  configTimeToCycles(const float time, const int32_t mainsFreq);
+static uint16_t configTimeToCycles(const float time, const uint32_t mainsFreq);
 static bool     configureAnalog(void);
 static bool     configureAssumed(void);
 static void     configureBackup(void);
@@ -75,20 +75,20 @@ static void     enterBootloader(void);
 static uint32_t getBoardRevision(void);
 static char    *getLastReset(void);
 static void     handleConfirmation(char c);
-static void     inBufferClear(int32_t n);
+static void     inBufferClear(const size_t n);
 static size_t   inBufferTok(void);
-static void     printSettingCT(const int32_t ch);
+static void     printSettingCT(const size_t ch);
 static void     printSettingDatalog(void);
 static void     printSettingJSON(void);
-static void     printSettingOPA(const int32_t ch);
+static void     printSettingOPA(const size_t ch);
 static void     printSettingRF(void);
 static void     printSettingRFFreq(void);
-static void     printSettingV(const int32_t ch);
+static void     printSettingV(const size_t ch);
 static void     printSettings(void);
 static void     printSettingsHR(void);
 static void     printSettingsKV(void);
 static void     printUptime(void);
-static void     putFloat(float val, int32_t flt_len);
+static void     putFloat(float val, const size_t flt_len);
 /* static char     waitForChar(void); - Removed, NVM corruption now auto-loads
  * defaults */
 /* static bool     restoreDefaults(void); - Removed pending OEM decision */
@@ -98,7 +98,7 @@ static void     zeroAccumulators(void);
  * Local variables
  *************************************/
 
-#define IN_BUFFER_W  64
+#define IN_BUFFER_W  64u
 #define ERROR_PREFIX "> Error: "
 
 static void serialPutsError(const char *msg) {
@@ -122,10 +122,11 @@ static char           inBuffer[IN_BUFFER_W];
 /* Async confirmation state */
 static volatile ConfirmState_t confirmState        = CONFIRM_IDLE;
 static volatile uint32_t       confirmStartTime_ms = 0;
-static int8_t  clearAccumIdx = -1; /* -1=all, 0-11=E1-E12, 12-13=P1-P2 */
-static int32_t inBufferIdx   = 0;
-static bool    cmdPending    = false;
-static bool    unsavedChange = false;
+static uint8_t                 clearAccumIdx =
+    UINT8_MAX; /* UINT8_MAX=all, 0-11=E1-E12, 12-13=P1-P2 */
+static size_t inBufferIdx   = 0;
+static bool   cmdPending    = false;
+static bool   unsavedChange = false;
 
 /*! @brief Set all configuration values to defaults */
 static void configDefault(void) {
@@ -149,14 +150,14 @@ static void configDefault(void) {
   config.dataTxCfg.rfmPwr     = RFM_PALEVEL_DEF;
   config.dataTxCfg.rfmFreq    = RFM_FREQ_DEF;
 
-  for (int32_t idxV = 0u; idxV < NUM_V; idxV++) {
+  for (size_t idxV = 0u; idxV < NUM_V; idxV++) {
     config.voltageCfg[idxV].voltageCal = 100.0f;
     config.voltageCfg[idxV].vActive    = (0 == idxV);
     config.voltageCfg[idxV].phase      = 0.0f;
   }
 
   /* 4.2 degree shift @ 50 Hz. Initialize ALL slots including reserved. */
-  for (int32_t idxCT = 0u; idxCT < (NUM_CT + CT_RES); idxCT++) {
+  for (size_t idxCT = 0u; idxCT < (NUM_CT + CT_RES); idxCT++) {
     config.ctCfg[idxCT].ctCal    = 100.0f;
     config.ctCfg[idxCT].phase    = 3.2f;
     config.ctCfg[idxCT].vChan1   = 0;
@@ -214,60 +215,61 @@ static bool configureAnalog(void) {
    * Find space delimiters, then convert to null and a->i/f
    */
   ConvFloat_t convF     = {false, 0.0f};
-  ConvInt_t   convI     = {false, 0};
-  int32_t     ch        = 0;
+  ConvUint_t  convU     = {false, {0}};
+  uint32_t    ch        = 0;
   bool        active    = false;
   float       calAmpl   = 0.0f;
   float       calPhase  = 0.0f;
-  int32_t     vCh1      = 0;
-  int32_t     vCh2      = 0;
-  int32_t     posActive = 0;
-  int32_t     posCalib  = 0;
-  int32_t     posPhase  = 0;
-  int32_t     posV1     = 0;
-  int32_t     posV2     = 0;
+  uint8_t     vCh1      = 0;
+  uint8_t     vCh2      = 0;
+  uint32_t    posActive = 0;
+  uint32_t    posCalib  = 0;
+  uint32_t    posPhase  = 0;
+  uint32_t    posV1     = 0;
+  uint32_t    posV2     = 0;
   ECMCfg_t   *ecmCfg    = 0;
 
-  for (int32_t i = 0; i < IN_BUFFER_W; i++) {
+  for (size_t i = 0; i < IN_BUFFER_W; i++) {
     if (0 == inBuffer[i]) {
       break;
     }
     if (' ' == inBuffer[i]) {
       inBuffer[i] = 0;
       if (0 == posActive) {
-        posActive = i + 1;
+        posActive = i + 1u;
       } else if (0 == posCalib) {
-        posCalib = i + 1;
+        posCalib = i + 1u;
       } else if (0 == posPhase) {
-        posPhase = i + 1;
+        posPhase = i + 1u;
       } else if (0 == posV1) {
-        posV1 = i + 1;
+        posV1 = i + 1u;
       } else if (0 == posV2) {
-        posV2 = i + 1;
+        posV2 = i + 1u;
         break;
       }
     }
-  }
-
-  /* Voltage channels are [1..3], CTs are [4..] but 0 indexed internally. All
-   * fields must be present for a given channel type.
-   */
-  convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (!convI.valid) {
-    serialPutsError("Invalid channel number.");
-    return false;
-  }
-  ch = convI.val - 1;
-
-  if ((ch < 0) || (ch >= VCT_TOTAL)) {
-    printfError("Channel out of range (valid: 1-%d).", VCT_TOTAL);
-    return false;
   }
 
   if ((0 == posCalib) || (0 == posActive) || (0 == posPhase)) {
     serialPutsError("Missing required parameters.");
     return false;
   }
+
+  /* Voltage channels are [1..3], CTs are [4..] but 0 indexed internally. All
+   * fields must be present for a given channel type.
+   */
+  convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (!convU.valid) {
+    serialPutsError("Invalid channel number.");
+    return false;
+  }
+
+  if (--convU.val.u32 >= VCT_TOTAL) {
+    printfError("Channel out of range (valid: 1-%d).", VCT_TOTAL);
+    return false;
+  }
+
+  ch = convU.val.u32;
 
   /* CT requires at least V1 */
   if (ch >= NUM_V) {
@@ -280,12 +282,18 @@ static bool configureAnalog(void) {
   ecmCfg = ecmConfigGet();
   EMON32_ASSERT(ecmCfg);
 
-  convI = utilAtoi(inBuffer + posActive, ITOA_BASE10);
-  if (!convI.valid) {
+  convU = utilAtoui(inBuffer + posActive, ITOA_BASE10);
+  if (!convU.valid) {
     serialPutsError("Invalid active value (valid: 0 or 1).");
     return false;
   }
-  active = (bool)convI.val;
+
+  if (convU.val.u32 > 1) {
+    serialPutsError("Invalid active value (valid: 0 or 1).");
+    return false;
+  }
+
+  active = (bool)convU.val.u8;
 
   convF = utilAtof(inBuffer + posCalib);
   if (!convF.valid) {
@@ -331,28 +339,31 @@ static bool configureAnalog(void) {
     return true;
   }
 
-  convI = utilAtoi(inBuffer + posV1, ITOA_BASE10);
-  if (!convI.valid) {
+  convU = utilAtoui(inBuffer + posV1, ITOA_BASE10);
+  if (!convU.valid) {
     serialPutsError("Invalid v1 value.");
     return false;
   }
-  vCh1 = convI.val;
+  if (!convU.val.u32 || convU.val.u32 > NUM_V) {
+    printfError("vChan out of range (valid: 1-%d).", NUM_V);
+    return false;
+  }
+  vCh1 = convU.val.u8;
 
   /* V2 is optional */
   if (posV2) {
-    convI = utilAtoi(inBuffer + posV2, ITOA_BASE10);
-    if (!convI.valid) {
+    convU = utilAtoui(inBuffer + posV2, ITOA_BASE10);
+    if (!convU.valid) {
       serialPutsError("Invalid v2 value.");
       return false;
     }
-    vCh2 = convI.val;
+    if (!convU.val.u32 || convU.val.u32 > NUM_V) {
+      printfError("vChan out of range (valid: 1-%d).", NUM_V);
+      return false;
+    }
+    vCh2 = convU.val.u8;
   } else {
     vCh2 = vCh1;
-  }
-
-  if ((vCh1 < 1) || (vCh1 > NUM_V) || (vCh2 < 1) || (vCh2 > NUM_V)) {
-    printfError("vChan out of range (valid: 1-%d).", NUM_V);
-    return false;
   }
 
   /* CT configuration - assume 10/200 A min/max CTs */
@@ -383,11 +394,11 @@ static bool configureAnalog(void) {
 }
 
 static bool configureAssumed(void) {
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (convI.valid) {
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (convU.valid) {
     ECMCfg_t *pEcmCfg          = ecmConfigGet();
-    pEcmCfg->assumedVrms       = qfp_uint2float(convI.val);
-    config.baseCfg.assumedVrms = convI.val;
+    pEcmCfg->assumedVrms       = qfp_uint2float(convU.val.u32);
+    config.baseCfg.assumedVrms = convU.val.u16;
     return true;
   }
   return false;
@@ -401,10 +412,9 @@ static void configureBackup(void) {
   serialPuts("{");
   /* {board_info} dict */
   serialPuts("\"board_info\":{");
-  printf_("\"revision\":%d,", (int32_t)getBoardRevision());
-  printf_("\"serial\":\"0x%02x%02x%02x%02x\",", (uint32_t)getUniqueID(0),
-          (uint32_t)getUniqueID(1), (uint32_t)getUniqueID(2),
-          (uint32_t)getUniqueID(3));
+  printf_("\"revision\":%ld,", getBoardRevision());
+  printf_("\"serial\":\"0x%02lx%02lx%02lx%02lx\",", getUniqueID(0),
+          getUniqueID(1), getUniqueID(2), getUniqueID(3));
   printf_("\"fw\":\"%d.%d.%d\"},", VERSION_FW_MAJ, VERSION_FW_MIN,
           VERSION_FW_REV);
 
@@ -416,7 +426,7 @@ static void configureBackup(void) {
   printf_("\"assumedV\":%d,", config.baseCfg.assumedVrms);
   /* {v_config} list of dicts */
   serialPuts("\"v_config\":[");
-  for (int32_t i = 0; i < NUM_V; i++) {
+  for (size_t i = 0; i < NUM_V; i++) {
     utilFtoa(strBuf, config.voltageCfg[i].voltageCal);
     printf_("{\"active\":%s,\"cal\":%s}",
             (config.voltageCfg[i].vActive ? "true" : "false"), strBuf);
@@ -428,7 +438,7 @@ static void configureBackup(void) {
 
   /* {ct_config} list of dicts */
   serialPuts("\"ct_config\":[");
-  for (int32_t i = 0; i < NUM_CT; i++) {
+  for (size_t i = 0; i < NUM_CT; i++) {
     utilFtoa(strBuf, config.ctCfg[i].ctCal);
     printf_("{\"active\":%s,\"cal\":%s,",
             (config.ctCfg[i].ctActive ? "true" : "false"), strBuf);
@@ -468,37 +478,37 @@ static bool configureDatalog(void) {
 }
 
 static bool configureGroupID(void) {
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
 
-  if (!convI.valid) {
+  if (!convU.valid) {
     serialPutsError("Invalid group ID value.");
     return false;
   }
 
-  if ((convI.val < 0) || (convI.val > 255)) {
+  if (convU.val.u32 > 255u) {
     serialPutsError("Group ID out of range (valid: 0-255).");
     return false;
   }
 
-  config.baseCfg.dataGrp = convI.val;
-  printf_("rfGroup = %d\r\n", (int32_t)convI.val);
+  config.baseCfg.dataGrp = convU.val.u8;
+  printf_("rfGroup = %u\r\n", convU.val.u8);
   return true;
 }
 
 static bool configureJSON(void) {
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
 
-  if (!convI.valid) {
+  if (!convU.valid) {
     serialPutsError("Invalid JSON value.");
     return false;
   }
 
-  if (!((0 == convI.val) || (1 == convI.val))) {
+  if (convU.val.u32 > 1) {
     serialPutsError("JSON value must be 0 or 1.");
     return false;
   }
 
-  config.baseCfg.useJson = (bool)convI.val;
+  config.baseCfg.useJson = (bool)convU.val.u8;
   printSettingJSON();
   return true;
 }
@@ -507,22 +517,22 @@ static bool configureLineFrequency(void) {
   /* f<n>
    * n must be 50 or 60
    */
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (!convI.valid) {
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (!convU.valid) {
     serialPutsError("Invalid frequency value.");
     return false;
   }
 
-  if (!((50 == convI.val) || (60 == convI.val))) {
+  if (!((50 == convU.val.u32) || (60 == convU.val.u32))) {
     serialPutsError("Frequency must be 50 or 60.");
     return false;
   }
 
-  config.baseCfg.mainsFreq = convI.val;
+  config.baseCfg.mainsFreq = convU.val.u8;
 
   /* Recalculate all CT interpolation values */
   ECMCfg_t *ecmCfg  = ecmConfigGet();
-  ecmCfg->mainsFreq = convI.val;
+  ecmCfg->mainsFreq = convU.val.u8;
   for (size_t i = 0; i < NUM_CT; i++) {
     ecmConfigChannel(i + NUM_V);
   }
@@ -559,14 +569,14 @@ static bool configure1WFreeze(void) {
 static void configure1WList(void) {
   uint64_t *pAddr = tempAddress1WGet();
 
-  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (size_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
 
     /* Only list DS18B20 devices */
     uint8_t id = (uint8_t)(pAddr[i] & 0xFF);
     if (0x28 == id) {
       printf_("%d [->%d] ", (i + 1),
               (tempMapToLogical(TEMP_INTF_ONEWIRE, i) + 1));
-      for (int j = 0; j < 8; j++) {
+      for (size_t j = 0; j < 8; j++) {
         printf_("%x%s", (uint8_t)((pAddr[i] >> (8 * j)) & 0xFF),
                 ((j == 7) ? "\r\n" : " "));
       }
@@ -575,30 +585,29 @@ static void configure1WList(void) {
 }
 
 static bool configure1WSave(void) {
-
-  uint8_t pos[8];
-  size_t  ch;
+  size_t ch;
 
   if (8 != inBufferTok()) {
     serialPutsError("1-Wire save requires 8 address bytes.");
     return false;
   }
 
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (!convI.valid) {
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (!convU.valid) {
     serialPutsError("Invalid 1-Wire channel value.");
     return false;
   }
 
-  if ((convI.val < 1) || (convI.val > (TEMP_MAX_ONEWIRE))) {
+  if ((convU.val.u32 < 1) || (convU.val.u32 > (TEMP_MAX_ONEWIRE))) {
     printfError("1-Wire channel out of range (valid: 1-%d).", TEMP_MAX_ONEWIRE);
     return false;
   }
-  ch = convI.val - 1u;
+  ch = convU.val.u32 - 1u;
 
   /* Find the position of the bytes in the string */
-  size_t tcnt = 0;
-  for (size_t i = 0; (i < IN_BUFFER_W) && (tcnt != 8u); i++) {
+  size_t  tcnt = 0;
+  uint8_t pos[8];
+  for (uint8_t i = 0; (i < IN_BUFFER_W) && (tcnt != 8u); i++) {
     if ('\0' == inBuffer[i]) {
       pos[tcnt++] = i + 1u;
     }
@@ -606,16 +615,16 @@ static bool configure1WSave(void) {
 
   uint64_t addr = 0;
   for (size_t i = 0; i < 8; i++) {
-    convI = utilAtoi(&inBuffer[pos[i]], ITOA_BASE16);
-    if (!convI.valid) {
+    convU = utilAtoui(&inBuffer[pos[i]], ITOA_BASE16);
+    if (!convU.valid) {
       serialPutsError("Invalid 1-Wire address byte.");
       return false;
     }
-    addr |= ((uint64_t)convI.val << (8u * i));
+    addr |= ((uint64_t)convU.val.u8 << (8u * i));
   }
 
   /* If this is an existing address, then zero the previous one */
-  for (int i = 0; i < TEMP_MAX_ONEWIRE; i++) {
+  for (size_t i = 0; i < TEMP_MAX_ONEWIRE; i++) {
     uint64_t as; /* Ensure 8byte alignment */
     memcpy(&as, &config.oneWireAddr.addr[i], sizeof(as));
     if (as == addr) {
@@ -644,35 +653,42 @@ static bool configureOPA(void) {
   const int32_t posPu     = 7;
   const int32_t posPeriod = 9;
 
-  ConvInt_t convI;
-  int32_t   ch     = 0;
-  bool      active = 0;
-  char      func   = 0;
-  bool      pu     = false;
-  int32_t   period = 0;
+  ConvUint_t convU;
+  uint8_t    ch     = 0;
+  bool       active = 0;
+  char       func   = 0;
+  bool       pu     = false;
+  uint8_t    period = 0;
 
   inBufferTok();
 
   /* Channel index */
-  convI = utilAtoi(inBuffer + posCh, ITOA_BASE10);
-  if (!convI.valid) {
+  convU = utilAtoui(inBuffer + posCh, ITOA_BASE10);
+  if (!convU.valid) {
     serialPutsError("Invalid OPA channel value.");
     return false;
   }
-  ch = convI.val - 1;
 
-  if ((ch < 0) || (ch >= NUM_OPA)) {
+  if (!convU.val.u32 || convU.val.u32 > NUM_OPA) {
     printfError("OPA channel out of range (valid: 1-%d).", NUM_OPA);
     return false;
   }
 
+  ch = convU.val.u8 - 1;
+
   /* Check if the channel is active or inactive */
-  convI = utilAtoi(inBuffer + posActive, ITOA_BASE10);
-  if (!convI.valid) {
+  convU = utilAtoui(inBuffer + posActive, ITOA_BASE10);
+  if (!convU.valid) {
     serialPutsError("Invalid OPA active value.");
     return false;
   }
-  active = (bool)convI.val;
+
+  if (convU.val.u32 > 1) {
+    serialPutsError("Invalid OPA active value.");
+    return false;
+  }
+
+  active = (bool)convU.val.u8;
 
   if (!active) {
     config.opaCfg[ch].opaActive = false;
@@ -694,19 +710,25 @@ static bool configureOPA(void) {
   }
 
   if (isPulse) {
-    convI = utilAtoi((inBuffer + posPu), ITOA_BASE10);
-    if (!convI.valid) {
+    convU = utilAtoui((inBuffer + posPu), ITOA_BASE10);
+    if (!convU.valid) {
       serialPutsError("Invalid OPA pull-up value.");
       return false;
     }
-    pu = (bool)convI.val;
 
-    convI = utilAtoi((inBuffer + posPeriod), ITOA_BASE10);
-    if (!convI.valid) {
+    if (convU.val.u32 > 1) {
+      serialPutsError("Invalid OPA pull-up value.");
+      return false;
+    }
+
+    pu = (bool)convU.val.u8;
+
+    convU = utilAtoui((inBuffer + posPeriod), ITOA_BASE10);
+    if (!convU.valid) {
       serialPutsError("Invalid OPA period value.");
       return false;
     }
-    period = convI.val;
+    period = convU.val.u8;
   }
 
   /* OPA3 can only be a pulse or analog input */
@@ -734,18 +756,18 @@ static bool configureNodeID(void) {
   /* n<n>
    * Valid range is 1..60.
    */
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (!convI.valid) {
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (!convU.valid) {
     serialPutsError("Invalid node ID value.");
     return false;
   }
 
-  if ((convI.val < 1) || (convI.val > 60)) {
+  if ((convU.val.u32 < 1) || (convU.val.u32 > 60)) {
     serialPutsError("Node ID out of range (valid: 1-60).");
     return false;
   }
 
-  config.baseCfg.nodeID = convI.val;
+  config.baseCfg.nodeID = convU.val.u8;
   printf_("rfNode = %d\r\n", config.baseCfg.nodeID);
 
   return true;
@@ -792,19 +814,19 @@ static bool configureRFPower(void) {
   /* p<n>
    * n is in range: 0-31
    */
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
-  if (!convI.valid) {
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
+  if (!convU.valid) {
     serialPutsError("Invalid RF power value.");
     return false;
   }
 
-  if ((convI.val < 0) || (convI.val > 31)) {
+  if (convU.val.u32 > 31) {
     serialPutsError("RF power out of range (valid: 0-31).");
     return false;
   }
 
-  config.dataTxCfg.rfmPwr = convI.val;
-  printf_("rfPower = %d\r\n", (int32_t)convI.val);
+  config.dataTxCfg.rfmPwr = convU.val.u8;
+  printf_("rfPower = %lu\r\n", convU.val.u32);
   return true;
 }
 
@@ -812,19 +834,19 @@ static bool configureSerialLog(void) {
   /* Log to serial output, default TRUE
    * Format: c0 | c1
    */
-  ConvInt_t convI = utilAtoi(inBuffer + 1, ITOA_BASE10);
+  ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
 
-  if (!convI.valid) {
+  if (!convU.valid) {
     serialPutsError("Invalid serial log value.");
     return false;
   }
 
-  if (!((0 == convI.val) || (1 == convI.val))) {
+  if (convU.val.u32 > 1) {
     serialPutsError("Serial log must be 0 or 1.");
     return false;
   }
 
-  config.baseCfg.logToSerial = (bool)convI.val;
+  config.baseCfg.logToSerial = (bool)convU.val.u8;
   return true;
 }
 
@@ -878,14 +900,14 @@ static char *getLastReset(void) {
   return "Unknown";
 }
 
-uint32_t getUniqueID(int32_t idx) {
+uint32_t getUniqueID(const size_t idx) {
   /* Section 10.3.3 Serial Number */
   const uint32_t id_addr_lut[4] = {0x0080A00C, 0x0080A040, 0x0080A044,
                                    0x0080A048};
   return *(volatile uint32_t *)id_addr_lut[idx];
 }
 
-static void inBufferClear(int32_t n) {
+static void inBufferClear(const size_t n) {
   inBufferIdx = 0;
   (void)memset(inBuffer, 0, n);
 }
@@ -893,7 +915,7 @@ static void inBufferClear(int32_t n) {
 static size_t inBufferTok(void) {
   /* Form a group of null-terminated strings */
   size_t tokCount = 0;
-  for (int i = 0; i < IN_BUFFER_W; i++) {
+  for (size_t i = 0; i < IN_BUFFER_W; i++) {
     if ('\0' == inBuffer[i]) {
       break;
     }
@@ -905,13 +927,13 @@ static size_t inBufferTok(void) {
   return tokCount;
 }
 
-static void printSettingCT(const int32_t ch) {
-  printf_("iCal%d = ", (ch + 1));
+static void printSettingCT(const size_t ch) {
+  printf_("iCal%u = ", (ch + 1));
   putFloat(config.ctCfg[ch].ctCal, 0);
-  printf_(", iLead%d = ", (ch + 1));
+  printf_(", iLead%u = ", (ch + 1));
   putFloat(config.ctCfg[ch].phase, 0);
-  printf_(", iActive%d = %s", (ch + 1), config.ctCfg[ch].ctActive ? "1" : "0");
-  printf_(", v1Chan%d = %d, v2Chan%d = %d\r\n", (ch + 1),
+  printf_(", iActive%u = %s", (ch + 1), config.ctCfg[ch].ctActive ? "1" : "0");
+  printf_(", v1Chan%u = %d, v2Chan%u = %d\r\n", (ch + 1),
           (config.ctCfg[ch].vChan1 + 1), (ch + 1),
           (config.ctCfg[ch].vChan2 + 1));
 }
@@ -926,7 +948,7 @@ static void printSettingJSON(void) {
   printf_("json = %s\r\n", config.baseCfg.useJson ? "on" : "off");
 }
 
-static void printSettingOPA(const int32_t ch) {
+static void printSettingOPA(const size_t ch) {
   printf_("opa%d ", (ch + 1));
 
   /* OneWire */
@@ -974,12 +996,12 @@ static void printSettingRFFreq(void) {
   }
 }
 
-static void printSettingV(const int32_t ch) {
-  printf_("vCal%d = ", (ch + 1));
+static void printSettingV(const size_t ch) {
+  printf_("vCal%u = ", (ch + 1));
   putFloat(config.voltageCfg[ch].voltageCal, 0);
-  printf_(",vLead%d = ", (ch + 1));
+  printf_(", vLead%u = ", (ch + 1));
   putFloat(config.voltageCfg[ch].phase, 0);
-  printf_(", vActive%d = %s\r\n", (ch + 1),
+  printf_(", vActive%u = %s\r\n", (ch + 1),
           config.voltageCfg[ch].vActive ? "1" : "0");
 }
 
@@ -987,7 +1009,7 @@ static void printAccumulators(void) {
   Emon32Cumulative_t cumulative;
   eepromWLStatus_t   status;
   bool               eepromOK;
-  int32_t            idx;
+  uint32_t           idx;
 
   status   = eepromReadWL(&cumulative, &idx);
   eepromOK = (EEPROM_WL_OK == status);
@@ -998,15 +1020,15 @@ static void printAccumulators(void) {
   } else if (!eepromOK) {
     serialPuts(" (no valid NVM data)");
   }
-  printf_(" [%d]:\r\n", idx);
+  printf_(" [%lu]:\r\n", idx);
 
-  for (uint32_t i = 0; i < NUM_CT; i++) {
+  for (size_t i = 0; i < NUM_CT; i++) {
     int32_t wh = eepromOK ? cumulative.wattHour[i] : 0;
-    printf_("  E%ld = %ld Wh\r\n", (i + 1), wh);
+    printf_("  E%u = %lu Wh\r\n", (i + 1), wh);
   }
-  for (uint32_t i = 0; i < NUM_OPA; i++) {
+  for (size_t i = 0; i < NUM_OPA; i++) {
     uint32_t pulse = eepromOK ? cumulative.pulseCnt[i] : 0;
-    printf_("  pulse%d = %" PRIu32 "\r\n", (i + 1), pulse);
+    printf_("  pulse%u = %lu\r\n", (i + 1), pulse);
   }
   serialPuts("\r\n");
 }
@@ -1046,9 +1068,9 @@ static void printSettingsHR(void) {
           config.baseCfg.useJson ? "JSON" : "Key:Value");
   serialPuts("\r\n");
 
-  for (uint32_t i = 0; i < NUM_OPA; i++) {
+  for (size_t i = 0; i < NUM_OPA; i++) {
     bool enabled = config.opaCfg[i].opaActive;
-    printf_("OPA %d (%sactive)\r\n", (i + 1), enabled ? "" : "in");
+    printf_("OPA %u (%sactive)\r\n", (i + 1), enabled ? "" : "in");
     if ('o' == config.opaCfg[i].func) {
       serialPuts("  - OneWire interface\r\n");
     } else {
@@ -1081,7 +1103,7 @@ static void printSettingsHR(void) {
       "| Ref | Channel | Active | Calibration |  Phase  | In 1 | In 2 |\r\n");
   serialPuts(
       "+=====+=========+========+=============+=========+======+======+\r\n");
-  for (int32_t i = 0; i < NUM_V; i++) {
+  for (size_t i = 0; i < NUM_V; i++) {
     printf_("| %2d  |  V %2d   | %c      | ", (i + 1), (i + 1),
             (config.voltageCfg[i].vActive ? 'Y' : 'N'));
     putFloat(config.voltageCfg[i].voltageCal, 6);
@@ -1089,7 +1111,7 @@ static void printSettingsHR(void) {
     putFloat(config.voltageCfg[i].phase, 6);
     serialPuts(" |      |      |\r\n");
   }
-  for (int32_t i = 0; i < NUM_CT; i++) {
+  for (size_t i = 0; i < NUM_CT; i++) {
     printf_("| %2d  | CT %2d   | %c      | ", (i + 1 + NUM_V), (i + 1),
             (config.ctCfg[i].ctActive ? 'Y' : 'N'));
     putFloat(config.ctCfg[i].ctCal, 6);
@@ -1103,18 +1125,18 @@ static void printSettingsHR(void) {
 
 static void printSettingsKV(void) {
   serialPuts("hardware = emonPi3\r\n");
-  printf_("hardware_rev = %" PRIu32 "\r\n", getBoardRevision());
+  printf_("hardware_rev = %lu\r\n", getBoardRevision());
   printf_("version = %d.%d.%d\r\n", VERSION_FW_MAJ, VERSION_FW_MIN,
           VERSION_FW_REV);
   printf_("commit = %s\r\n", emon32_build_info().revision);
   printf_("assumedV = %d\r\n", config.baseCfg.assumedVrms);
-  for (int32_t i = 0; i < NUM_V; i++) {
+  for (size_t i = 0; i < NUM_V; i++) {
     printSettingV(i);
   }
-  for (int32_t i = 0; i < NUM_CT; i++) {
+  for (size_t i = 0; i < NUM_CT; i++) {
     printSettingCT(i);
   }
-  for (int32_t i = 0; i < NUM_OPA; i++) {
+  for (size_t i = 0; i < NUM_OPA; i++) {
     printSettingOPA(i);
   }
   printSettingRF();
@@ -1122,17 +1144,12 @@ static void printSettingsKV(void) {
   printSettingJSON();
 }
 
-static void putFloat(float val, int32_t flt_len) {
-  char    strBuffer[16];
-  int32_t ftoalen = utilFtoa(strBuffer, val);
+static void putFloat(float val, const size_t flt_len) {
+  char   strBuffer[16];
+  size_t ftoalen = utilFtoa(strBuffer, val);
 
-  if (flt_len) {
-    /* ftoalen includes null terminator, subtract 1 for actual string length */
-    int32_t fillSpace = flt_len - (ftoalen - 1);
-
-    while (fillSpace-- > 0) {
-      serialPuts(" ");
-    }
+  while (ftoalen++ <= flt_len) {
+    serialPuts(" ");
   }
 
   serialPuts(strBuffer);
@@ -1149,8 +1166,7 @@ static void printUptime(void) {
   tMinutes = tMinutes % 60;
   tHours   = tHours % 24;
 
-  printf_("%" PRIu32 "d %" PRIu32 "h %" PRIu32 "m %" PRIu32 "s\r\n", tDays,
-          tHours, tMinutes, tSeconds);
+  printf_("%lud %luh %lum %lus\r\n", tDays, tHours, tMinutes, tSeconds);
 }
 
 /*! @brief Check if waiting for confirmation and handle if yes
@@ -1210,7 +1226,7 @@ static void handleConfirmation(char c) {
   case CONFIRM_ZERO_ACCUM_INDIVIDUAL:
     if ('y' == c) {
       Emon32Cumulative_t cumulative;
-      int32_t            idx;
+      uint32_t           idx;
       /* Read current NVM data */
       if (EEPROM_WL_OK == eepromReadWL(&cumulative, &idx)) {
         /* Clear the specific accumulator */
@@ -1235,7 +1251,7 @@ static void handleConfirmation(char c) {
     __disable_irq();
     confirmState        = CONFIRM_IDLE;
     confirmStartTime_ms = 0;
-    clearAccumIdx       = -1;
+    clearAccumIdx       = UINT8_MAX;
     __enable_irq();
     break;
 
@@ -1315,7 +1331,7 @@ void configCheckConfirmationTimeout(void) {
 
 /*! @brief Zero all accumulators (async confirmation) */
 static void zeroAccumulators(void) {
-  clearAccumIdx = -1; /* -1 means all accumulators */
+  clearAccumIdx = UINT8_MAX; /* UINT8_MAX means all accumulators */
   serialPuts(
       "> Zero accumulators. This can not be undone. 'y' to proceed.\r\n");
   __disable_irq();
@@ -1327,7 +1343,7 @@ static void zeroAccumulators(void) {
 /*! @brief Zero individual accumulator (async confirmation)
  *  @param [in] idx : accumulator index (0-11=E1-E12, 12-13=P1-P2)
  */
-static void zeroAccumulatorIndividual(int8_t idx) {
+static void zeroAccumulatorIndividual(uint8_t idx) {
   clearAccumIdx = idx;
   if (idx < NUM_CT) {
     printf_(
@@ -1354,10 +1370,17 @@ static void parseAndZeroAccumulator(void) {
 
   /* ze1-12 - zero energy accumulator */
   if (inBuffer[1] == 'e' && inBuffer[2] >= '1' && inBuffer[2] <= '9') {
-    int32_t num = inBuffer[2] - '0';
+    union {
+      int     i;
+      uint8_t u8;
+    } digit;
+    digit.i     = inBuffer[2] - '0';
+    uint8_t num = digit.u8;
     /* Check for two-digit number (ze10-12) */
     if (inBuffer[3] >= '0' && inBuffer[3] <= '9') {
-      num = num * 10 + (inBuffer[3] - '0');
+      num *= 10;
+      digit.i = inBuffer[3] - '0';
+      num += digit.u8;
     }
     if (num >= 1 && num <= NUM_CT) {
       zeroAccumulatorIndividual(num - 1); /* Convert to 0-indexed */
@@ -1370,7 +1393,7 @@ static void parseAndZeroAccumulator(void) {
   /* zp1-3 - zero pulse accumulator */
   if (inBuffer[1] == 'p' && inBuffer[2] >= '1' &&
       inBuffer[2] <= '0' + NUM_OPA) {
-    int32_t num = inBuffer[2] - '0';
+    uint8_t num = inBuffer[2] - '0';
     if (num >= 1 && num <= NUM_OPA) {
       zeroAccumulatorIndividual(NUM_CT + num - 1); /* Pulse index starts after
                                                        energy */
@@ -1411,11 +1434,9 @@ void configFirmwareBoardInfo(void) {
   serialPuts("==== emonPi3 | emonTx6 ====\r\n\r\n");
 
   serialPuts("> Board:\r\n");
-  printf_("  - emonPi3/emonTx6 (arch. rev. %" PRIu32 ")\r\n",
-          getBoardRevision());
-  printf_("  - Serial    : 0x%02x%02x%02x%02x\r\n", (uint32_t)getUniqueID(0),
-          (uint32_t)getUniqueID(1), (uint32_t)getUniqueID(2),
-          (uint32_t)getUniqueID(3));
+  printf_("  - emonPi3/emonTx6 (arch. rev. %lu)\r\n", getBoardRevision());
+  printf_("  - Serial    : 0x%02lx%02lx%02lx%02lx\r\n", getUniqueID(0),
+          getUniqueID(1), getUniqueID(2), getUniqueID(3));
   printf_("  - Last reset: %s\r\n", getLastReset());
   serialPuts("  - Uptime    : ");
   printUptime();
@@ -1674,8 +1695,8 @@ void configProcessCmd(void) {
 
 bool configUnsavedChanges(void) { return unsavedChange; }
 
-int32_t configTimeToCycles(const float time, const int32_t mainsFreq) {
-  return qfp_float2uint(qfp_fmul(time, qfp_int2float(mainsFreq)));
+uint16_t configTimeToCycles(const float time, const uint32_t mainsFreq) {
+  return (uint16_t)qfp_float2uint(qfp_fmul(time, qfp_uint2float(mainsFreq)));
 }
 
 VersionInfo_t configVersion(void) {
