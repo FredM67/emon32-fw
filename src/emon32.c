@@ -13,6 +13,7 @@
 #include "driver_SERCOM.h"
 #include "driver_TIME.h"
 #include "driver_USB.h"
+#include "driver_WDT.h"
 
 #include "configuration.h"
 #include "dataPack.h"
@@ -628,6 +629,7 @@ static void ucSetup(void) {
   adcSetup();
   evsysSetup();
   usbSetup();
+  wdtSetup();
 }
 
 static void waitWithUSB(uint32_t t_ms) {
@@ -695,6 +697,7 @@ int main(void) {
   ecmFlush();
   adcDMACStart();
   uartEnableRx(SERCOM_UART, SERCOM_UART_INTERACTIVE_IRQn);
+  wdtEnable();
 
   if (configUnsavedChanges()) {
     uiLedColour(LED_YELLOW);
@@ -717,6 +720,7 @@ int main(void) {
 
       /* 1 ms timer flag */
       if (evtPending(EVT_TICK_1kHz)) {
+        wdtFeed();
         tud_task();
         usbCDCTask();
 

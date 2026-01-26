@@ -11,10 +11,11 @@
  */
 #define F_CORE      48000000ul
 #define F_PERIPH    8000000ul
-#define F_TIMER_ADC F_PERIPH / 8
-#define F_TIMER2    F_PERIPH / 8
+#define F_TIMER_ADC (F_PERIPH / 8)
 
-#define BOOTPROT_SAMD 0x2 /* 8KB bootloader protection, Table 22-2 */
+#define BOOTPROT_SAMD  0x2  /* 8KB bootloader protection, Table 22-2 */
+#define EMON32_WDT_EW  0xAu /* 8K early warning cycles */
+#define EMON32_WDT_PER 0xBu /* 16K watchdog cycles */
 
 #define NUM_V              3
 #define NUM_CT             12
