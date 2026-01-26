@@ -156,10 +156,10 @@ static void configDefault(void) {
     config.voltageCfg[idxV].phase      = 0.0f;
   }
 
-  /* 4.2 degree shift @ 50 Hz. Initialize ALL slots including reserved. */
+  /* Initialize ALL slots including reserved. */
   for (size_t idxCT = 0u; idxCT < (NUM_CT + CT_RES); idxCT++) {
     config.ctCfg[idxCT].ctCal    = 100.0f;
-    config.ctCfg[idxCT].phase    = 3.2f;
+    config.ctCfg[idxCT].phase    = CT_LEAD_DEF;
     config.ctCfg[idxCT].vChan1   = 0;
     config.ctCfg[idxCT].vChan2   = 0;
     config.ctCfg[idxCT].ctActive = (idxCT < NUM_CT_ACTIVE_DEF);
