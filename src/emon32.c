@@ -608,6 +608,12 @@ static void transmitData(const Emon32Dataset_t *pSrc, const TransmitOpt_t *pOpt,
         nPacked    = dataPackPacked(pSrc, rfmGetBuffer(), PACKED_CT7_12);
         rfmResult  = rfmSendBuffer(nPacked, RFM_RETRIES, &retryCount);
       }
+
+      /* If the RFM has _functionally_ failed, rather than just congestion on
+       * the RF link, reset and reconfigure. */
+      if (RFM_FUNCTIONAL_FAILURE == rfmResult) {
+        rfmConfigure();
+      }
     }
 
   } else {

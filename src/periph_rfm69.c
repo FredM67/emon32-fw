@@ -32,21 +32,21 @@ static void      rfmRxBegin(void); /* LPL: receiveBegin */
 static bool      rfmRxDone(void);  /* LPL: receiveDone */
 static RFMSend_t rfmSendWithRetry(uint8_t n, const uint8_t retries,
                                   uint8_t *pRetryCount);
-static void      rfmSetMode(RFMMode_t mode);
+static bool      rfmSetMode(RFMMode_t mode);
 static bool      rfmTxAvailable(void); /* LPL: canSend */
 static void      rfmWriteReg(const uint8_t addr, const uint8_t data);
 static uint8_t   spiRx(void);
 static void      spiTx(const uint8_t b);
 
 static uint8_t       address       = 0;
-static uint8_t       rxData[64]    = {0};
-static volatile bool rxRdy         = false;
-static const Pin_t   sel           = {GRP_SERCOM_SPI, PIN_SPI_RFM_SS};
-static const Pin_t   rst           = {GRP_RFM_INTF, PIN_RFM_RST};
 static bool          initDone      = false;
 static uint8_t       rfmBuffer[64] = {0};
 static int8_t        rfmMode       = 0;
 static RFMRx_t       rfmRx         = {0};
+static uint8_t       rxData[64]    = {0};
+static volatile bool rxRdy         = false;
+static const Pin_t   rst           = {GRP_RFM_INTF, PIN_RFM_RST};
+static const Pin_t   sel           = {GRP_SERCOM_SPI, PIN_SPI_RFM_SS};
 
 static bool rfmAckRecv(uint16_t fromId) {
   if (rfmRxDone()) {
@@ -89,7 +89,7 @@ static void rfmPacketHandler(void) {
   if ((RFM69_MODE_RX == rfmMode) &&
       (rfmReadReg(REG_IRQFLAGS2) & RFM_IRQFLAGS2_PAYLOADREADY)) {
 
-    rfmSetMode(RFM69_MODE_STANDBY);
+    (void)rfmSetMode(RFM69_MODE_STANDBY);
     spiSelect(sel);
     spiTx(REG_FIFO & 0x7F);
     rfmRx.payloadLen = spiRx();
@@ -122,7 +122,7 @@ static void rfmPacketHandler(void) {
     }
     spiDeSelect(sel);
     rxData[rfmRx.dataLen] = 0;
-    rfmSetMode(RFM69_MODE_RX);
+    (void)rfmSetMode(RFM69_MODE_RX);
   }
   rfmRx.rxRSSI = rfmReadRSSI();
 }
@@ -143,7 +143,7 @@ static bool rfmTxAvailable(void) {
   bool canSend = mode && len && rssi;
 
   if (canSend) {
-    rfmSetMode(RFM69_MODE_STANDBY);
+    (void)rfmSetMode(RFM69_MODE_STANDBY);
   }
   return canSend;
 }
@@ -166,7 +166,7 @@ void rfmSetAESKey(const char *aes) {
    * only checks that the length is not 0. */
   bool key = (0 != aes) && (16 == strlen(aes));
 
-  rfmSetMode(RFM69_MODE_STANDBY);
+  (void)rfmSetMode(RFM69_MODE_STANDBY);
 
   if (key) {
     spiSelect(sel);
@@ -189,12 +189,12 @@ void rfmSetFrequency(const RFM_Freq_t freq) {
 }
 
 void rfmSetGroupID(const uint8_t grpID) {
-  rfmSetMode(RFM69_MODE_STANDBY);
+  (void)rfmSetMode(RFM69_MODE_STANDBY);
   rfmWriteReg(REG_SYNCVALUE2, grpID);
 }
 
 void rfmSetPowerLevel(const uint8_t paLevel) {
-  rfmSetMode(RFM69_MODE_STANDBY);
+  (void)rfmSetMode(RFM69_MODE_STANDBY);
   rfmWriteReg(REG_PALEVEL, (RFM_PALEVEL_PA0_ON | paLevel));
 }
 
@@ -221,7 +221,7 @@ static void rfmRxBegin(void) {
   }
 
   rfmWriteReg(REG_DIOMAPPING1, RFM_DIOMAPPING1_DIO0_01); // "PAYLOADREADY" in Rx
-  rfmSetMode(RFM69_MODE_RX);
+  (void)rfmSetMode(RFM69_MODE_RX);
 }
 
 static bool rfmRxDone(void) {
@@ -229,7 +229,7 @@ static bool rfmRxDone(void) {
   rfmPacketHandler();
 
   if ((RFM69_MODE_RX == rfmMode) && (rfmRx.payloadLen > 0)) {
-    rfmSetMode(RFM69_MODE_STANDBY);
+    (void)rfmSetMode(RFM69_MODE_STANDBY);
     return true;
   }
 
@@ -247,24 +247,25 @@ static RFMSend_t rfmSendWithRetry(uint8_t n, const uint8_t retries,
                                   uint8_t *pRetryCount) {
 
   for (size_t r = 0; r < retries; r++) {
-    uint32_t tNow;
-    uint32_t tSent;
-
     *pRetryCount = *pRetryCount + 1;
 
     /* LPL send */
     rfmWriteReg(REG_PACKETCONFIG2, ((rfmReadReg(REG_PACKETCONFIG2) & 0xFB) |
                                     RFM_PACKET2_RXRESTART));
-    tNow = timerMillis();
+    const uint32_t tNow = timerMillis();
     while (!rfmTxAvailable() &&
            (timerMillisDelta(tNow) < RFM69_CSMA_LIMIT_MS)) {
       (void)rfmRxDone();
     }
 
     /* LPL sendFrame */
-    rfmSetMode(RFM69_MODE_STANDBY); // Turn off Rx while filling FIFO
-    while (0 == (rfmReadReg(REG_IRQFLAGS1) & RFM_IRQFLAGS1_MODEREADY))
-      ;
+    uint32_t tStart = timerMillis();
+    (void)rfmSetMode(RFM69_MODE_STANDBY); // Turn off Rx while filling FIFO
+    while (0 == (rfmReadReg(REG_IRQFLAGS1) & RFM_IRQFLAGS1_MODEREADY)) {
+      if (timerMillisDelta(tStart) > 25u) {
+        return RFM_FUNCTIONAL_FAILURE;
+      }
+    }
     spiSelect(sel);
     spiTx(REG_FIFO | 0x80);
     spiTx(n + 3);
@@ -276,13 +277,17 @@ static RFMSend_t rfmSendWithRetry(uint8_t n, const uint8_t retries,
 
     /* Enter Tx mode, no need to wait for the mode to be ready as the Tx will
      * empty the FIFO when ready. */
-    rfmSetMode(RFM69_MODE_TX);
-    while (0 == (rfmReadReg(REG_IRQFLAGS2) & RFM_IRQFLAGS2_PACKETSENT))
-      ;
-    rfmSetMode(RFM69_MODE_STANDBY);
+    tStart = timerMillis();
+    (void)rfmSetMode(RFM69_MODE_TX);
+    while (0 == (rfmReadReg(REG_IRQFLAGS2) & RFM_IRQFLAGS2_PACKETSENT)) {
+      if (timerMillisDelta(tStart > 25u)) {
+        return RFM_FUNCTIONAL_FAILURE;
+      }
+    }
+    (void)rfmSetMode(RFM69_MODE_STANDBY);
 
     /* Listen for the acknowledgement */
-    tSent = timerMillis();
+    const uint32_t tSent = timerMillis();
     while (timerMillisDelta(tSent) < RFM_TIMEOUT) {
       if (rfmAckRecv(5)) {
         return RFM_SUCCESS;
@@ -292,9 +297,9 @@ static RFMSend_t rfmSendWithRetry(uint8_t n, const uint8_t retries,
   return RFM_TIMED_OUT;
 }
 
-static void rfmSetMode(RFMMode_t mode) {
+static bool rfmSetMode(RFMMode_t mode) {
   if (rfmMode == mode) {
-    return;
+    return true;
   }
   uint8_t rOpMode = rfmReadReg(REG_OPMODE) & 0xE3;
 
@@ -315,16 +320,22 @@ static void rfmSetMode(RFMMode_t mode) {
     rOpMode |= RFM_OPMODE_SLEEP;
     break;
   default:
-    return;
+    return false;
   }
 
   rfmWriteReg(REG_OPMODE, rOpMode);
+
   /* When coming from SLEEP, wait until FIFO is ready */
+  const uint32_t tStart = timerMillis();
   if (RFM69_MODE_SLEEP == rfmMode) {
-    while ((rfmReadReg(REG_IRQFLAGS1) & RFM_IRQFLAGS1_MODEREADY) == 0)
-      ;
+    while ((rfmReadReg(REG_IRQFLAGS1) & RFM_IRQFLAGS1_MODEREADY) == 0) {
+      if (timerMillisDelta(tStart) > 25u) {
+        return false;
+      }
+    }
   }
   rfmMode = mode;
+  return true;
 }
 
 uint8_t *rfmGetBuffer(void) { return rfmBuffer; }
@@ -337,6 +348,8 @@ bool rfmInit(const RFMOpt_t *pOpt) {
   if (!sercomExtIntfEnabled()) {
     return false;
   }
+
+  initDone = false;
 
   uint8_t band[3];
   rfmFreqToBand(pOpt->freq, band);
@@ -399,7 +412,13 @@ bool rfmInit(const RFMOpt_t *pOpt) {
 
   rfmSetAESKey(0);
   rfmWriteReg(REG_PALEVEL, (RFM_PALEVEL_PA0_ON | pOpt->paLevel));
-  rfmSetMode(RFM69_MODE_STANDBY);
+
+  /* This is the only point where the RFM module is in SLEEP mode, so the
+   * timeout would apply here. If the RFM fails to come out of SLEEP, indicate
+   * the initialisation has failed. */
+  if (!rfmSetMode(RFM69_MODE_STANDBY)) {
+    return false;
+  }
 
   tStart = timerMillis();
   while (0 == (rfmReadReg(REG_IRQFLAGS1) & RFM_IRQFLAGS1_MODEREADY)) {

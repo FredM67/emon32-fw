@@ -15,11 +15,12 @@ typedef struct RFMOpt_ {
 } RFMOpt_t;
 
 typedef enum RFMSend_ {
-  RFM_NO_INIT,
-  RFM_TIMED_OUT,
-  RFM_FAILED,
-  RFM_SUCCESS,
-  RFM_N_TOO_LARGE
+  RFM_NO_INIT,            /* RFM not initialised */
+  RFM_TIMED_OUT,          /* An RF feature timed out */
+  RFM_FUNCTIONAL_FAILURE, /* An RFM function timed out, requires reset */
+  RFM_FAILED,             /* Generic failure */
+  RFM_SUCCESS,            /* Successful operation */
+  RFM_N_TOO_LARGE         /* Packet too large */
 } RFMSend_t;
 
 /*! @brief Get a pointer to the RFM69's data buffer
