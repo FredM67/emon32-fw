@@ -3,7 +3,6 @@
 
 #include "emon32_assert.h"
 
-#include "driver_PORT.h"
 #include "driver_SERCOM.h"
 #include "driver_TIME.h"
 

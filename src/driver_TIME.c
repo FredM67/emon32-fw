@@ -2,8 +2,6 @@
 #include "emon32_samd.h"
 
 #include "driver_TIME.h"
-#include "driver_USB.h"
-#include "driver_WDT.h"
 #include "emon32.h"
 
 /*! @brief Common setup for 1 us resolution timer

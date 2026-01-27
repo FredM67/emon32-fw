@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "board_def.h"
-#include "driver_EIC.h"
 #include "driver_SERCOM.h"
 #include "driver_TIME.h"
 #include "emon32.h"
