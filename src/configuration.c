@@ -1431,7 +1431,11 @@ void configCmdChar(const uint8_t c) {
 }
 
 void configFirmwareBoardInfo(void) {
-  serialPuts("==== emonPi3 | emonTx6 ====\r\n\r\n");
+  serialPuts("                           ▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄ \r\n");
+  serialPuts("                           ▀▀▀▀████ ▀▀▀▀████\r\n");
+  serialPuts("▄█▀█▄ ███▄███▄ ▄███▄ ████▄   ▄▄██▀     ▄██▀ \r\n");
+  serialPuts("██▄█▀ ██ ██ ██ ██ ██ ██ ██     ███▄  ▄███▄▄▄\r\n");
+  serialPuts("▀█▄▄▄ ██ ██ ██ ▀███▀ ██ ██ ███████▀ ████████\r\n\r\n");
 
   serialPuts("> Board:\r\n");
   printf_("  - emonPi3/emonTx6 (arch. rev. %lu)\r\n", getBoardRevision());
