@@ -13,7 +13,7 @@ The following guide covers installation of the [emonPi3 and emonTx6 6x CT input 
 
 ## Quick Start
 
-```{admonition} Instructions for safe use
+```{attention} Instructions for safe use
 - Clip-on CT sensors are non-invasive and should not have direct contact with the AC mains. As a precaution, we recommend ensuring all cables are fully isolated prior to installing. If in doubt seek professional assistance.
 - Do not expose to water or moisture
 - Do not expose to temperate above rated operating limits
@@ -96,7 +96,7 @@ With 6 CT sensor cables and often more cable than you need, it's easy for an ins
 
 - The emonPi3/emonTx6's LED will start red, and then turn green for normal operation.
 
-```{admonition}
+```{attention}
 If you have the Raspberry Pi 4 variant of the emonPi3 the Raspberry Pi Ethernet socket is on the same side as the CT sensors, avoid plugging the emonVs RJ45 cable into the Ethernet socket and vice versa.
 ```
 
