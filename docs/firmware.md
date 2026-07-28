@@ -33,7 +33,7 @@ To update the emonPi3 using the command line, you can use the [BOSSA](https://gi
 
 If BOSSA is not installed, it can be installed by:
 
-```{bash}
+```bash
 git clone https://github.com/shumatech/BOSSA
 cd BOSSA
 make bossac
@@ -58,7 +58,7 @@ You can also update from a command line environment in Linux with the following 
 
 By default, this will use a locally built UF2. If you want to use a different UF2 file, for example downloaded from OEM, you should run:
 
-```{bash}
+```bash
 flash-emontx6.sh --uf2 <path/to/file>
 ```
 
@@ -102,13 +102,13 @@ Compiling the firmware requires the the [Arm gcc toolchain](https://developer.ar
 
 Ensure the toolchain is available on the path by running:
 
-```{bash}
+```bash
 arm-none-eabi-gcc --version
 ```
 
 Clone the `emon32-fw` repo and compile the firmware:
 
-```{bash}
+```bash
 git clone https://github.com/openenergymonitor/emon32-fw
 cd emon32-fw
 make -j
@@ -118,7 +118,7 @@ Images in `.bin`, `.hex`, `.elf`, and `.uf2` formats will be in the `bin/` folde
 
 To update from the repository, in the `emon32-fw` folder, run:
 
-```{bash}
+```bash
 git pull
 make clean
 make -j
