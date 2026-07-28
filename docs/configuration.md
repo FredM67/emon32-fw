@@ -16,7 +16,7 @@ The emonPi3 is usually pre-configured in the shop as part of the order process b
 - Click on `Save Changes` to ensure that the new configuration is recorded such that it persists when you power cycle the board.
 - When finished, click on `Stop Serial` to disconnect the serial configuration tool and then `Start EmonHub` to restart the EmonHub service.
 
-![emonPi3_serial_config.png](img/emonPi3_serial_config.png)
+![emonPi3_serial_config.png](img/emonPi2_serial_config.png)
 
 ## Directly via serial
 

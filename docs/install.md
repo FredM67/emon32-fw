@@ -106,11 +106,11 @@ If you have the Raspberry Pi 4 variant of the emonPi3 the Raspberry Pi Ethernet 
 
 With the emonPi3 powered up a simple `emonPi3 v1.x.x <commit>` message will be printed on the display. `<commit>` will have the exact version of the firmware. The Raspberry Pi is booting at this point which usually takes around 40 seconds:
 
-![emonPi3 startup](img/emonPi3_starting.JPG)
+![emonPi3 startup](img/emonPi2_starting.JPG)
 
 Once booted the display will print the SD card image version and emonPi3 serial number:
 
-![emonPi3_serial_number.JPG](img/emonPi3_serial_number.JPG)
+![emonPi3_serial_number.JPG](img/emonPi2_serial_number.JPG)
 
 Scroll through the display menu by pushing the button above the display. The menu items are:
 
@@ -159,7 +159,7 @@ The Pi Zero 2W hardware option will usually drop the access point WiFi connectio
 
 The WiFi IP address can also be accessed by scrolling to page 4 on the emonPi LCD:
 
-![emonPi3_WiFi_IP.JPG](img/emonPi3_WiFi_IP.JPG)
+![emonPi3_WiFi_IP.JPG](img/emonPi2_WiFi_IP.JPG)
 
 **The emonPi3 will now present the emoncms login screen.** If the Register button is not shown, login with default account username `emonsd` and password `emonsd`. We recommend changing the default username and password from the My Account page once logged in.
 
@@ -189,7 +189,7 @@ CT calibration is usually pre-configured in the shop as part of the order proces
 - Click on `Save Changes` to ensure that the new configuration is recorded such that it persists when you power cycle the board.
 - When finished, click on `Stop Serial` to disconnect the serial configuration tool and then `Start EmonHub` to restart the EmonHub service.
 
-![emonPi3_serial_config.png](img/emonPi3_serial_config.png)
+![emonPi3_serial_config.png](img/emonPi2_serial_config.png)
 
 ### Setup input and feeds
 
