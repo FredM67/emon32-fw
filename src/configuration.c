@@ -1944,10 +1944,16 @@ VersionInfo_t configVersion(void) {
 #define ECHO_BUF_DEPTH 16u
 #define ECHO_IDX_MASK  (ECHO_BUF_DEPTH - 1u)
 #define ECHO_FMASK     ((ECHO_IDX_MASK << 1) + 1u)
+#define RX_BUF_DEPTH   64u
+#define RX_IDX_MASK    (RX_BUF_DEPTH - 1u)
+#define RX_FMASK       ((RX_IDX_MASK << 1) + 1u)
 
-static size_t  idxEchoWr               = 0;
-static size_t  idxEchoRd               = 0;
-static uint8_t echoBuf[ECHO_BUF_DEPTH] = {0};
+static size_t          idxEchoWr               = 0;
+static size_t          idxEchoRd               = 0;
+static uint8_t         echoBuf[ECHO_BUF_DEPTH] = {0};
+static volatile size_t idxRxWr                 = 0;
+static volatile size_t idxRxRd                 = 0;
+static uint8_t         rxBuf[RX_BUF_DEPTH]     = {0};
 
 static void configEchoQueueChar(const uint8_t c) {
   echoBuf[(idxEchoWr & ECHO_IDX_MASK)] = c;
@@ -1969,16 +1975,48 @@ uint8_t configEchoChar(void) {
   return c;
 }
 
+void configRxQueueChar(const uint8_t c) {
+  __disable_irq();
+  const size_t nextWr = (idxRxWr + 1u) & RX_FMASK;
+  if (nextWr != idxRxRd) {
+    rxBuf[idxRxWr & RX_IDX_MASK] = c;
+    idxRxWr                      = nextWr;
+  }
+  __enable_irq();
+
+  emon32EventSet(EVT_PROCESS_RX_CHAR);
+}
+
+void configRxProcess(void) {
+  for (;;) {
+    bool    charPending = false;
+    uint8_t c           = 0;
+
+    __disable_irq();
+    if (idxRxRd != idxRxWr) {
+      c           = rxBuf[idxRxRd & RX_IDX_MASK];
+      idxRxRd     = (idxRxRd + 1u) & RX_FMASK;
+      charPending = true;
+    }
+    __enable_irq();
+
+    if (!charPending) {
+      break;
+    }
+
+    if (!configHandleConfirmation(c)) {
+      configCmdChar(c);
+    }
+  }
+}
+
 void SERCOM_UART_INTERACTIVE_HANDLER {
   /* Echo the received character to the TX channel, and send to the command
    * stream.
    */
   if (uartGetcReady(SERCOM_UART_INTERACTIVE)) {
     uint8_t rx_char = uartGetc(SERCOM_UART_INTERACTIVE);
-
-    if (!configHandleConfirmation(rx_char)) {
-      configCmdChar(rx_char);
-    }
+    configRxQueueChar(rx_char);
   }
 
   /* Revisit : need to handle the Error interrupt? */

@@ -90,6 +90,7 @@ typedef enum EVTSRC_ {
   EVT_TX_RFM          = 9u,
   EVT_OPA_INIT        = 14u,
   EVT_TEMP_READ       = 15u,
+  EVT_PROCESS_RX_CHAR = 18u,
   EVT_PROCESS_CMD     = 19u,
   EVT_PROCESS_DATASET = 20u,
   EVT_STORE_ACCUM     = 21u,

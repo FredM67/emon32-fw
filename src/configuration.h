@@ -92,6 +92,14 @@ typedef struct VersionInfo_ {
  */
 void configCmdChar(const uint8_t c);
 
+/*! @brief Queue a received character for command processing
+ *  @param [in] c : character to add
+ */
+void configRxQueueChar(const uint8_t c);
+
+/*! @brief Process queued received characters */
+void configRxProcess(void);
+
 /*! @brief Check if waiting for confirmation and handle if yes
  *  @param [in] c : character received
  *  @return true if character was handled as confirmation, false otherwise
