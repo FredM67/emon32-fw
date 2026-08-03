@@ -791,6 +791,12 @@ int main(void) {
         emon32EventClr(EVT_TICK_1kHz);
       }
 
+      /* Pending character(s) from the serial receive queue */
+      if (evtPending(EVT_PROCESS_RX_CHAR)) {
+        emon32EventClr(EVT_PROCESS_RX_CHAR);
+        configRxProcess();
+      }
+
       /* Pending character(s) in echo queue */
       if (evtPending(EVT_ECHO)) {
         uint8_t c = configEchoChar();
@@ -930,8 +936,8 @@ int main(void) {
       }
 
       if (evtPending(EVT_PROCESS_CMD)) {
-        configProcessCmd();
         emon32EventClr(EVT_PROCESS_CMD);
+        configProcessCmd();
       }
 
       if (evtPending(EVT_OPA_INIT)) {
