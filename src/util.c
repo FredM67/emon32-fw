@@ -77,6 +77,11 @@ ConvUint_t utilAtoui(const char *pBuf, ITOA_BASE_t base) {
   uint32_t   result = 0;
   ConvUint_t conv   = {false, {0}};
 
+  /* Empty string should be treated as failure */
+  if (*pBuf == '\0') {
+    return conv;
+  }
+
   /* Process left-to-right, no string reversal needed */
   if (ITOA_BASE10 == base) {
     while (*pBuf) {
@@ -185,6 +190,11 @@ ConvFloat_t utilAtof(const char *pBuf) {
   uint32_t    fracDiv    = 1;
   bool        inFraction = false;
   ConvFloat_t conv       = {false, 0.0f};
+
+  /* Empty string should be treated as failure */
+  if (*pBuf == '\0') {
+    return conv;
+  }
 
   if ('-' == *pBuf) {
     isNegative = true;

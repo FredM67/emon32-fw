@@ -416,14 +416,16 @@ static bool configureAnalog(void) {
 
 static bool configureAssumed(void) {
   ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
-  if (convU.valid) {
-    ECMCfg_t *pEcmCfg          = ecmConfigGet();
-    pEcmCfg->assumedVrms       = qfp_uint2float(convU.val.u32);
-    config.baseCfg.assumedVrms = convU.val.u16;
-    printf_("assumedV = %d\r\n", config.baseCfg.assumedVrms);
-    return true;
+  if (!convU.valid) {
+    serialPutsError("Invalid assumed voltage value.");
+    return false;
   }
-  return false;
+
+  ECMCfg_t *pEcmCfg          = ecmConfigGet();
+  pEcmCfg->assumedVrms       = qfp_uint2float(convU.val.u32);
+  config.baseCfg.assumedVrms = convU.val.u16;
+  printf_("assumedV = %d\r\n", config.baseCfg.assumedVrms);
+  return true;
 }
 
 static void configureBackup(void) {
