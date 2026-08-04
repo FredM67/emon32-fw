@@ -220,12 +220,16 @@ The calibration for voltage is configured as a percentage. A calibration value o
 - Measured 242.0 V, set voltage calibration value to 240/242 = `0.992`.
 - Measured 239.0 V, set voltage calibration value to 240/239 = `1.004`.
 
+You can use the calibration mechanism to set these values automatically, see the [configuration section](configuration.md) for more information.
+
 ### Current Calibration
 
 The calibration for current is configured as the maximum rated current of the CT. Calibration values of `100.0` and 50.0 represent the nominal output of 100 A and 50 A CTs respectively. Example calculations are shown below.
 
 - For a 100 A CT with a 50 A calibration input. Measured 51.0 A, set calibration value to 50/51 * 100 = `98.039`.
 - For a 50 A CT with a 10 A calibration input. Measured 9.96 A, set calibration value to 10/9.96 * 50 = `50.201`.
+
+You can use the calibration mechanism to set these values automatically, see the [configuration section](configuration.md) for more information.
 
 ### Energy Calibration
 

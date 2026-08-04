@@ -78,3 +78,9 @@ size_t utilItoa(char *pBuf, int32_t val, const ITOA_BASE_t base);
  *  @return the number of characters (including NULL).
  */
 size_t utilUtoa(char *pBuf, uint32_t val, const ITOA_BASE_t base);
+
+/*! @brief Print a floating point number over serial.
+ *  @param [in] val : floating point value to print.
+ *  @param [in] flt_len : optional padding.
+ */
+void putFloat(float val, const size_t flt_len);

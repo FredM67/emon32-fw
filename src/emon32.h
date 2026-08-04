@@ -24,6 +24,7 @@ _Static_assert((sizeof(bool) == 1), "bool must be 1 byte");
 #define PERF_ENABLED       0u     /* Performance tracing */
 #define TX_INDICATE_T      250u   /* Transmission indication time (ms) */
 #define CONFIRM_TIMEOUT_MS 30000u /* Confirmation timeout (ms) */
+#define AUTOCAL_AVG        4u     /* Number of sample sets for calibration */
 
 /*********************************
  * Remaining

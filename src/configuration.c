@@ -63,6 +63,7 @@ static void     configInitialiseNVM(void);
 static uint16_t configTimeToCycles(const float time, const uint32_t mainsFreq);
 static bool     configureAnalog(void);
 static bool     configureAssumed(void);
+static bool     configureAuto(void);
 static void     configureBackup(void);
 static bool     configureDatalog(void);
 static bool     configureGroupID(void);
@@ -102,7 +103,6 @@ static void     printSettings(void);
 static void     printSettingsHR(void);
 static void     printSettingsKV(void);
 static void     printUptime(void);
-static void     putFloat(float val, const size_t flt_len);
 static uint32_t readWordAtAddress(uintptr_t address);
 static void     resetRequest(void);
 static void     saveToNVM(void);
@@ -133,6 +133,8 @@ static void printfError(const char *fmt, ...) {
 
 static Emon32Config_t config;
 static char           inBuffer[IN_BUFFER_W];
+
+static AutoConfig_t autocfg = {0};
 
 /* Async confirmation state */
 static volatile ConfirmState_t confirmState        = CONFIRM_IDLE;
@@ -429,6 +431,95 @@ static bool configureAssumed(void) {
   return true;
 }
 
+static bool configureAuto(void) {
+
+  size_t posMode = 0;
+  size_t posCal  = 0;
+
+  /* Tokenise input */
+  for (size_t i = 0; i < IN_BUFFER_W; i++) {
+    if (0 == inBuffer[i]) {
+      break;
+    }
+    if (' ' == inBuffer[i]) {
+      inBuffer[i] = 0;
+      if (0 == posMode) {
+        posMode = i + 1u;
+      } else if (0 == posCal) {
+        posCal = i + 1u;
+      }
+    }
+  }
+
+  ConvUint_t convU = utilAtoui(inBuffer + 1u, ITOA_BASE10);
+  if (!convU.valid) {
+    serialPutsError("Invalid channel index.");
+    return false;
+  }
+  if (0 == convU.val.u8 || convU.val.u8 > VCT_TOTAL) {
+    printfError("OPA channel out of range (valid: 1-%d).", VCT_TOTAL);
+    return false;
+  }
+
+  if (autocfg.inProgress) {
+    printfError("Automatic %s configuration in progress on channel %d.",
+                ((autocfg.mode == 'a') ? "amplitude" : "phase"),
+                (autocfg.ch + 1u));
+    return false;
+  }
+
+  const uint32_t ch   = convU.val.u8 - 1u;
+  const char     mode = inBuffer[posMode];
+
+  if (('a' != mode) && ('p' != mode)) {
+    serialPutsError("Automatic calibration must be a or p.");
+    return false;
+  }
+
+  /* Select V/CT calibration, exit if inactive. */
+  if (ch > (NUM_V - 1u)) {
+    if (!config.ctCfg[ch - NUM_V].ctActive) {
+      printfError("CT%d is not active.\r\n", ch + 1u - NUM_V);
+      return false;
+    }
+    autocfg.isCT = true;
+    autocfg.ch   = ch - NUM_V;
+  } else {
+    if (!config.voltageCfg[ch].vActive) {
+      printfError("V%d is not active.\r\n", ch + 1u);
+      return false;
+    }
+    autocfg.isCT = false;
+    autocfg.ch   = ch;
+  }
+
+  if ('a' == mode) {
+    ConvFloat_t convF = utilAtof(inBuffer + posCal);
+    if (!convF.valid) {
+      serialPutsError("Invalid calibration value.");
+      return false;
+    }
+
+    autocfg.mode   = 'a';
+    autocfg.target = convF.val;
+    autocfg.iter   = 0u;
+    autocfg.accum  = 0.0f;
+
+    autocfg.inProgress = true;
+    serialPuts("> Calibration in progress.\r\n");
+    return true;
+  }
+
+  if ('p' == mode) {
+    /* Revisit : automatic phase calibration */
+    return false;
+  }
+
+  return false;
+}
+
+AutoConfig_t *configAutoStatus(void) { return &autocfg; }
+
 static void configureBackup(void) {
   /* Send all configuration values as JSON over the serial link. */
   char strBuf[8] = {0};
@@ -516,6 +607,7 @@ static bool configureGroupID(void) {
 
   config.baseCfg.dataGrp = convU.val.u8;
   printf_("rfGroup = %u\r\n", convU.val.u8);
+  rfmSetGroupID(config.baseCfg.dataGrp);
   return true;
 }
 
@@ -969,7 +1061,7 @@ static bool configureRF433(void) {
   serialPuts("rfBand = ");
   printSettingRFFreq();
   serialPuts(" MHz\r\n");
-
+  rfmSetFrequency(config.dataTxCfg.rfmFreq);
   return true;
 }
 
@@ -990,6 +1082,7 @@ static bool configureRFPower(void) {
 
   config.dataTxCfg.rfmPwr = convU.val.u8;
   printf_("rfPower = %lu\r\n", convU.val.u32);
+  rfmSetPowerLevel(config.dataTxCfg.rfmPwr);
   return true;
 }
 
@@ -1326,17 +1419,6 @@ static void printSettingsKV(void) {
   printSettingSerial();
   printSettingDatalog();
   printSettingJSON();
-}
-
-static void putFloat(float val, const size_t flt_len) {
-  char   strBuffer[16];
-  size_t ftoalen = utilFtoa(strBuffer, val);
-
-  while (ftoalen++ <= flt_len) {
-    serialPuts(" ");
-  }
-
-  serialPuts(strBuffer);
 }
 
 static void printUptime(void) {
@@ -1762,6 +1844,10 @@ void configProcessCmd(void) {
       " - f<n>        : line frequency (Hz)\r\n"
       " - g<n>        : set network group (default = 210)\r\n"
       " - h           : safe power off countdown (will not remove power)\r\n"
+      " -i<x> <m> <i.i> : Auto amplitude calibration\r\n"
+      "   - x         : channel (1-3 -> V; 4... -> CT)\r\n"
+      "   - m         : mode select. m = a: amplitude\r\n"
+      "   - i.i       : actual voltage or current (amplitude only)\r\n"
       " - j<n>        : JSON serial format. n = 0: OFF, n = 1: ON\r\n"
       " - k<x> <a> <y.y> <z.z> v1 v2 : Configure an analog input\r\n"
       "   - x:        : channel (1-3 -> V; 4... -> CT)\r\n"
@@ -1821,57 +1907,40 @@ void configProcessCmd(void) {
   /* Decode on first character in the buffer */
   switch (inBuffer[0]) {
   case '?':
-    /* Print help text */
     serialPuts(helpText);
     break;
   case 'a':
-    if (configureAssumed()) {
-      unsavedChange = true;
-    }
+    unsavedChange = configureAssumed();
     break;
   case 'b':
     configureBackup();
     break;
   case 'c':
-    if (configureSerialLog()) {
-      unsavedChange = true;
-    }
+    unsavedChange = configureSerialLog();
     break;
   case 'd':
-    if (configureDatalog()) {
-      unsavedChange = true;
-    }
+    unsavedChange = configureDatalog();
     break;
   case 'e':
-    /* Enter the bootloader through firmware */
     enterBootloader();
     break;
   case 'f':
-    /* Set line frequency.
-     * Format: f50 | f60
-     */
-    if (configureLineFrequency()) {
-      unsavedChange = true;
-    }
+    unsavedChange = configureLineFrequency();
     break;
   case 'g':
-    if (configureGroupID()) {
-      rfmSetGroupID(config.baseCfg.dataGrp);
-      unsavedChange = true;
-    }
+    unsavedChange = configureGroupID();
     break;
   case 'h':
     shutdownPi();
     break;
+  case 'i':
+    unsavedChange = configureAuto();
+    break;
   case 'j':
-    if (configureJSON()) {
-      unsavedChange = true;
-    }
+    unsavedChange = configureJSON();
     break;
   case 'k':
-    if (configureAnalog()) {
-      unsavedChange = true;
-    }
+    unsavedChange = configureAnalog();
     break;
   case 'l':
     printSettings();
@@ -1889,17 +1958,10 @@ void configProcessCmd(void) {
     }
     break;
   case 'n':
-    /* Set the node ID */
-    if (configureNodeID()) {
-      unsavedChange = true;
-    }
+    unsavedChange = configureNodeID();
     break;
   case 'p':
-    /* Configure RF power */
-    if (configureRFPower()) {
-      rfmSetPowerLevel(config.dataTxCfg.rfmPwr);
-      unsavedChange = true;
-    }
+    unsavedChange = configureRFPower();
     break;
   case 'q':
     resetRequest();
@@ -1920,16 +1982,11 @@ void configProcessCmd(void) {
     configFirmwareBoardInfo();
     break;
   case 'w':
-    if (configureRFEnable()) {
-      unsavedChange = true;
-    }
+    unsavedChange = configureRFEnable();
     break;
 
   case 'x':
-    if (configureRF433()) {
-      rfmSetFrequency(config.dataTxCfg.rfmFreq);
-      unsavedChange = true;
-    }
+    unsavedChange = configureRF433();
     break;
   case 'z':
     parseAndZeroAccumulator();

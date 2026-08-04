@@ -42,6 +42,14 @@ typedef struct TxBlink_ {
   uint32_t timeBlink;  /* Time to blink LED for */
 } TxBlink_t;
 
+typedef struct AutoCfgP_ {
+  float  mean;
+  float  target;
+  float  newCal;
+  size_t index;
+  bool   isCT;
+} AutoCfgP_t;
+
 /*************************************
  * Persistent state variables
  *************************************/
@@ -66,6 +74,8 @@ static void datasetAddPulse(Emon32Dataset_t *pDst);
 static void ecmDmaCallback(void);
 static void evtKiloHertz(void);
 static bool evtPending(EVTSRC_t evt);
+static void handleAutoCfg(const ECMDataset_t *pECM);
+static void handleAutoCfgPrintA(const AutoCfgP_t *pAuto);
 static void pulseConfigure(void);
 void        putchar_(char c);
 static void rfmConfigure(void);
@@ -327,6 +337,72 @@ static void evtKiloHertz(void) {
  *  @return true if pending, false otherwise
  */
 static bool evtPending(EVTSRC_t evt) { return (evtPend & (1u << evt)) != 0; }
+
+static void handleAutoCfg(const ECMDataset_t *pECM) {
+  AutoConfig_t *autocfg = configAutoStatus();
+  if (autocfg->inProgress) {
+    if (autocfg->mode == 'a') {
+
+      autocfg->accum =
+          autocfg->isCT ? qfp_fadd(autocfg->accum, pECM->CT[autocfg->ch].rmsI)
+                        : qfp_fadd(autocfg->accum, pECM->rmsV[autocfg->ch]);
+      autocfg->iter++;
+
+      if (AUTOCAL_AVG == autocfg->iter) {
+        ECMCfg_t   *ecmCfg = ecmConfigGet();
+        const float mean   = qfp_fdiv(autocfg->accum, (float)AUTOCAL_AVG);
+
+        if (mean < 0.25f) {
+          autocfg->inProgress = false;
+          serialPuts("> Measured input too low, calibration failed.\r\n");
+          return;
+        }
+
+        const float ratio  = qfp_fdiv(autocfg->target, mean);
+        AutoCfgP_t  result = {.index  = autocfg->ch + 1u,
+                              .isCT   = autocfg->isCT,
+                              .mean   = mean,
+                              .target = autocfg->target,
+                              .newCal = 0.0f};
+
+        if (autocfg->isCT) {
+          const float newCal =
+              qfp_fmul(ratio, pConfig->ctCfg[autocfg->ch].ctCal);
+          pConfig->ctCfg[autocfg->ch].ctCal   = newCal;
+          ecmCfg->ctCfg[autocfg->ch].ctCalRaw = newCal;
+          ecmConfigChannel(autocfg->ch + NUM_V);
+
+          result.newCal = newCal;
+          handleAutoCfgPrintA(&result);
+        } else {
+          const float newCal =
+              qfp_fmul(ratio, pConfig->voltageCfg[autocfg->ch].voltageCal);
+          pConfig->voltageCfg[autocfg->ch].voltageCal = newCal;
+          ecmCfg->vCfg[autocfg->ch].voltageCalRaw     = newCal;
+          ecmConfigChannel(autocfg->ch);
+
+          result.newCal = newCal;
+          handleAutoCfgPrintA(&result);
+        }
+        autocfg->inProgress = false;
+      }
+    }
+  }
+}
+
+static void handleAutoCfgPrintA(const AutoCfgP_t *pAuto) {
+  printf_("> Finished calibration for %s%d.\r\n", (pAuto->isCT ? "CT" : "V"),
+          pAuto->index);
+  serialPuts("  - Measured IRMS  : ");
+  putFloat(pAuto->mean, 0);
+  printf_(" %s.\r\n", (pAuto->isCT ? "A" : "V"));
+  serialPuts("  - Actual IRMS    : ");
+  putFloat(pAuto->target, 0);
+  printf_(" %s.\r\n", (pAuto->isCT ? "A" : "V"));
+  serialPuts("  - New calibration: ");
+  putFloat(pAuto->newCal, 0);
+  serialPuts(".\r\n");
+}
 
 /*! @brief Configure any pulse counter interfaces */
 static void pulseConfigure(void) {
@@ -889,6 +965,8 @@ int main(void) {
          */
         cumulativeProcess(&nvmCumulative, &dataset,
                           pConfig->baseCfg.epDeltaStore);
+
+        handleAutoCfg(dataset.pECM);
 
         /* Blink the STATUS LED, and clear the event. */
         uiLedColour(LED_RED);

@@ -40,6 +40,7 @@ To test if your serial connection is working, try these commands first:
 | **f\<n>** | Set line frequency in Hz<br>- `f50`: 50 Hz (Europe, UK, etc.)<br>- `f60`: 60 Hz (US, Canada, etc.) |
 | **g\<n>** | Set network group for RF communication (default = 210)<br>Example: `g210` |
 | **h** | Safe Raspberry Pi power off countdown (will not remove power) |
+| **i\<x> \<y> \<i.i>** | Auto calibration<br>Parameters:<br>- `x`: Channel number (1-3 = Voltage; 4+ = CT)<br>- `y`: Mode select<br>&nbsp;&nbsp;- `a`: amplitude<br>&nbsp;&nbsp;- `p`: phase<br>- `i.i`: measured RMS amplitude<br>Example: `i4 a 45` |
 | **j\<n>** | JSON serial format<br>- `j0`: Disable JSON format<br>- `j1`: Enable JSON format |
 | **k\<x> \<a> \<y.y> \<z.z> \<v1> \<v2>** | Configure an analog input (voltage or current)<br>Parameters:<br>- `x`: Channel number (1-3 = Voltage; 4+ = CT)<br>- `a`: Active status (0 = DISABLED, 1 = ENABLED)<br>- `y.y`: V/CT calibration constant<br>- `z.z`: CT phase calibration value (degrees)<br>- `v1`: CT voltage channel 1 (reference)<br>- `v2`: CT voltage channel 2 (for L-L loads)<br>Example: `k4 1 90.0 1.5 1 1` |
 | **l** | List current settings (displays all configuration) |
@@ -95,6 +96,24 @@ s                    # Save configuration
 ```
 k4 1 90.0 4.2 1 2    # Enable CT4, references V1 and V2 (L1-L2 load)
 s                    # Save configuration
+```
+
+### Calibrate a CT input amplitude
+
+If you have a known current available, you can use this to calibrate your Pi3/Tx6.
+
+```
+i4 a 45.1    # Calibrate CT1 with 45.1 A RMS.
+s            # Save configuration after completion.
+```
+
+### Calibrate a voltage input amplitude
+
+If you have a known voltage available, you can use this to calibrate your Pi3/Tx6.
+
+```
+i1 a 239.5    # Calibrate V1 with 239.5 V RMS.
+s             # Save configuration after completion.
 ```
 
 ### Configure a pulse input
@@ -193,4 +212,3 @@ If you're not seeing any output on the hardware UART:
 - USB CDC baud rate doesn't matter (automatically negotiated)
 - Hardware UART uses 115200 baud, 8N1
 - Configuration changes are only temporary until saved with `s`
-- Settings that require a reset will automatically trigger a reset when saved

@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "emon32.h"
 #include "util.h"
 
 #include "qfplib-m0-full.h"
@@ -233,4 +234,15 @@ ConvFloat_t utilAtof(const char *pBuf) {
 
   conv.valid = true;
   return conv;
+}
+
+void putFloat(float val, const size_t flt_len) {
+  char   strBuffer[16];
+  size_t ftoalen = utilFtoa(strBuffer, val);
+
+  while (ftoalen++ <= flt_len) {
+    serialPuts(" ");
+  }
+
+  serialPuts(strBuffer);
 }

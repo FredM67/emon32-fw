@@ -6,6 +6,16 @@
 
 #include "board_def.h"
 
+typedef struct AutoConfig_ {
+  bool    inProgress; /* true when a configuration is in progress. */
+  bool    isCT;       /* Indicate if channel is CT or V. */
+  uint8_t ch;         /* channel that's being configured. */
+  uint8_t iter;       /* Iteration count. */
+  char    mode;       /* amplitude or phase configuration. */
+  float   target;     /* target amplitude value. */
+  float   accum;      /* accumulated value. */
+} AutoConfig_t;
+
 /* Configurable options. All the structs are packed to allow simple write to
  * EEPROM as a contiguous set.
  */
@@ -86,6 +96,11 @@ typedef struct VersionInfo_ {
   const char *release;
   const char *revision;
 } VersionInfo_t;
+
+/*! @brief Get the status of any auto configuration in progress.
+ *  @return pointer to the auto configuration struct.
+ */
+AutoConfig_t *configAutoStatus(void);
 
 /*! @brief Add a character to the command stream
  *  @param [in] c : character to add
