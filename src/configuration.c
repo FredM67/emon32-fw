@@ -96,6 +96,7 @@ static void     printSettingJSON(void);
 static void     printSettingOPA(const size_t ch);
 static void     printSettingRF(void);
 static void     printSettingRFFreq(void);
+static void     printSettingSerial(void);
 static void     printSettingV(const size_t ch);
 static void     printSettings(void);
 static void     printSettingsHR(void);
@@ -1003,12 +1004,13 @@ static bool configureSerialLog(void) {
     return false;
   }
 
-  if (convU.val.u32 > 1) {
-    serialPutsError("Serial log must be 0 or 1.");
+  if (convU.val.u32 > 2) {
+    serialPutsError("Serial log must be 0, 1, or 2.");
     return false;
   }
 
-  config.baseCfg.logToSerial = (bool)convU.val.u8;
+  config.baseCfg.logToSerial = convU.val.u8;
+  printSettingSerial();
   return true;
 }
 
@@ -1165,6 +1167,13 @@ static void printSettingRFFreq(void) {
   }
 }
 
+static void printSettingSerial(void) {
+  printf_("serial = %s\r\n",
+          (2u == config.baseCfg.logToSerial
+               ? "verbose"
+               : ((1u == config.baseCfg.logToSerial) ? "on" : "off")));
+}
+
 static void printSettingV(const size_t ch) {
   printf_("vCal%u = ", (ch + 1));
   putFloat(config.voltageCfg[ch].voltageCal, 0);
@@ -1230,9 +1239,11 @@ static void printSettingsHR(void) {
     printf_(" MHz @ %ddBm\r\n", (-18 + config.dataTxCfg.rfmPwr));
     printf_("  - Data group:            %d\r\n", config.baseCfg.dataGrp);
     printf_("  - Node ID:               %d\r\n", config.baseCfg.nodeID);
-  } else {
-    serialPuts("Serial only\r\n");
   }
+  printf_("Serial:                    %s\r\n",
+          (2u == config.baseCfg.logToSerial
+               ? "Verbose"
+               : ((1u == config.baseCfg.logToSerial) ? "On" : "Off")));
   printf_("Data format:               %s\r\n",
           config.baseCfg.useJson ? "JSON" : "Key:Value");
   serialPuts("\r\n");
@@ -1312,6 +1323,7 @@ static void printSettingsKV(void) {
     printSettingOPA(i);
   }
   printSettingRF();
+  printSettingSerial();
   printSettingDatalog();
   printSettingJSON();
 }

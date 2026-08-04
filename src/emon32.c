@@ -612,13 +612,16 @@ static void transmitData(const Emon32Dataset_t *pSrc, uint32_t *pPkt) {
   if ('a' == pConfig->opaCfg[2].func) {
     chsActive.analog = pConfig->opaCfg[2].opaActive;
   }
+  const DataPackOpts_t opts = {.bufSize    = TX_BUFFER_W,
+                               .json       = pConfig->baseCfg.useJson,
+                               .serialLog  = pConfig->baseCfg.logToSerial,
+                               .pChsActive = &chsActive};
 
-  (void)dataPackSerial(pSrc, txBuffer, TX_BUFFER_W, pConfig->baseCfg.useJson,
-                       &chsActive);
+  (void)dataPackSerial(pSrc, txBuffer, &opts);
 
   if (pConfig->dataTxCfg.useRFM) {
 
-    if (pConfig->baseCfg.logToSerial) {
+    if (0 != pConfig->baseCfg.logToSerial) {
       serialPuts(txBuffer);
     }
     /* Always send CT1-6 */

@@ -15,7 +15,7 @@ typedef struct __attribute__((__packed__)) BaseCfg_ {
   uint16_t reportCycles; /* Cycles between reports */
   uint16_t epDeltaStore; /* Minimum energy/pulse delta to store */
   uint8_t  dataGrp;      /* Transmission group - default 210 */
-  bool     logToSerial;  /* Log data to serial output */
+  uint8_t  logToSerial;  /* Data log to serial configuration */
   bool     useJson;      /* JSON format for serial output */
   uint16_t assumedVrms;  /* Assumed RMS voltage if not present */
   bool     debugSerial;  /* Verbose debug logged to serial */

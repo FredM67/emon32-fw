@@ -34,7 +34,7 @@ To test if your serial connection is working, try these commands first:
 | **?** | Show help text |
 | **a\<n>** | Set the assumed RMS voltage as integer (when no AC voltage detected)<br>Example: `a230` sets assumed voltage to 230V |
 | **b** | Backup configuration to serial |
-| **c\<n>** | Log to serial output<br>- `c0`: Disable serial logging<br>- `c1`: Enable serial logging |
+| **c\<n>** | Log to serial output<br>- `c0`: Disable serial logging<br>- `c1`: Enable serial logging<br>- `c1`: Enable verbose serial logging |
 | **d\<x.x>** | Set data log period in seconds<br>Example: `d10.0` sets logging period to 10 seconds |
 | **e** | Enter bootloader mode for firmware updates |
 | **f\<n>** | Set line frequency in Hz<br>- `f50`: 50 Hz (Europe, UK, etc.)<br>- `f60`: 60 Hz (US, Canada, etc.) |
@@ -127,6 +127,8 @@ c1                    # Enable serial logging
 j1                    # Enable JSON format
 s                     # Save configuration
 ```
+
+To add RMS current, power factor, and apparent power to serial output use `c2`.
 
 ### Set line frequency to 50 Hz
 
