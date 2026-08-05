@@ -393,10 +393,10 @@ static void handleAutoCfg(const ECMDataset_t *pECM) {
 static void handleAutoCfgPrintA(const AutoCfgP_t *pAuto) {
   printf_("> Finished calibration for %s%d.\r\n", (pAuto->isCT ? "CT" : "V"),
           pAuto->index);
-  serialPuts("  - Measured IRMS  : ");
+  printf_("  - Measured %sRMS  : ", (pAuto->isCT ? "I" : "V"));
   putFloat(pAuto->mean, 0);
   printf_(" %s.\r\n", (pAuto->isCT ? "A" : "V"));
-  serialPuts("  - Actual IRMS    : ");
+  printf_("  - Actual %sRMS  : ", (pAuto->isCT ? "I" : "V"));
   putFloat(pAuto->target, 0);
   printf_(" %s.\r\n", (pAuto->isCT ? "A" : "V"));
   serialPuts("  - New calibration: ");
