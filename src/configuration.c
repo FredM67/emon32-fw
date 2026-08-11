@@ -56,6 +56,7 @@ typedef enum {
  * Prototypes
  *************************************/
 
+static bool     configCheckUnsaved(void);
 static void     configDefault(void);
 static void     configEchoQueueChar(const uint8_t c);
 static void     configEchoQueueStr(const char *s);
@@ -132,6 +133,7 @@ static void printfError(const char *fmt, ...) {
 }
 
 static Emon32Config_t config;
+static Emon32Config_t config_nvm;
 static char           inBuffer[IN_BUFFER_W];
 
 static AutoConfig_t autocfg = {0};
@@ -144,6 +146,20 @@ static uint8_t                 clearAccumIdx =
 static size_t inBufferIdx   = 0;
 static bool   cmdPending    = false;
 static bool   unsavedChange = false;
+
+static bool configCheckUnsaved(void) {
+  /* Step through the running and NVM configs, check for differences. */
+  uint8_t *pCfg    = (uint8_t *)&config;
+  uint8_t *pCfgNvm = (uint8_t *)&config_nvm;
+
+  /* REVISIT : do word comparison */
+  for (size_t i = 0; i < sizeof(config); i++) {
+    if (*pCfg++ != *pCfgNvm++) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /*! @brief Set all configuration values to defaults */
 static void configDefault(void) {
@@ -1456,6 +1472,7 @@ static void resetRequest(void) {
 static void saveToNVM(void) {
   /* Save to NVM config space after recalculating CRC */
   if (unsavedChange) {
+    memcpy(&config_nvm, &config, sizeof(config));
     config.crc16_ccitt = calcCRC16_ccitt(&config, (sizeof(config) - 2));
 
     serialPuts("> Saving configuration to NVM... ");
@@ -1824,6 +1841,8 @@ Emon32Config_t *configLoadFromNVM(void) {
     }
   }
 
+  /* Copy loaded NVM config into shadow for shared value access */
+  memcpy(&config_nvm, &config, sizeof(config));
   return &config;
 }
 
@@ -1994,7 +2013,8 @@ void configProcessCmd(void) {
     break;
   }
 
-  cmdPending = false;
+  unsavedChange = configCheckUnsaved();
+  cmdPending    = false;
   inBufferClear(arglen + 1);
 }
 
