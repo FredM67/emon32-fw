@@ -114,10 +114,11 @@ typedef struct DataCT_ {
 
 typedef struct ECMDataset_ {
   float    wallTime;
-  uint32_t activeCh;
+  uint32_t activeCh;        /* Bitmap of active channels */
   float    rmsV[NUM_V * 2]; /* For L-L */
-  DataCT_t CT[NUM_CT];
-  uint16_t ain;
+  float    freqV;           /* line frequency */
+  DataCT_t CT[NUM_CT];      /* CT data */
+  uint16_t ain;             /* analog value */
 } ECMDataset_t;
 
 typedef struct ECMPerformance_ {

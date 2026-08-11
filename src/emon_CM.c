@@ -805,6 +805,19 @@ RAMFUNC ECMDataset_t *ecmProcessSet(void) {
     }
   }
 
+  /* Frequency; only V1 considered as assumed synchronous.
+   * Account for overflow on long acquisition times.
+   */
+  uint32_t cycles_scaled = accumProcessing->cycles;
+  uint32_t tDelta_scaled = accumProcessing->tDelta_us;
+  while (cycles_scaled > 4250u) {
+    cycles_scaled = cycles_scaled / 2u;
+    tDelta_scaled = tDelta_scaled / 2u;
+  }
+
+  datasetProc.freqV = qfp_fdiv(qfp_uint2float(cycles_scaled * 1000000u),
+                               qfp_uint2float(tDelta_scaled));
+
   for (size_t idxCT = 0; idxCT < NUM_CT; idxCT++) {
     if (channelActive[idxCT + NUM_V]) {
       int32_t idxV1 = ecmCfg.ctCfg[idxCT].vChan1;

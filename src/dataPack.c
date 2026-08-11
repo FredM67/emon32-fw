@@ -26,7 +26,8 @@ enum StrIdx_ {
   STR_ANALOG = 12,
   STR_PF     = 13,
   STR_I      = 14,
-  STR_AP     = 15
+  STR_AP     = 15,
+  STR_FREQ   = 16
 };
 
 #define CONV_STR_W 16
@@ -50,7 +51,7 @@ static size_t strnCatUint(StrN_t *strD, uint32_t v);
 static char tmpStr[CONV_STR_W] = {0};
 
 /* Strings that are inserted in the transmitted message */
-const StrN_t baseStr[16] = {
+const StrN_t baseStr[17] = {
     {.str = "MSG", .n = 3, .m = 4},    {.str = "V", .n = 1, .m = 2},
     {.str = "P", .n = 1, .m = 2},      {.str = "E", .n = 1, .m = 2},
     {.str = "pulse", .n = 5, .m = 6},  {.str = "t", .n = 1, .m = 2},
@@ -58,7 +59,8 @@ const StrN_t baseStr[16] = {
     {.str = "\"", .n = 1, .m = 2},     {.str = "{", .n = 1, .m = 2},
     {.str = "}", .n = 1, .m = 2},      {.str = ",", .n = 1, .m = 2},
     {.str = "analog", .n = 6, .m = 7}, {.str = "PF", .n = 2, .m = 3},
-    {.str = "I", .n = 1, .m = 2},      {.str = "AP", .n = 2, .m = 3}};
+    {.str = "I", .n = 1, .m = 2},      {.str = "AP", .n = 2, .m = 3},
+    {.str = "F", .n = 1, .m = 2}};
 
 /*! @brief Append "<field><id>:" to the string
  *  @param [out] strD : pointer to the fat string
@@ -179,6 +181,10 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst,
     catId(&strn, (i + 1), STR_V, pOpts->json);
     strn.n += strnCatFloat(&strn, pData->pECM->rmsV[i]);
   }
+
+  /* Print frequency for V1 only */
+  catId(&strn, 1u, STR_FREQ, pOpts->json);
+  strn.n += strnCatFloat(&strn, pData->pECM->freqV);
 
   /* CT channels (power, energy, [current, PF, apparent power])
    * Only print onboard CTs 7-12 if any are present
