@@ -92,17 +92,17 @@ static char    *getLastReset(void);
 static void     handleConfirmation(char c);
 static void     inBufferClear(const size_t n);
 static size_t   inBufferTok(void);
-static void     printSettingCT(const size_t ch);
-static void     printSettingDatalog(void);
-static void     printSettingJSON(void);
-static void     printSettingOPA(const size_t ch);
-static void     printSettingRF(void);
-static void     printSettingRFFreq(void);
-static void     printSettingSerial(void);
-static void     printSettingV(const size_t ch);
+static void     printSettingCT(const size_t ch, bool fromNvm);
+static void     printSettingDatalog(bool fromNvm);
+static void     printSettingJSON(bool fromNvm);
+static void     printSettingOPA(const size_t ch, bool fromNvm);
+static void     printSettingRF(bool fromNvm);
+static void     printSettingRFFreq(bool fromNvm);
+static void     printSettingSerial(bool fromNvm);
+static void     printSettingV(const size_t ch, bool fromNvm);
 static void     printSettings(void);
-static void     printSettingsHR(void);
-static void     printSettingsKV(void);
+static void     printSettingsHR(bool fromNvm);
+static void     printSettingsKV(bool fromNvm);
 static void     printUptime(void);
 static uint32_t readWordAtAddress(uintptr_t address);
 static void     resetRequest(void);
@@ -148,11 +148,11 @@ static bool   cmdPending    = false;
 static bool   unsavedChange = false;
 
 static bool configCheckUnsaved(void) {
-  /* Step through the running and NVM configs, check for differences. */
   uint8_t *pCfg    = (uint8_t *)&config;
   uint8_t *pCfgNvm = (uint8_t *)&config_nvm;
 
-  /* REVISIT : do word comparison */
+  /* Need to do byte wise comparison on packed struct (could do with obtuse
+   * casting but, even though this is slow, it won't be used often). */
   for (size_t i = 0; i < sizeof(config); i++) {
     if (*pCfg++ != *pCfgNvm++) {
       return true;
@@ -317,11 +317,11 @@ static bool configureAnalog(void) {
     if (ch < NUM_V) {
       ecmCfg->vCfg[ch].vActive      = active;
       config.voltageCfg[ch].vActive = active;
-      printSettingV(ch);
+      printSettingV(ch, false);
     } else {
       ecmCfg->ctCfg[ch - NUM_V].active  = active;
       config.ctCfg[ch - NUM_V].ctActive = active;
-      printSettingCT(ch - NUM_V);
+      printSettingCT(ch - NUM_V, false);
     }
     ecmConfigChannel(ch);
     return true;
@@ -365,7 +365,7 @@ static bool configureAnalog(void) {
     ecmCfg->vCfg[ch].voltageCalRaw   = calAmpl;
     ecmCfg->vCfg[ch].phase           = calPhase;
 
-    printSettingV(ch);
+    printSettingV(ch, false);
 
     ecmConfigChannel(ch);
 
@@ -428,7 +428,7 @@ static bool configureAnalog(void) {
   config.ctCfg[ch].vChan2  = vCh2 - 1;
   ecmCfg->ctCfg[ch].vChan2 = vCh2 - 1;
 
-  printSettingCT(ch);
+  printSettingCT(ch, false);
   ecmConfigChannel(ch + NUM_V);
   return true;
 }
@@ -604,7 +604,7 @@ static bool configureDatalog(void) {
       configTimeToCycles(convF.val, config.baseCfg.mainsFreq);
   ecmConfigReportCycles(config.baseCfg.reportCycles);
 
-  printSettingDatalog();
+  printSettingDatalog(false);
   return true;
 }
 
@@ -641,7 +641,7 @@ static bool configureJSON(void) {
   }
 
   config.baseCfg.useJson = (bool)convU.val.u8;
-  printSettingJSON();
+  printSettingJSON(false);
   return true;
 }
 
@@ -927,7 +927,7 @@ static bool configureOPA(void) {
 
   if (!active || ('\0' == inBuffer[posFunc])) {
     config.opaCfg[ch].opaActive = active;
-    printSettingOPA(ch);
+    printSettingOPA(ch, false);
     return true;
   }
   config.opaCfg[ch].opaActive = true;
@@ -991,7 +991,7 @@ static bool configureOPA(void) {
   }
 
   config.opaCfg[ch].func = func;
-  printSettingOPA(ch);
+  printSettingOPA(ch, false);
   return true;
 }
 
@@ -1075,7 +1075,7 @@ static bool configureRF433(void) {
   config.dataTxCfg.rfmFreq = val ? 2 : 3;
 
   serialPuts("rfBand = ");
-  printSettingRFFreq();
+  printSettingRFFreq(false);
   serialPuts(" MHz\r\n");
   rfmSetFrequency(config.dataTxCfg.rfmFreq);
   return true;
@@ -1119,7 +1119,7 @@ static bool configureSerialLog(void) {
   }
 
   config.baseCfg.logToSerial = convU.val.u8;
-  printSettingSerial();
+  printSettingSerial(false);
   return true;
 }
 
@@ -1200,67 +1200,78 @@ static size_t inBufferTok(void) {
   return tokCount;
 }
 
-static void printSettingCT(const size_t ch) {
+static void printSettingCT(const size_t ch, bool fromNvm) {
+  Emon32Config_t *pCfg = fromNvm ? &config_nvm : &config;
+
   printf_("iCal%u = ", (ch + 1));
-  putFloat(config.ctCfg[ch].ctCal, 0);
+  putFloat(pCfg->ctCfg[ch].ctCal, 0);
   printf_(", iLead%u = ", (ch + 1));
-  putFloat(config.ctCfg[ch].phase, 0);
+  putFloat(pCfg->ctCfg[ch].phase, 0);
   printf_(", iActive%u = %s", (ch + 1),
-          config.ctCfg[ch].ctActive ? "on" : "off");
+          pCfg->ctCfg[ch].ctActive ? "on" : "off");
   printf_(", v1Chan%u = %d, v2Chan%u = %d\r\n", (ch + 1),
-          (config.ctCfg[ch].vChan1 + 1), (ch + 1),
-          (config.ctCfg[ch].vChan2 + 1));
+          (pCfg->ctCfg[ch].vChan1 + 1), (ch + 1), (pCfg->ctCfg[ch].vChan2 + 1));
 }
 
-static void printSettingDatalog(void) {
+static void printSettingDatalog(bool fromNvm) {
+  Emon32Config_t *pCfg = fromNvm ? &config_nvm : &config;
+
   serialPuts("datalog = ");
-  putFloat(config.baseCfg.reportTime, 0);
+  putFloat(pCfg->baseCfg.reportTime, 0);
   serialPuts("\r\n");
 }
 
-static void printSettingJSON(void) {
-  printf_("json = %s\r\n", config.baseCfg.useJson ? "on" : "off");
+static void printSettingJSON(bool fromNvm) {
+  Emon32Config_t *pCfg = fromNvm ? &config_nvm : &config;
+
+  printf_("json = %s\r\n", pCfg->baseCfg.useJson ? "on" : "off");
 }
 
-static void printSettingOPA(const size_t ch) {
+static void printSettingOPA(const size_t ch, bool fromNvm) {
+  Emon32Config_t *pCfg = fromNvm ? &config_nvm : &config;
+
   printf_("opa%d ", (ch + 1));
 
   /* OneWire */
-  if ('o' == config.opaCfg[ch].func) {
+  if ('o' == pCfg->opaCfg[ch].func) {
     printf_("active = %s, onewire\r\n",
-            config.opaCfg[ch].opaActive ? "on" : "off");
+            pCfg->opaCfg[ch].opaActive ? "on" : "off");
     return;
   }
 
-  if ('a' == config.opaCfg[ch].func) {
+  if ('a' == pCfg->opaCfg[ch].func) {
     printf_("active = %s, analog\r\n",
-            config.opaCfg[ch].opaActive ? "on" : "off");
+            pCfg->opaCfg[ch].opaActive ? "on" : "off");
     return;
   }
 
   /* Pulse - show edge type */
-  const char *edgeStr = ('r' == config.opaCfg[ch].func)   ? "rising"
-                        : ('f' == config.opaCfg[ch].func) ? "falling"
-                                                          : "both";
+  const char *edgeStr = ('r' == pCfg->opaCfg[ch].func)   ? "rising"
+                        : ('f' == pCfg->opaCfg[ch].func) ? "falling"
+                                                         : "both";
 
   printf_("active = %s, pulse = %s, pullUp = %s, pulsePeriod = %d\r\n",
-          (config.opaCfg[ch].opaActive ? "on" : "off"), edgeStr,
-          config.opaCfg[ch].puEn ? "on" : "off", config.opaCfg[ch].period);
+          (pCfg->opaCfg[ch].opaActive ? "on" : "off"), edgeStr,
+          pCfg->opaCfg[ch].puEn ? "on" : "off", pCfg->opaCfg[ch].period);
 }
 
-static void printSettingRF(void) {
-  printf_("RF = %s, ", config.dataTxCfg.useRFM ? "on" : "off");
+static void printSettingRF(bool fromNvm) {
+  Emon32Config_t *pCfg = fromNvm ? &config_nvm : &config;
+
+  printf_("RF = %s, ", pCfg->dataTxCfg.useRFM ? "on" : "off");
   serialPuts("rfBand = ");
-  printSettingRFFreq();
+  printSettingRFFreq(fromNvm);
   serialPuts(" MHz, ");
-  printf_("rfGroup = %d, ", config.baseCfg.dataGrp);
-  printf_("rfNode = %d, ", config.baseCfg.nodeID);
-  printf_("rfPower = %d, ", config.dataTxCfg.rfmPwr);
+  printf_("rfGroup = %d, ", pCfg->baseCfg.dataGrp);
+  printf_("rfNode = %d, ", pCfg->baseCfg.nodeID);
+  printf_("rfPower = %d, ", pCfg->dataTxCfg.rfmPwr);
   serialPuts("rfFormat = LowPowerLabs\r\n");
 }
 
-static void printSettingRFFreq(void) {
-  switch (config.dataTxCfg.rfmFreq) {
+static void printSettingRFFreq(bool fromNvm) {
+  Emon32Config_t *pCfg = fromNvm ? &config_nvm : &config;
+
+  switch (pCfg->dataTxCfg.rfmFreq) {
   case 0:
     serialPuts("868");
     break;
@@ -1276,20 +1287,24 @@ static void printSettingRFFreq(void) {
   }
 }
 
-static void printSettingSerial(void) {
+static void printSettingSerial(bool fromNvm) {
+  Emon32Config_t *pCfg = fromNvm ? &config_nvm : &config;
+
   printf_("serial = %s\r\n",
-          (2u == config.baseCfg.logToSerial
+          (2u == pCfg->baseCfg.logToSerial
                ? "verbose"
-               : ((1u == config.baseCfg.logToSerial) ? "on" : "off")));
+               : ((1u == pCfg->baseCfg.logToSerial) ? "on" : "off")));
 }
 
-static void printSettingV(const size_t ch) {
+static void printSettingV(const size_t ch, bool fromNvm) {
+  Emon32Config_t *pCfg = fromNvm ? &config_nvm : &config;
+
   printf_("vCal%u = ", (ch + 1));
-  putFloat(config.voltageCfg[ch].voltageCal, 0);
+  putFloat(pCfg->voltageCfg[ch].voltageCal, 0);
   printf_(", vLead%u = ", (ch + 1));
-  putFloat(config.voltageCfg[ch].phase, 0);
+  putFloat(pCfg->voltageCfg[ch].phase, 0);
   printf_(", vActive%u = %s\r\n", (ch + 1),
-          config.voltageCfg[ch].vActive ? "on" : "off");
+          pCfg->voltageCfg[ch].vActive ? "on" : "off");
 }
 
 static void printAccumulators(void) {
@@ -1322,11 +1337,19 @@ static void printAccumulators(void) {
 
 static void printSettings(void) {
   if ('h' == inBuffer[1]) {
-    printSettingsHR();
+    if ('s' == inBuffer[2]) {
+      printSettingsHR(true);
+    } else {
+      printSettingsHR(false);
+    }
     /* Only show accumulators with 'lh' command */
     printAccumulators();
   } else {
-    printSettingsKV();
+    if ('s' == inBuffer[1]) {
+      printSettingsKV(true);
+    } else {
+      printSettingsKV(false);
+    }
   }
 
   if (unsavedChange) {
@@ -1336,36 +1359,38 @@ static void printSettings(void) {
   }
 }
 
-static void printSettingsHR(void) {
+static void printSettingsHR(bool fromNvm) {
+  Emon32Config_t *pCfg = fromNvm ? &config_nvm : &config;
+
   serialPuts("\r\n\r\n==== Settings ====\r\n\r\n");
-  printf_("Mains frequency (Hz):      %d\r\n", config.baseCfg.mainsFreq);
+  printf_("Mains frequency (Hz):      %d\r\n", pCfg->baseCfg.mainsFreq);
   serialPuts("Data log time (s):         ");
-  putFloat(config.baseCfg.reportTime, 0);
+  putFloat(pCfg->baseCfg.reportTime, 0);
   serialPuts("\r\nData transmission:         ");
-  if (config.dataTxCfg.useRFM) {
+  if (pCfg->dataTxCfg.useRFM) {
     serialPuts("RFM69, ");
-    printSettingRFFreq();
-    printf_(" MHz @ %ddBm\r\n", (-18 + config.dataTxCfg.rfmPwr));
-    printf_("  - Data group:            %d\r\n", config.baseCfg.dataGrp);
-    printf_("  - Node ID:               %d\r\n", config.baseCfg.nodeID);
+    printSettingRFFreq(fromNvm);
+    printf_(" MHz @ %ddBm\r\n", (-18 + pCfg->dataTxCfg.rfmPwr));
+    printf_("  - Data group:            %d\r\n", pCfg->baseCfg.dataGrp);
+    printf_("  - Node ID:               %d\r\n", pCfg->baseCfg.nodeID);
   }
   printf_("Serial:                    %s\r\n",
-          (2u == config.baseCfg.logToSerial
+          (2u == pCfg->baseCfg.logToSerial
                ? "Verbose"
-               : ((1u == config.baseCfg.logToSerial) ? "On" : "Off")));
+               : ((1u == pCfg->baseCfg.logToSerial) ? "On" : "Off")));
   printf_("Data format:               %s\r\n",
-          config.baseCfg.useJson ? "JSON" : "Key:Value");
+          pCfg->baseCfg.useJson ? "JSON" : "Key:Value");
   serialPuts("\r\n");
 
   for (size_t i = 0; i < NUM_OPA; i++) {
-    bool enabled = config.opaCfg[i].opaActive;
+    bool enabled = pCfg->opaCfg[i].opaActive;
     printf_("OPA %u (%sactive)\r\n", (i + 1), enabled ? "" : "in");
-    if ('o' == config.opaCfg[i].func) {
+    if ('o' == pCfg->opaCfg[i].func) {
       serialPuts("  - OneWire interface\r\n");
     } else {
-      printf_("  - Hysteresis (ms): %d\r\n", config.opaCfg[i].period);
+      printf_("  - Hysteresis (ms): %d\r\n", pCfg->opaCfg[i].period);
       serialPuts("  - Edge:            ");
-      switch (config.opaCfg[i].func) {
+      switch (pCfg->opaCfg[i].func) {
       case 'b':
         serialPuts("Both");
         break;
@@ -1381,12 +1406,12 @@ static void printSettingsHR(void) {
         serialPuts("Unknown");
       }
       printf_("\r\n  - Pull up:         %s\r\n",
-              config.opaCfg[i].puEn ? "Yes" : "No");
+              pCfg->opaCfg[i].puEn ? "Yes" : "No");
     }
     serialPuts("\r\n");
   }
 
-  printf_("Assumed RMS voltage: %d V\r\n\r\n", config.baseCfg.assumedVrms);
+  printf_("Assumed RMS voltage: %d V\r\n\r\n", pCfg->baseCfg.assumedVrms);
 
   serialPuts(
       "| Ref | Channel | Active | Calibration |  Phase  | In 1 | In 2 |\r\n");
@@ -1394,25 +1419,27 @@ static void printSettingsHR(void) {
       "+=====+=========+========+=============+=========+======+======+\r\n");
   for (size_t i = 0; i < NUM_V; i++) {
     printf_("| %2d  |  V %2d   | %c      | ", (i + 1), (i + 1),
-            (config.voltageCfg[i].vActive ? 'Y' : 'N'));
-    putFloat(config.voltageCfg[i].voltageCal, 6);
+            (pCfg->voltageCfg[i].vActive ? 'Y' : 'N'));
+    putFloat(pCfg->voltageCfg[i].voltageCal, 6);
     serialPuts("      |  ");
-    putFloat(config.voltageCfg[i].phase, 6);
+    putFloat(pCfg->voltageCfg[i].phase, 6);
     serialPuts(" |      |      |\r\n");
   }
   for (size_t i = 0; i < NUM_CT; i++) {
     printf_("| %2d  | CT %2d   | %c      | ", (i + 1 + NUM_V), (i + 1),
-            (config.ctCfg[i].ctActive ? 'Y' : 'N'));
-    putFloat(config.ctCfg[i].ctCal, 6);
+            (pCfg->ctCfg[i].ctActive ? 'Y' : 'N'));
+    putFloat(pCfg->ctCfg[i].ctCal, 6);
     serialPuts("      |  ");
-    putFloat(config.ctCfg[i].phase, 6);
-    printf_(" | %d    | %d    |\r\n", (config.ctCfg[i].vChan1 + 1),
-            (config.ctCfg[i].vChan2 + 1));
+    putFloat(pCfg->ctCfg[i].phase, 6);
+    printf_(" | %d    | %d    |\r\n", (pCfg->ctCfg[i].vChan1 + 1),
+            (pCfg->ctCfg[i].vChan2 + 1));
   }
   serialPuts("\r\n");
 }
 
-static void printSettingsKV(void) {
+static void printSettingsKV(bool fromNvm) {
+  Emon32Config_t *pCfg = fromNvm ? &config_nvm : &config;
+
   serialPuts("hardware = emonPi3\r\n");
   printf_("hardware_rev = %lu\r\n", getBoardRevision());
   printf_("version = %s\r\n", emon32_build_info().release);
@@ -1421,20 +1448,20 @@ static void printSettingsKV(void) {
           (readWordAtAddress(BL_SERIAL_MAGIC_ADDR) == BL_SERIAL_MAGIC_WORD)
               ? "uart"
               : "usb");
-  printf_("assumedV = %d\r\n", config.baseCfg.assumedVrms);
+  printf_("assumedV = %d\r\n", pCfg->baseCfg.assumedVrms);
   for (size_t i = 0; i < NUM_V; i++) {
-    printSettingV(i);
+    printSettingV(i, fromNvm);
   }
   for (size_t i = 0; i < NUM_CT; i++) {
-    printSettingCT(i);
+    printSettingCT(i, fromNvm);
   }
   for (size_t i = 0; i < NUM_OPA; i++) {
-    printSettingOPA(i);
+    printSettingOPA(i, fromNvm);
   }
-  printSettingRF();
-  printSettingSerial();
-  printSettingDatalog();
-  printSettingJSON();
+  printSettingRF(fromNvm);
+  printSettingSerial(fromNvm);
+  printSettingDatalog(fromNvm);
+  printSettingJSON(fromNvm);
 }
 
 static void printUptime(void) {
@@ -1877,7 +1904,10 @@ void configProcessCmd(void) {
       "   - v1        : voltage 1 (for CT only)\r\n"
       "   - v2        : voltage 2 (for CT only, optional)\r\n"
       " - l           : list settings\r\n"
+      " - ls          : list saved settings\r\n"
       " - lh          : list settings and accumulators (human readable)\r\n"
+      " - lhs         : list saved settings and accumulators (human "
+      "readable)\r\n"
       " - m<v> <w> <x> <y> <z> : Configure OPA1-3 for OneWire or Pulse\r\n"
       "   - v : OPA index. [1-3]\r\n"
       "   - w : OPA active. w = 0: DISABLED, w = 1: ENABLED\r\n"
