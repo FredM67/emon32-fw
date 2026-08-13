@@ -64,7 +64,7 @@ const StrN_t baseStr[17] = {
 
 /*! @brief Append "<field><id>:" to the string
  *  @param [out] strD : pointer to the fat string
- *  @param [in] id : numeric index
+ *  @param [in] id : numeric index; don't print if >4095
  *  @param [in] field : field name index, e.g. "STR_V"
  *  @param [in] json : select format
  */
@@ -75,7 +75,9 @@ static void catId(StrN_t *strD, const uint32_t id, const int32_t field,
     strD->n += strnCat(strD, &baseStr[STR_DQUOTE]);
   }
   strD->n += strnCat(strD, &baseStr[field]);
-  strD->n += strnCatUint(strD, id);
+  if (id < 4096) {
+    strD->n += strnCatUint(strD, id);
+  }
   if (json) {
     strD->n += strnCat(strD, &baseStr[STR_DQUOTE]);
   }
@@ -183,7 +185,7 @@ size_t dataPackSerial(const Emon32Dataset_t *pData, char *pDst,
   }
 
   /* Print frequency for V1 only */
-  catId(&strn, 1u, STR_FREQ, pOpts->json);
+  catId(&strn, 4096u, STR_FREQ, pOpts->json);
   strn.n += strnCatFloat(&strn, pData->pECM->freqV);
 
   /* CT channels (power, energy, [current, PF, apparent power])
