@@ -1952,7 +1952,7 @@ void configProcessCmd(void) {
       " - f<n>        : line frequency (Hz)\r\n"
       " - g<n>        : set network group (default = 210)\r\n"
       " - h           : safe power off countdown (will not remove power)\r\n"
-      " -i<x> <m> <i.i> : Auto amplitude calibration\r\n"
+      " - i<x> <m> <i.i> : Auto amplitude calibration\r\n"
       "   - x         : channel (1-3 -> V; 4... -> CT)\r\n"
       "   - m         : mode select. m = a: amplitude\r\n"
       "   - i.i       : actual voltage or current (amplitude only)\r\n"
@@ -1998,6 +1998,8 @@ void configProcessCmd(void) {
       " - w<n>        : RF active. n = 0: OFF, n = 1: ON\r\n"
       " - x<n>        : 433 MHz compatibility. n = 0: 433.92 MHz, n = 1: "
       "433.00 MHz\r\n"
+      " - ye<n> <m>   : set energy accumulator n to m Wh\r\n"
+      " - yp<n> <m>   : set pulse accumulator n to m counts\r\n"
       " - z           : zero all accumulators (E1-E12, pulse1-3)\r\n"
       " - ze<n>       : zero individual energy accumulator (n=1-12)\r\n"
       " - zp<n>       : zero individual pulse accumulator (n=1-3)\r\n\r\n";
