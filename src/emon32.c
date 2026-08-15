@@ -735,7 +735,9 @@ static void transmitData(const Emon32Dataset_t *pSrc, uint32_t *pPkt) {
     __enable_irq();
 
   } else {
-    serialPuts(txBuffer);
+    if (0 != pConfig->baseCfg.logToSerial) {
+      serialPuts(txBuffer);
+    }
   }
 }
 
