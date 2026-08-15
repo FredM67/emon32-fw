@@ -65,6 +65,7 @@ static uint16_t configTimeToCycles(const float time, const uint32_t mainsFreq);
 static bool     configureAnalog(void);
 static bool     configureAssumed(void);
 static bool     configureAuto(void);
+static void     configureAccumulatorSet(void);
 static void     configureBackup(void);
 static bool     configureDatalog(void);
 static bool     configureGroupID(void);
@@ -92,6 +93,7 @@ static char    *getLastReset(void);
 static void     handleConfirmation(char c);
 static void     inBufferClear(const size_t n);
 static size_t   inBufferTok(void);
+static void     parseAndZeroAccumulator(void);
 static void     printSettingCT(const size_t ch, bool fromNvm);
 static void     printSettingDatalog(bool fromNvm);
 static void     printSettingJSON(bool fromNvm);
@@ -535,6 +537,65 @@ static bool configureAuto(void) {
 }
 
 AutoConfig_t *configAutoStatus(void) { return &autocfg; }
+
+static void configureAccumulatorSet(void) {
+  char   ep = inBuffer[1];
+  size_t ch = 0;
+
+  if (ep != 'e' && ep != 'p') {
+    serialPutsError("Invalid accumulator selection.");
+    return;
+  }
+
+  inBufferTok();
+  ConvUint_t convU = utilAtoui(inBuffer + 2, ITOA_BASE10);
+  if (!convU.valid) {
+    serialPutsError("Invalid index.");
+    return;
+  }
+  ch = convU.val.u32;
+
+  size_t valPos = 0;
+  for (valPos = 0; valPos < IN_BUFFER_W; valPos++) {
+    if ('\0' == inBuffer[valPos]) {
+      break;
+    }
+  }
+  if (valPos == (IN_BUFFER_W - 1u)) {
+    serialPutsError("Value required.");
+  }
+  valPos++;
+
+  if ('e' == ep) {
+    if (convU.val.u32 < 1u || convU.val.u32 > NUM_CT) {
+      serialPutsError("Index out of range.");
+      return;
+    }
+
+    ConvInt_t convI = utilAtoi(inBuffer + valPos, ITOA_BASE10);
+    if (!convI.valid) {
+      serialPutsError("Invalid energy value.");
+      return;
+    }
+
+    ecmEnergySetChannel((ch - 1u), convI.val.i32);
+    printf_("E%d: %ld\r\n", ch, convI.val.i32);
+
+  } else {
+    if (convU.val.u32 < 1u || convU.val.u32 > NUM_OPA) {
+      serialPutsError("Index out of range.");
+      return;
+    }
+
+    convU = utilAtoui(inBuffer + valPos, ITOA_BASE10);
+    if (!convU.valid) {
+      serialPutsError("Invalid pulse count value.");
+      return;
+    }
+    pulseSetCount((ch - 1u), convU.val.u32);
+    printf_("pulse%d: %lu\r\n", ch, convU.val.u32);
+  }
+}
 
 static void configureBackup(void) {
   /* Send all configuration values as JSON over the serial link. */
@@ -1598,7 +1659,7 @@ static void handleConfirmation(char c) {
         /* Clear the specific accumulator */
         if (clearAccumIdx < NUM_CT) {
           cumulative.wattHour[clearAccumIdx] = 0;
-          ecmClearEnergyChannel(clearAccumIdx);
+          ecmEnergyClearChannel(clearAccumIdx);
           printf_("    - Accumulator E%d cleared.\r\n", clearAccumIdx + 1);
         } else {
           cumulative.pulseCnt[clearAccumIdx - NUM_CT] = 0;
@@ -2034,9 +2095,11 @@ void configProcessCmd(void) {
   case 'w':
     unsavedChange = configureRFEnable();
     break;
-
   case 'x':
     unsavedChange = configureRF433();
+    break;
+  case 'y':
+    configureAccumulatorSet();
     break;
   case 'z':
     parseAndZeroAccumulator();

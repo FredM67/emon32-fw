@@ -461,16 +461,23 @@ static void calibrationPhase(CTCfg_t *pCfgCT, const VCfg_t *pCfgV, size_t idxCT,
       qfp_fsub(shiftXRate, qfp_fmul(pCfgCT->phaseY[idxPh], rateSqr));
 }
 
-void ecmClearEnergy(void) {
+void ecmEnergyClear(void) {
   for (size_t i = 0; i < NUM_CT; i++) {
     datasetProc.CT[i].wattHour = 0;
     residualEnergy[i]          = 0.0f;
   }
 }
 
-void ecmClearEnergyChannel(const size_t idx) {
+void ecmEnergyClearChannel(const size_t idx) {
   if (idx < NUM_CT) {
     datasetProc.CT[idx].wattHour = 0;
+    residualEnergy[idx]          = 0.0f;
+  }
+}
+
+void ecmEnergySetChannel(const size_t idx, const int32_t wh) {
+  if (idx < NUM_CT) {
+    datasetProc.CT[idx].wattHour = wh;
     residualEnergy[idx]          = 0.0f;
   }
 }

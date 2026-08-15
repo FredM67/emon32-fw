@@ -908,7 +908,7 @@ int main(void) {
          */
         eepromWLClear();
         eepromWLReset(sizeof(nvmCumulative));
-        ecmClearEnergy();
+        ecmEnergyClear();
         for (size_t i = 0; i < NUM_OPA; i++) {
           pulseSetCount(i, 0);
         }
