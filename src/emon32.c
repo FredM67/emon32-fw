@@ -477,6 +477,7 @@ static bool ssd1306IndicateShutdown(void) {
       xy.y = 2u;
       snprintf_(buffer, 24, "Shut down.");
     }
+    ssd1306ClearBuffer();
     ssd1306SetPosition(xy);
     ssd1306DrawString(buffer);
     ssd1306DisplayUpdate();
@@ -511,22 +512,28 @@ static void ssd1306IndicateStartup(void) {
     }
 
     ssd1306RefreshTitle();
+    ssd1306ClearBuffer();
     ssd1306SetPosition((PosXY_t){.x = (47u - offset_release), .y = 1u});
     ssd1306DrawString(vInfo.release);
+    ssd1306DisplayUpdate();
+
+    ssd1306ClearBuffer();
     ssd1306SetPosition((PosXY_t){.x = (44u - offset_rev), .y = 2u});
     ssd1306DrawString(vInfo.revision);
+    ssd1306DisplayUpdate();
 
+    ssd1306ClearBuffer();
     ssd1306SetPosition((PosXY_t){.x = 35u, .y = 4u});
     ssd1306DrawString("Starting...");
-
     ssd1306DisplayUpdate();
   }
 }
 
 static void ssd1306RefreshTitle(void) {
-  ssd1306ClearBuffer();
+  ssd1306DisplayClear();
   ssd1306SetPosition((PosXY_t){.x = 44u, .y = 0u});
   ssd1306DrawString("emonPi3");
+  ssd1306DisplayUpdate();
 }
 
 /*! @brief Setup the SSD1306 display, if present. Display a basic message */
