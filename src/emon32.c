@@ -26,6 +26,7 @@
 #include "periph_rfm69.h"
 #include "pulse.h"
 #include "temperature.h"
+#include "uartFifo.h"
 #include "ui.h"
 #include "util.h"
 
@@ -77,7 +78,6 @@ static bool evtPending(EVTSRC_t evt);
 static void handleAutoCfg(const ECMDataset_t *pECM);
 static void handleAutoCfgPrintA(const AutoCfgP_t *pAuto);
 static void pulseConfigure(void);
-void        putchar_(char c);
 static void rfmConfigure(void);
 static bool ssd1306IndicateShutdown(void);
 static void ssd1306IndicateStartup(void);
@@ -429,16 +429,6 @@ static void pulseConfigure(void) {
   }
 }
 
-/*! @brief Allows the printf function to print to the debug console. If the
- * USB CDC is connected, characters should be routed there.
- */
-void putchar_(char c) {
-  if (usbCDCIsConnected()) {
-    usbCDCTxChar(c);
-  }
-  uartPutcBlocking(SERCOM_UART, c);
-}
-
 static void rfmConfigure(void) {
   RFMOpt_t rfmOpt = {0};
   rfmOpt.freq     = (RFM_Freq_t)pConfig->dataTxCfg.rfmFreq;
@@ -457,7 +447,7 @@ void serialPuts(const char *s) {
   if (usbCDCIsConnected()) {
     usbCDCPutsBlocking(s);
   }
-  uartPutsBlocking(SERCOM_UART, s);
+  uartPutsBlocking(s);
 }
 
 static bool ssd1306IndicateShutdown(void) {

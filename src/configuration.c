@@ -2158,14 +2158,14 @@ void configRxProcess(void) {
   }
 }
 
-void SERCOM_UART_INTERACTIVE_HANDLER {
-  /* Echo the received character to the TX channel, and send to the command
-   * stream.
-   */
-  if (uartGetcReady(SERCOM_UART_INTERACTIVE)) {
-    uint8_t rx_char = uartGetc(SERCOM_UART_INTERACTIVE);
-    configRxQueueChar(rx_char);
-  }
+// void SERCOM_UART_INTERACTIVE_HANDLER {
+//   /* Echo the received character to the TX channel, and send to the command
+//    * stream.
+//    */
+//   if (uartGetcReady(SERCOM_UART_INTERACTIVE)) {
+//     uint8_t rx_char = uartGetc(SERCOM_UART_INTERACTIVE);
+//     configRxQueueChar(rx_char);
+//   }
 
-  /* Revisit : need to handle the Error interrupt? */
-}
+//   /* Revisit : need to handle the Error interrupt? */
+// }

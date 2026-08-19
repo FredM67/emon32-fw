@@ -194,6 +194,10 @@
 #define UART_PAD_TX     1u /* TXPO value, Tx on pad 2 */
 #define UART_BAUD       115200u
 
+#define UART_BUFFER_TX_B 9u /* Shared Tx buffer bit width */
+#define UART_BUFFER_TX_W                                                       \
+  (1u << UART_BUFFER_TX_B) /* Width of shared Tx buffer */
+
 /* RFM related defines */
 #define RFM_PALEVEL_DEF 0x19 /* Safe level if no antenna installed. */
 #define RFM_FREQ_DEF    3    /* 433.92 MHz in frequency enum */

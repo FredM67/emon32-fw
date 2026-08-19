@@ -4,16 +4,17 @@
 #include "driver_PORT.h"
 #include "driver_SERCOM.h"
 #include "driver_TIME.h"
+#include "uartFifo.h"
 
 #define I2CM_ACTIVATE_TIMEOUT_US 200u /* Time to wait for I2C address phase */
 #define I2CM_DATA_TIMEOUT_US     200u /* Time to wait for I2C data byte */
 
 static void i2cmCommon(Sercom *pSercom);
 static void i2cmExtPinsSetup(void);
+
 static void sercomSetupSPI(void);
 static void spiExtPinsSetup(bool enable);
 
-static void uartInterruptEnable(Sercom *sercom, uint8_t interrupt);
 static void uartSetup(void);
 
 static volatile bool extIntfEnabled = true;
@@ -170,6 +171,7 @@ static void uartSetup(void) {
     ;
 
   SERCOM_UART->USART.BAUD.reg = baud;
+  NVIC_EnableIRQ(SERCOM_UART_INTERACTIVE_IRQn);
 }
 
 static void sercomSetupSPI(void) {
@@ -229,15 +231,9 @@ void uartPutcBlocking(Sercom *sercom, char c) {
   sercom->USART.INTFLAG.reg = SERCOM_USART_INTFLAG_DRE;
 }
 
-void uartPutsBlocking(Sercom *sercom, const char *s) {
-  while (*s) {
-    uartPutcBlocking(sercom, *s++);
-  }
-}
-
 void uartEnableRx(Sercom *sercom, const uint32_t irqn) {
   uartInterruptEnable(sercom, SERCOM_USART_INTENSET_RXC);
-  NVIC_EnableIRQ(irqn);
+  (void)irqn;
 
   sercom->USART.CTRLB.bit.RXEN = 1;
 
@@ -265,7 +261,11 @@ bool uartGetcReady(const Sercom *sercom) {
   return (bool)(sercom->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_RXC);
 }
 
-static void uartInterruptEnable(Sercom *sercom, uint8_t interrupt) {
+void uartInterruptDisable(Sercom *sercom, uint8_t interrupt) {
+  sercom->USART.INTENCLR.reg = interrupt;
+}
+
+void uartInterruptEnable(Sercom *sercom, uint8_t interrupt) {
   sercom->USART.INTENSET.reg = interrupt;
 }
 
