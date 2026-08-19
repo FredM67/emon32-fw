@@ -7,6 +7,7 @@
 #include "driver_TIME.h"
 
 #include "configuration.h"
+#include "configuration_help.h"
 #include "eeprom.h"
 #include "emon32.h"
 #include "emon32_build_info.h"
@@ -67,7 +68,7 @@ static void      configEchoQueueChar(const uint8_t c);
 static void      configEchoQueueStr(const char *s);
 static void      configInitialiseNVM(void);
 static uint16_t  configTimeToCycles(const float time, const uint32_t mainsFreq);
-static bool      configureAnalog(void);
+static bool      configureVCTChannel(void);
 static bool      configureAssumed(void);
 static bool      configureAuto(void);
 static void      configureAccumulatorSet(void);
@@ -92,6 +93,8 @@ static bool      configureRFEnable(void);
 static bool      configureRF433(void);
 static bool      configureRFPower(void);
 static bool      configureSerialLog(void);
+static void      confirmationClear(void);
+static void      confirmationStart(ConfirmState_t state);
 static void      enterBootloader(void);
 static uint32_t  getBoardRevision(void);
 static char     *getLastReset(void);
@@ -118,11 +121,15 @@ static void      shutdownPi(void);
 static void      zeroAccumulators(void);
 
 /*************************************
- * Local variables
+ * Constants
  *************************************/
 
 #define IN_BUFFER_W  64u
 #define ERROR_PREFIX "> Error: "
+
+/*************************************
+ * Error output
+ *************************************/
 
 static void serialPutsError(const char *msg) {
   serialPuts(ERROR_PREFIX);
@@ -138,6 +145,10 @@ static void printfError(const char *fmt, ...) {
   va_end(args);
   serialPuts("\r\n");
 }
+
+/*************************************
+ * Module state
+ *************************************/
 
 static Emon32Config_t config;
 static Emon32Config_t config_nvm;
@@ -155,18 +166,12 @@ static bool   cmdPending    = false;
 static bool   unsavedChange = false;
 
 static bool configCheckUnsaved(void) {
-  uint8_t *pCfg    = (uint8_t *)&config;
-  uint8_t *pCfgNvm = (uint8_t *)&config_nvm;
-
-  /* Need to do byte wise comparison on packed struct (could do with obtuse
-   * casting but, even though this is slow, it won't be used often). */
-  for (size_t i = 0; i < sizeof(config); i++) {
-    if (*pCfg++ != *pCfgNvm++) {
-      return true;
-    }
-  }
-  return false;
+  return (0 != memcmp(&config, &config_nvm, sizeof(config)));
 }
+
+/*************************************
+ * Defaults and NVM initialisation
+ *************************************/
 
 /*! @brief Set all configuration values to defaults */
 static void configDefault(void) {
@@ -248,7 +253,11 @@ static void configInitialiseNVM(void) {
   serialPuts("Done!\r\n");
 }
 
-static bool configureAnalog(void) {
+/*************************************
+ * Measurement channel commands
+ *************************************/
+
+static bool configureVCTChannel(void) {
   /* String format: k<x> <a> <y.y> <z.z> v1 v2
    * Find space delimiters, then convert to null and a->i/f
    */
@@ -415,6 +424,10 @@ static bool configureAnalog(void) {
   ecmConfigChannel(ch + NUM_V);
   return true;
 }
+
+/*************************************
+ * General configuration commands
+ *************************************/
 
 static bool configureAssumed(void) {
   ConvUint_t convU = utilAtoui(inBuffer + 1, ITOA_BASE10);
@@ -697,12 +710,15 @@ static bool configureLineFrequency(void) {
   return true;
 }
 
+/*************************************
+ * OneWire commands
+ *************************************/
+
 static bool configure1WAddr(void) {
   char c1 = *(inBuffer + 1);
   switch (c1) {
   case 'c':
     return configure1WAddrClear();
-    break;
   case 'f':
     configure1WFind();
     return false;
@@ -895,6 +911,10 @@ static bool configure1WSave(void) {
   return true;
 }
 
+/*************************************
+ * OPA commands
+ *************************************/
+
 static bool configureOPA(void) {
   ConvUint_t convU;
   uint8_t    ch     = 0;
@@ -1006,6 +1026,10 @@ static bool configureOPA(void) {
   printSettingOPA(ch, false);
   return true;
 }
+
+/*************************************
+ * RF and runtime configuration commands
+ *************************************/
 
 static bool configureNodeID(void) {
   /* n<n>
@@ -1135,16 +1159,35 @@ static bool configureSerialLog(void) {
   return true;
 }
 
+/*************************************
+ * Confirmation state
+ *************************************/
+
+static void confirmationClear(void) {
+  __disable_irq();
+  confirmState        = CONFIRM_IDLE;
+  confirmStartTime_ms = 0;
+  __enable_irq();
+}
+
+static void confirmationStart(ConfirmState_t state) {
+  __disable_irq();
+  confirmStartTime_ms = timerMillis();
+  confirmState        = state;
+  __enable_irq();
+}
+
 static void enterBootloader(void) {
   /* Set confirmation state and prompt user
    * Response will be handled asynchronously by handleConfirmation() */
   serialPuts("> Enter bootloader? All unsaved changes will be lost. 'y' to "
              "proceed.\r\n");
-  __disable_irq();
-  confirmStartTime_ms = timerMillis();
-  confirmState        = CONFIRM_BOOTLOADER;
-  __enable_irq();
+  confirmationStart(CONFIRM_BOOTLOADER);
 }
+
+/*************************************
+ * Board information helpers
+ *************************************/
 
 /*! @brief Get the board revision, software visible changes only
  *  @return board revision, 0-7
@@ -1165,22 +1208,16 @@ static char *getLastReset(void) {
   switch (lastReset) {
   case RCAUSE_SYST:
     return "Reset request";
-    break;
   case RCAUSE_WDT:
     return "Watchdog timeout";
-    break;
   case RCAUSE_EXT:
     return "External reset";
-    break;
   case RCAUSE_BOD33:
     return "3V3 brownout";
-    break;
   case RCAUSE_BOD12:
     return "1V2 brownout";
-    break;
   case RCAUSE_POR:
     return "Power on cold reset";
-    break;
   }
   return "Unknown";
 }
@@ -1191,6 +1228,10 @@ uint32_t getUniqueID(const size_t idx) {
                                           0x0080A048};
   return *(volatile uint32_t *)id_addr_lut[idx];
 }
+
+/*************************************
+ * Input buffer parsing
+ *************************************/
 
 static void inBufferClear(const size_t n) {
   inBufferIdx = 0;
@@ -1221,6 +1262,10 @@ static CmdArgs_t inBufferTok(void) {
 
   return args;
 }
+
+/*************************************
+ * Settings output
+ *************************************/
 
 static void printSettingCT(const size_t ch, bool fromNvm) {
   Emon32Config_t *pCfg = fromNvm ? &config_nvm : &config;
@@ -1509,13 +1554,14 @@ static uint32_t readWordAtAddress(uintptr_t address) {
   return value;
 }
 
+/*************************************
+ * Runtime actions
+ *************************************/
+
 static void resetRequest(void) {
   serialPuts(
       "> Reset system? All unsaved changes will be lost. 'y' to proceed.\r\n");
-  __disable_irq();
-  confirmStartTime_ms = timerMillis();
-  confirmState        = CONFIRM_RESET;
-  __enable_irq();
+  confirmationStart(CONFIRM_RESET);
 }
 
 static void saveToNVM(void) {
@@ -1539,11 +1585,12 @@ static void shutdownPi(void) {
   if (1u == getBoardRevision()) {
     serialPuts("> This will not remove power, only indicate when safe.\r\n");
   }
-  __disable_irq();
-  confirmStartTime_ms = timerMillis();
-  confirmState        = CONFIRM_SHUTDOWN_PI;
-  __enable_irq();
+  confirmationStart(CONFIRM_SHUTDOWN_PI);
 }
+
+/*************************************
+ * Confirmation handling
+ *************************************/
 
 /*! @brief Check if waiting for confirmation and handle if yes
  *  @param [in] c : character received
@@ -1580,10 +1627,7 @@ static void handleConfirmation(char c) {
     } else {
       serialPuts("    - Cancelled.\r\n");
     }
-    __disable_irq();
-    confirmState        = CONFIRM_IDLE;
-    confirmStartTime_ms = 0;
-    __enable_irq();
+    confirmationClear();
     break;
 
   case CONFIRM_RESET:
@@ -1592,10 +1636,7 @@ static void handleConfirmation(char c) {
     } else {
       serialPuts("    - Cancelled.\r\n");
     }
-    __disable_irq();
-    confirmState        = CONFIRM_IDLE;
-    confirmStartTime_ms = 0;
-    __enable_irq();
+    confirmationClear();
     break;
 
   case CONFIRM_ZERO_ACCUM:
@@ -1605,10 +1646,7 @@ static void handleConfirmation(char c) {
     } else {
       serialPuts("    - Cancelled.\r\n");
     }
-    __disable_irq();
-    confirmState        = CONFIRM_IDLE;
-    confirmStartTime_ms = 0;
-    __enable_irq();
+    confirmationClear();
     break;
 
   case CONFIRM_ZERO_ACCUM_INDIVIDUAL:
@@ -1636,11 +1674,8 @@ static void handleConfirmation(char c) {
     } else {
       serialPuts("    - Cancelled.\r\n");
     }
-    __disable_irq();
-    confirmState        = CONFIRM_IDLE;
-    confirmStartTime_ms = 0;
-    clearAccumIdx       = UINT8_MAX;
-    __enable_irq();
+    clearAccumIdx = UINT8_MAX;
+    confirmationClear();
     break;
 
   case CONFIRM_NVM_OVERWRITE:
@@ -1687,10 +1722,7 @@ static void handleConfirmation(char c) {
     } else {
       serialPuts("    - Cancelled.\r\n");
     }
-    __disable_irq();
-    confirmState        = CONFIRM_IDLE;
-    confirmStartTime_ms = 0;
-    __enable_irq();
+    confirmationClear();
     break;
 
   case CONFIRM_IDLE:
@@ -1713,7 +1745,7 @@ void configCheckConfirmationTimeout(void) {
   uint32_t elapsed_ms = timerMillis() - confirmStartTime_ms;
   if (elapsed_ms >= CONFIRM_TIMEOUT_MS) {
     serialPuts("    - Confirmation timeout, cancelled.\r\n");
-    confirmState = CONFIRM_IDLE;
+    confirmationClear();
   }
 }
 
@@ -1735,10 +1767,7 @@ static void zeroAccumulators(void) {
   clearAccumIdx = UINT8_MAX; /* UINT8_MAX means all accumulators */
   serialPuts(
       "> Zero accumulators. This can not be undone. 'y' to proceed.\r\n");
-  __disable_irq();
-  confirmStartTime_ms = timerMillis();
-  confirmState        = CONFIRM_ZERO_ACCUM;
-  __enable_irq();
+  confirmationStart(CONFIRM_ZERO_ACCUM);
 }
 
 /*! @brief Zero individual accumulator (async confirmation)
@@ -1755,10 +1784,7 @@ static void zeroAccumulatorIndividual(uint8_t idx) {
             "proceed.\r\n",
             idx - NUM_CT + 1);
   }
-  __disable_irq();
-  confirmStartTime_ms = timerMillis();
-  confirmState        = CONFIRM_ZERO_ACCUM_INDIVIDUAL;
-  __enable_irq();
+  confirmationStart(CONFIRM_ZERO_ACCUM_INDIVIDUAL);
 }
 
 /*! @brief Parse z command and zero accumulators (z, ze1-12, zp1-3) */
@@ -1808,6 +1834,10 @@ static void parseAndZeroAccumulator(void) {
   serialPutsError("Invalid command. Use z, ze1-12, or zp1-3.");
 }
 
+/*************************************
+ * Command input
+ *************************************/
+
 void configCmdChar(const uint8_t c) {
   if (('\r' == c) || ('\n' == c)) {
     if (!cmdPending) {
@@ -1830,6 +1860,10 @@ void configCmdChar(const uint8_t c) {
   }
   emon32EventSet(EVT_ECHO);
 }
+
+/*************************************
+ * Board and firmware report
+ *************************************/
 
 void configFirmwareBoardInfo(void) {
   serialPuts("                           ▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄ \r\n");
@@ -1861,6 +1895,10 @@ void configFirmwareBoardInfo(void) {
   serialPuts("  - See CONTRIBUTORS.md\r\n");
   serialPuts("  - For Bear and Moose\r\n\r\n");
 }
+
+/*************************************
+ * Public configuration API
+ *************************************/
 
 Emon32Config_t *configLoadFromNVM(void) {
 
@@ -1899,72 +1937,6 @@ void configProcessCmd(void) {
   uint32_t arglen    = 0;
   bool     termFound = false;
 
-  /* Help text - serves as documentation interally as well */
-  static const char helpText[] =
-      "\r\n"
-      "emon32 information and configuration commands\r\n\r\n"
-      " - ?           : show this text again\r\n"
-      " - a<n>        : set the assumed RMS voltage as integer\r\n"
-      " - b           : backup to serial\r\n"
-      " - c<n>        : log to serial output. n = 0: OFF, n = 1: ON, n = 2: "
-      "verbose\r\n"
-      " - d<x.x>      : data log period (s)\r\n"
-      " - e           : enter bootloader\r\n"
-      " - f<n>        : line frequency (Hz)\r\n"
-      " - g<n>        : set network group (default = 210)\r\n"
-      " - h           : safe power off countdown (will not remove power)\r\n"
-      " - i<x> <m> <i.i> : Auto amplitude calibration\r\n"
-      "   - x         : channel (1-3 -> V; 4... -> CT)\r\n"
-      "   - m         : mode select. m = a: amplitude\r\n"
-      "   - i.i       : actual voltage or current (amplitude only)\r\n"
-      " - j<n>        : JSON serial format. n = 0: OFF, n = 1: ON\r\n"
-      " - k<x> <a> <y.y> <z.z> v1 v2 : Configure an analog input\r\n"
-      "   - x:        : channel (1-3 -> V; 4... -> CT)\r\n"
-      "   - a:        : channel active. a = 0: DISABLED, a = 1: ENABLED\r\n"
-      "   - y.y       : V/CT calibration constant\r\n"
-      "   - z.z       : V/CT phase calibration value\r\n"
-      "   - v1        : voltage 1 (for CT only)\r\n"
-      "   - v2        : voltage 2 (for CT only, optional)\r\n"
-      " - l           : list settings\r\n"
-      " - ls          : list saved settings\r\n"
-      " - lh          : list settings and accumulators (human readable)\r\n"
-      " - lhs         : list saved settings and accumulators (human "
-      "readable)\r\n"
-      " - m<v> <w> <x> <y> <z> : Configure OPA1-3 for OneWire or Pulse\r\n"
-      "   - v : OPA index. [1-3]\r\n"
-      "   - w : OPA active. w = 0: DISABLED, w = 1: ENABLED\r\n"
-      "   - x : function select. x = [b,f,r]: pulse, x = o: OneWire, x = a: "
-      "analog\r\n"
-      "   - y : pull-up, only for pulse. y = 0: OFF, y = 1: ON\r\n"
-      "   - z : minimum time between pulses (ms), only for "
-      "pulse.\r\n"
-      " - n<n>        : set node ID [1..60]\r\n"
-      " - o<x>        : configure OneWire addressing\r\n"
-      "   - x = ca  : clear all saved OneWire addresses\r\n"
-      "   - x = c<n>: clear saved address for channel n\r\n"
-      "   - x = f   : reset and find OneWire devices\r\n"
-      "   - x = h   : hold found addresses (overrides manually set values)\r\n"
-      "   - x = l   : list current addresses\r\n"
-      "   - x = n   : list all saved addresses\r\n"
-      "   - x = r <a> <b> : remap found sensor <a> to index <b>\r\n"
-      "   - x = <n> : move address to index <n>\r\n"
-      " - p<n>        : set the RF power level\r\n"
-      " - q           : reset system (requires confirmation)\r\n"
-      " - r           : restore defaults\r\n"
-      " - rs          : restore saved settings from NVM\r\n"
-      " - s           : save settings to NVM\r\n"
-      " - t           : trigger report on next cycle\r\n"
-      " - u           : store current accumulator values to NVM\r\n"
-      " - v           : firmware and board information\r\n"
-      " - w<n>        : RF active. n = 0: OFF, n = 1: ON\r\n"
-      " - x<n>        : 433 MHz compatibility. n = 0: 433.92 MHz, n = 1: "
-      "433.00 MHz\r\n"
-      " - ye<n> <m>   : set energy accumulator n to m Wh\r\n"
-      " - yp<n> <m>   : set pulse accumulator n to m counts\r\n"
-      " - z           : zero all accumulators (E1-E12, pulse1-3)\r\n"
-      " - ze<n>       : zero individual energy accumulator (n=1-12)\r\n"
-      " - zp<n>       : zero individual pulse accumulator (n=1-3)\r\n\r\n";
-
   /* Convert \r or \n to 0, and get the length until then. */
   while (!termFound && (arglen < IN_BUFFER_W)) {
     if (0 == inBuffer[arglen]) {
@@ -1981,7 +1953,7 @@ void configProcessCmd(void) {
   /* Decode on first character in the buffer */
   switch (inBuffer[0]) {
   case '?':
-    serialPuts(helpText);
+    serialPuts(configHelpText);
     break;
   case 'a':
     unsavedChange = configureAssumed();
@@ -2014,7 +1986,7 @@ void configProcessCmd(void) {
     unsavedChange = configureJSON();
     break;
   case 'k':
-    unsavedChange = configureAnalog();
+    unsavedChange = configureVCTChannel();
     break;
   case 'l':
     printSettings();
@@ -2085,9 +2057,9 @@ VersionInfo_t configVersion(void) {
   return (VersionInfo_t){.release = binfo.release, .revision = binfo.revision};
 }
 
-/* =======================
- * UART Interrupt handler
- * ======================= */
+/*************************************
+ * RX and echo queues
+ *************************************/
 
 #define ECHO_BUF_DEPTH 16u
 #define ECHO_IDX_MASK  (ECHO_BUF_DEPTH - 1u)
@@ -2157,15 +2129,3 @@ void configRxProcess(void) {
     }
   }
 }
-
-// void SERCOM_UART_INTERACTIVE_HANDLER {
-//   /* Echo the received character to the TX channel, and send to the command
-//    * stream.
-//    */
-//   if (uartGetcReady(SERCOM_UART_INTERACTIVE)) {
-//     uint8_t rx_char = uartGetc(SERCOM_UART_INTERACTIVE);
-//     configRxQueueChar(rx_char);
-//   }
-
-//   /* Revisit : need to handle the Error interrupt? */
-// }
