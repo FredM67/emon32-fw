@@ -257,7 +257,8 @@ void ecmConfigInit(void) {
 }
 
 void ecmConfigReportCycles(uint32_t reportCycles) {
-  ecmCfg.reportCycles = reportCycles;
+  ecmCfg.reportCycles  = reportCycles;
+  ecmCfg.reportTime_us = (1000000u / ecmCfg.mainsFreq) * reportCycles;
 }
 
 /******************************************************************************
@@ -714,7 +715,9 @@ RAMFUNC ECM_STATUS_t ecmInjectSample(void) {
    * sample. For example, DS18B20 requires 750 ms to sample.
    */
   bool pend1sNoVAC =
-      useAssumedV && (tRepLastDelta > (ecmCfg.reportTime_us - 1000000u));
+      ecmCfg.reportTime_us >= 1000000u
+          ? useAssumedV && (tRepLastDelta > (ecmCfg.reportTime_us - 1000000u))
+          : false;
   bool pend1sCycles =
       accumCollecting->cycles == (ecmCfg.reportCycles - ecmCfg.mainsFreq);
 
@@ -758,7 +761,7 @@ ECMPerformance_t *ecmPerformance(void) {
   return perfIdle;
 }
 
-RAMFUNC ECMDataset_t *ecmProcessSet(void) {
+ECMDataset_t *ecmProcessSet(void) {
   uint32_t  t_start = 0;
   CalcRMS_t rms;
 

@@ -216,7 +216,7 @@ ECM_STATUS_t ecmProcessCycle(void) RAMFUNC;
 /*! @brief Processes a whole data set
  *  @return pointer to the processed data structure
  */
-ECMDataset_t *ecmProcessSet(void) RAMFUNC;
+ECMDataset_t *ecmProcessSet(void);
 
 /*! @brief Force trigger data set processing on next cycle complete */
 void ecmProcessSetTrigger(void);
