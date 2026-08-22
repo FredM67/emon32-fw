@@ -797,7 +797,7 @@ static void configure1WList(void) {
       }
     }
   }
-  serialPuts("[end]\r\n]");
+  serialPuts("[end]\r\n");
 }
 
 static void configure1WListSaved(void) {
