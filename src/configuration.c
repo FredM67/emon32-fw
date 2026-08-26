@@ -1849,37 +1849,25 @@ static void parseAndZeroAccumulator(void) {
     return;
   }
 
-  /* ze1-12 - zero energy accumulator */
-  if (cmd[1] == 'e' && cmd[2] >= '1' && cmd[2] <= '9') {
-    union {
-      int     i;
-      uint8_t u8;
-    } digit;
-    digit.i     = cmd[2] - '0';
-    uint8_t num = digit.u8;
-    /* Check for two-digit number (ze10-12) */
-    if (cmd[3] >= '0' && cmd[3] <= '9') {
-      num *= 10;
-      digit.i = cmd[3] - '0';
-      num += digit.u8;
-    }
-    if (num >= 1 && num <= NUM_CT) {
-      zeroAccumulatorIndividual(num - 1);
-    } else {
+  /* ze<N> - zero energy accumulator */
+  if (cmd[1] == 'e') {
+    ConvUint_t conv = utilAtoui(cmd + 2, ITOA_BASE10);
+    if (!conv.valid || conv.val.u32 < 1u || conv.val.u32 > NUM_CT) {
       printfError("Invalid energy accumulator index (valid: ze1-%d).", NUM_CT);
+      return;
     }
+    zeroAccumulatorIndividual(conv.val.u32 - 1u);
     return;
   }
 
-  /* zp1-3 - zero pulse accumulator */
-  if (cmd[1] == 'p' && cmd[2] >= '1' && cmd[2] <= '0' + NUM_OPA) {
-    uint8_t num = cmd[2] - '0';
-    if (num >= 1 && num <= NUM_OPA) {
-      zeroAccumulatorIndividual(NUM_CT + num - 1); /* Pulse index starts after
-                                                       energy */
-    } else {
+  /* zp<N> - zero pulse accumulator */
+  if (cmd[1] == 'p') {
+    ConvUint_t conv = utilAtoui(cmd + 2, ITOA_BASE10);
+    if (!conv.valid || conv.val.u32 < 1u || conv.val.u32 > NUM_OPA) {
       printfError("Invalid pulse accumulator index (valid: zp1-%d).", NUM_OPA);
+      return;
     }
+    zeroAccumulatorIndividual(NUM_CT + conv.val.u32 - 1u);
     return;
   }
 
