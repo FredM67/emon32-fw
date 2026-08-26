@@ -431,6 +431,7 @@ static bool configureVCTChannel(void) {
 
 static bool configureAssumed(void) {
   if (1u != cmdArgs.argc) {
+    serialPutsError("Unexpected arguments.");
     return false;
   }
 
@@ -576,6 +577,7 @@ static void configureAccumulatorSet(void) {
 
 static void configureBackup(void) {
   if (1u != cmdArgs.argc || 1u != strlen(cmdArgs.argv[0])) {
+    serialPutsError("Unexpected arguments.");
     return;
   }
 
@@ -630,6 +632,7 @@ static void configureBackup(void) {
 
 static bool configureDatalog(void) {
   if (1u != cmdArgs.argc) {
+    serialPutsError("Unexpected arguments.");
     return false;
   }
 
@@ -656,6 +659,7 @@ static bool configureDatalog(void) {
 
 static bool configureGroupID(void) {
   if (1u != cmdArgs.argc) {
+    serialPutsError("Unexpected arguments.");
     return false;
   }
 
@@ -679,6 +683,7 @@ static bool configureGroupID(void) {
 
 static bool configureJSON(void) {
   if (1u != cmdArgs.argc) {
+    serialPutsError("Unexpected arguments.");
     return false;
   }
 
@@ -701,6 +706,7 @@ static bool configureJSON(void) {
 
 static bool configureLineFrequency(void) {
   if (1u != cmdArgs.argc) {
+    serialPutsError("Unexpected arguments.");
     return false;
   }
 
@@ -1048,6 +1054,7 @@ static bool configureOPA(void) {
 
 static bool configureNodeID(void) {
   if (1u != cmdArgs.argc) {
+    serialPutsError("Unexpected arguments.");
     return false;
   }
 
@@ -1102,6 +1109,7 @@ static void configureRestore(void) {
 
 static bool configureRFEnable(void) {
   if (1u != cmdArgs.argc) {
+    serialPutsError("Unexpected arguments.");
     return false;
   }
 
@@ -1119,6 +1127,7 @@ static bool configureRFEnable(void) {
 
 static bool configureRF433(void) {
   if (1u != cmdArgs.argc) {
+    serialPutsError("Unexpected arguments.");
     return false;
   }
 
@@ -1145,6 +1154,7 @@ static bool configureRF433(void) {
 
 static bool configureRFPower(void) {
   if (1u != cmdArgs.argc) {
+    serialPutsError("Unexpected arguments.");
     return false;
   }
 
@@ -1167,6 +1177,7 @@ static bool configureRFPower(void) {
 
 static bool configureSerialLog(void) {
   if (1u != cmdArgs.argc) {
+    serialPutsError("Unexpected arguments.");
     return false;
   }
 
@@ -1207,6 +1218,7 @@ static void confirmationStart(ConfirmState_t state) {
 
 static void enterBootloader(void) {
   if (1u != cmdArgs.argc || 1u != strlen(cmdArgs.argv[0])) {
+    serialPutsError("Unexpected arguments.");
     return;
   }
 
@@ -1597,6 +1609,7 @@ static uint32_t readWordAtAddress(uintptr_t address) {
 
 static void resetRequest(void) {
   if (1u != cmdArgs.argc || 1u != strlen(cmdArgs.argv[0])) {
+    serialPutsError("Unexpected arguments.");
     return;
   }
 
@@ -1607,6 +1620,7 @@ static void resetRequest(void) {
 
 static void saveToNVM(void) {
   if (1u != cmdArgs.argc || 1u != strlen(cmdArgs.argv[0])) {
+    serialPutsError("Unexpected arguments.");
     return;
   }
 
@@ -1626,6 +1640,7 @@ static void saveToNVM(void) {
 
 static void shutdownPi(void) {
   if (1u != cmdArgs.argc || 1u != strlen(cmdArgs.argv[0])) {
+    serialPutsError("Unexpected arguments.");
     return;
   }
 
@@ -1838,6 +1853,7 @@ static void zeroAccumulatorIndividual(uint8_t idx) {
 /*! @brief Parse z command and zero accumulators (z, ze1-12, zp1-3) */
 static void parseAndZeroAccumulator(void) {
   if (1u != cmdArgs.argc) {
+    serialPutsError("Unexpected arguments.");
     return;
   }
 
@@ -1987,6 +2003,8 @@ void configProcessCmd(void) {
   case '?':
     if (1u == cmdArgs.argc && 1u == strlen(cmdArgs.argv[0])) {
       serialPuts(configHelpText);
+    } else {
+      serialPutsError("Unexpected arguments.");
     }
     break;
   case 'a':
@@ -2025,6 +2043,8 @@ void configProcessCmd(void) {
   case 'l':
     if (1u == cmdArgs.argc) {
       printSettings();
+    } else {
+      serialPutsError("Unexpected arguments.");
     }
     break;
   case 'm':
@@ -2057,16 +2077,22 @@ void configProcessCmd(void) {
   case 't':
     if (1u == cmdArgs.argc && 1u == strlen(cmdArgs.argv[0])) {
       emon32EventSet(EVT_ECM_TRIG);
+    } else {
+      serialPutsError("Unexpected arguments.");
     }
     break;
   case 'u':
     if (1u == cmdArgs.argc && 1u == strlen(cmdArgs.argv[0])) {
       emon32EventSet(EVT_STORE_ACCUM);
+    } else {
+      serialPutsError("Unexpected arguments.");
     }
     break;
   case 'v':
     if (1u == cmdArgs.argc && 1u == strlen(cmdArgs.argv[0])) {
       configFirmwareBoardInfo();
+    } else {
+      serialPutsError("Unexpected arguments.");
     }
     break;
   case 'w':
@@ -2080,6 +2106,8 @@ void configProcessCmd(void) {
     break;
   case 'z':
     parseAndZeroAccumulator();
+    break;
+  default:
     break;
   }
 
